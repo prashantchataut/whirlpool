@@ -164,7 +164,7 @@ fn show_at(
     match Popup::open(gfx, owner, items, anchor, dark, placement) {
         Ok(popup) => popup.run(),
         Err(error) => {
-            eprintln!("muelle: menú: {error:#}");
+            eprintln!("whirlpool: menú: {error:#}");
             show_native(owner, items, anchor, dark, placement)
         }
     }
@@ -291,7 +291,7 @@ impl Popup {
             });
         }
 
-        let glass = muelle_shell::system::transparency_enabled();
+        let glass = whirlpool_shell::system::transparency_enabled();
         let root = c.CreateContainerVisual()?;
         root.SetSize(Vector2::new(width, height))?;
         let layers = root.Children()?;
@@ -688,7 +688,7 @@ fn create_window(dark: bool) -> Result<HWND> {
     // the whole process; the window is configured before it is shown.
     unsafe {
         let instance = GetModuleHandleW(None)?;
-        let class = w!("MuelleMenu");
+        let class = w!("WhirlpoolMenu");
         CLASS.get_or_init(|| {
             RegisterClassW(&WNDCLASSW {
                 // The system shadow under the menu, as native menus have.
@@ -703,7 +703,7 @@ fn create_window(dark: bool) -> Result<HWND> {
         let hwnd = CreateWindowExW(
             WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             class,
-            w!("Muelle"),
+            w!("Whirlpool"),
             WS_POPUP,
             0,
             0,
@@ -786,10 +786,10 @@ pub(crate) fn draw_popup_background(
 
 pub(crate) fn popup_tint(dark: bool, glass: bool) -> Color {
     match (dark, glass) {
-        (true, true) => rgba(38, 38, 40, 175),
-        (false, true) => rgba(246, 246, 248, 215),
-        (true, false) => rgba(44, 44, 46, 255),
-        (false, false) => rgba(240, 240, 242, 255),
+        (true, true) => rgba(8, 30, 38, 178),
+        (false, true) => rgba(238, 248, 246, 215),
+        (true, false) => rgba(12, 36, 44, 255),
+        (false, false) => rgba(234, 245, 243, 255),
     }
 }
 
@@ -839,8 +839,8 @@ fn strip_mnemonic(label: &str) -> (String, Option<char>) {
 
 /// The user's accent color, as macOS highlights menus with its own.
 fn accent() -> Color {
-    muelle_shell::system::accent_color()
-        .map_or(rgba(10, 132, 255, 255), |[r, g, b]| rgba(r, g, b, 255))
+    whirlpool_shell::system::accent_color()
+        .map_or(rgba(14, 147, 152, 255), |[r, g, b]| rgba(r, g, b, 255))
 }
 
 fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color {
@@ -991,7 +991,7 @@ mod tests {
             CreateWindowExW(
                 Default::default(),
                 w!("STATIC"),
-                w!("Muelle menu test"),
+                w!("Whirlpool menu test"),
                 WS_POPUP,
                 0,
                 0,

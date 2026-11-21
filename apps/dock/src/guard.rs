@@ -1,4 +1,4 @@
-//! Watchdog process: a minimal second `muelle.exe` that waits for the dock to
+//! Watchdog process: a minimal second `whirlpool.exe` that waits for the dock to
 //! exit (normally, after a failure, or via End Task) and then restores the
 //! Windows taskbar. Explicit recovery requests also replace that instance,
 //! after a bounded graceful close and restoration of the desktop.
@@ -6,7 +6,7 @@
 use std::{env, os::windows::process::CommandExt, process::Command, time::Duration};
 
 use anyhow::{Context, Result};
-use muelle_shell::{
+use whirlpool_shell::{
     dock_link::DOCK_WINDOW_CLASS, power, system::set_window_transitions, taskbar,
     tracker::WindowTracker,
 };
@@ -38,11 +38,11 @@ const MISSES_BEFORE_RESTORE: u8 = 4;
 const CLOSE_TIMEOUT_MS: u32 = 8_000;
 
 fn recovery_event(pid: u32) -> HSTRING {
-    HSTRING::from(format!("Local\\Muelle.Recover.{pid}"))
+    HSTRING::from(format!("Local\\Whirlpool.Recover.{pid}"))
 }
 
 fn ready_event(pid: u32) -> HSTRING {
-    HSTRING::from(format!("Local\\Muelle.GuardReady.{pid}"))
+    HSTRING::from(format!("Local\\Whirlpool.GuardReady.{pid}"))
 }
 
 pub struct Channels {
@@ -64,7 +64,7 @@ pub fn request_restart(pid: u32) -> Result<()> {
         // covers device creation failing before the child guard has started.
         anyhow::ensure!(
             WaitForSingleObject(*ready, 2_000) == WAIT_OBJECT_0,
-            "el guardián de Muelle no confirmó que esté preparado"
+            "el guardián de Whirlpool no confirmó que esté preparado"
         );
         let event = Owned::new(OpenEventW(EVENT_MODIFY_STATE, false, &recovery_event(pid))?);
         SetEvent(*event)?;
@@ -82,15 +82,15 @@ pub fn recover_existing() -> Result<()> {
             unsafe {
                 GetWindowThreadProcessId(window, Some(&mut pid));
             }
-            request_restart(pid).context("no se pudo recuperar la instancia de Muelle")?;
-            muelle_shell::log::line(
+            request_restart(pid).context("no se pudo recuperar la instancia de Whirlpool")?;
+            whirlpool_shell::log::line(
                 "segunda apertura: se solicita recuperar la instancia existente",
             );
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    anyhow::bail!("Muelle aún está iniciándose o cerrándose; vuelve a abrirlo en unos segundos")
+    anyhow::bail!("Whirlpool aún está iniciándose o cerrándose; vuelve a abrirlo en unos segundos")
 }
 
 #[derive(Default)]
@@ -134,7 +134,7 @@ pub fn spawn() -> Result<Channels> {
             &ready_event(std::process::id()),
         )?)
     };
-    let exe = env::current_exe().context("no se pudo localizar muelle.exe")?;
+    let exe = env::current_exe().context("no se pudo localizar whirlpool.exe")?;
     Command::new(exe)
         .args([FLAG, &std::process::id().to_string()])
         .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
@@ -156,7 +156,7 @@ pub fn run(pid: u32) -> Result<()> {
     {
         Ok(process) => unsafe { Owned::new(process) },
         Err(error) => {
-            eprintln!("muelle: el guardián no pudo abrir el dock: {error}");
+            eprintln!("whirlpool: el guardián no pudo abrir el dock: {error}");
             restore_desktop();
             return Ok(());
         }
@@ -184,7 +184,7 @@ pub fn run(pid: u32) -> Result<()> {
     let restart = match watch(pid, *process, *recovery) {
         Ok(restart) => restart,
         Err(error) => {
-            muelle_shell::log::line(&format!("no se pudo supervisar Muelle: {error:#}"));
+            whirlpool_shell::log::line(&format!("no se pudo supervisar Whirlpool: {error:#}"));
             false
         }
     };
@@ -194,17 +194,17 @@ pub fn run(pid: u32) -> Result<()> {
     // Never race the previous instance's mutex or the old guard's restoration.
     // A logoff/shutdown must not start a replacement during session teardown.
     if restart && unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) } == 0 {
-        let exe = env::current_exe().context("no se pudo localizar muelle.exe")?;
+        let exe = env::current_exe().context("no se pudo localizar whirlpool.exe")?;
         Command::new(exe)
             .arg(crate::recovery::RECOVERED_FLAG)
             // The guard runs at IDLE priority; the replacement UI must not
             // inherit it or its animations/startup would be starved under load.
             .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | NORMAL_PRIORITY_CLASS.0)
             .spawn()
-            .context("no se pudo reiniciar Muelle tras recuperar el escritorio")?;
-        muelle_shell::log::line("escritorio recuperado; se inicia una interfaz gráfica nueva");
+            .context("no se pudo reiniciar Whirlpool tras recuperar el escritorio")?;
+        whirlpool_shell::log::line("escritorio recuperado; se inicia una interfaz gráfica nueva");
     }
-    muelle_shell::log::flush();
+    whirlpool_shell::log::flush();
     Ok(())
 }
 
@@ -220,14 +220,14 @@ fn watch(pid: u32, process: HANDLE, recovery: HANDLE) -> Result<bool> {
             return Ok(unsafe { WaitForSingleObject(recovery, 0) } == WAIT_OBJECT_0);
         }
         if wait.0 == WAIT_OBJECT_0.0 + 1 {
-            muelle_shell::log::line("recuperación solicitada; se cierra la instancia anterior");
+            whirlpool_shell::log::line("recuperación solicitada; se cierra la instancia anterior");
             return stop_dock(pid, process, CLOSE_TIMEOUT_MS);
         }
         if wait != WAIT_TIMEOUT {
             anyhow::bail!("el guardián no pudo esperar al dock: {wait:?}");
         }
         if health.observe(ui_responds(pid)) {
-            muelle_shell::log::line(
+            whirlpool_shell::log::line(
                 "la interfaz dejó de responder; se restaura la barra de Windows",
             );
             // Keep monitoring this process. An unrelated hung app must not
@@ -251,8 +251,8 @@ fn stop_dock(pid: u32, process: HANDLE, timeout: u32) -> Result<bool> {
         match WaitForSingleObject(process, timeout) {
             WAIT_OBJECT_0 => Ok(true),
             WAIT_TIMEOUT => {
-                muelle_shell::log::line(
-                    "cierre de recuperación agotó su plazo; se finaliza solo la instancia anterior de Muelle",
+                whirlpool_shell::log::line(
+                    "cierre de recuperación agotó su plazo; se finaliza solo la instancia anterior de Whirlpool",
                 );
                 if let Err(error) = TerminateProcess(process, 1)
                     && WaitForSingleObject(process, 0) != WAIT_OBJECT_0
@@ -313,7 +313,7 @@ mod tests {
             Ok(Self(
                 Command::new(env::current_exe()?)
                     .args(["--exact", "guard::tests::recovery_child", "--nocapture"])
-                    .env("MUELLE_RECOVERY_TEST_CHILD", mode)
+                    .env("WHIRLPOOL_RECOVERY_TEST_CHILD", mode)
                     .spawn()?,
             ))
         }
@@ -334,7 +334,7 @@ mod tests {
     fn recovery_child() -> Result<()> {
         // Runs only in a dedicated child created by these tests, never the
         // user's dock or Explorer. No windows or shell settings are changed.
-        let mode = env::var("MUELLE_RECOVERY_TEST_CHILD").unwrap_or_default();
+        let mode = env::var("WHIRLPOOL_RECOVERY_TEST_CHILD").unwrap_or_default();
         if mode == "blocked" {
             std::thread::sleep(Duration::from_secs(30));
         }

@@ -7,8 +7,8 @@
 use std::time::Instant;
 
 use anyhow::Result;
-use muelle_core::frame::DockEdge;
-use muelle_shell::{system::animations_enabled, tracker};
+use whirlpool_core::frame::DockEdge;
+use whirlpool_shell::{system::animations_enabled, tracker};
 use windows::{
     UI::{
         Color,
@@ -379,7 +379,7 @@ impl GroupView {
         // `view` owns the HWND even if the graphics setup below fails.
         let hwnd = unsafe {
             let instance = GetModuleHandleW(None)?;
-            let class = w!("MuelleGroupView");
+            let class = w!("WhirlpoolGroupView");
             RegisterClassW(&WNDCLASSW {
                 lpfnWndProc: Some(group_view_proc),
                 hInstance: instance.into(),
@@ -390,7 +390,7 @@ impl GroupView {
             CreateWindowExW(
                 WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 class,
-                w!("Muelle group"),
+                w!("Whirlpool group"),
                 WS_POPUP,
                 0,
                 0,
@@ -481,7 +481,7 @@ impl GroupView {
             if let Some(badge) = &mut item.attention {
                 badge.set_visible(on)?;
                 badge.place(
-                    muelle_core::layout::Rect {
+                    whirlpool_core::layout::Rect {
                         x: 0.0,
                         y: 0.0,
                         width: (rect.right - rect.left) as f32,
@@ -521,7 +521,7 @@ impl GroupView {
         } else {
             rgba(255, 255, 255, 215)
         })?;
-        let glow_brush = c.CreateColorBrushWithColor(rgba(80, 150, 255, 80))?;
+        let glow_brush = c.CreateColorBrushWithColor(rgba(70, 215, 200, 90))?;
         let glow = (GLOW * s).round();
         for (index, (item, icon)) in items.iter().zip(&self.layout.icons).enumerate() {
             let side = (icon.right - icon.left) as f32;
@@ -875,7 +875,7 @@ impl DragGhost {
         // the HWND as soon as it exists.
         let hwnd = unsafe {
             let instance = GetModuleHandleW(None)?;
-            let class = w!("MuelleDragGhost");
+            let class = w!("WhirlpoolDragGhost");
             RegisterClassW(&WNDCLASSW {
                 lpfnWndProc: Some(ghost_proc),
                 hInstance: instance.into(),
@@ -892,7 +892,7 @@ impl DragGhost {
                     | WS_EX_TOOLWINDOW
                     | WS_EX_NOACTIVATE,
                 class,
-                w!("Muelle"),
+                w!("Whirlpool"),
                 WS_POPUP,
                 0,
                 0,

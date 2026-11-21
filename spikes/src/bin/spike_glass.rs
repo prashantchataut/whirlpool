@@ -187,7 +187,7 @@ fn hit_test(hwnd: HWND, origin: POINT) {
         println!(
             "[{verdict}] {name}: el clic llega a {}",
             if ours {
-                "Muelle"
+                "Whirlpool"
             } else {
                 "la ventana de abajo"
             }
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
             })?;
 
         let instance = GetModuleHandleW(None)?;
-        let class = w!("MuelleSpikeGlass");
+        let class = w!("WhirlpoolSpikeGlass");
         RegisterClassW(&WNDCLASSW {
             lpfnWndProc: Some(wndproc),
             hInstance: instance.into(),
@@ -262,7 +262,7 @@ fn main() -> Result<()> {
             // NOACTIVATE keeps the dock from stealing focus while the glass remains active.
             WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
             class,
-            w!("Muelle spike"),
+            w!("Whirlpool spike"),
             WS_POPUP,
             origin.x,
             origin.y,

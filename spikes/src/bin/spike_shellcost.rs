@@ -3,7 +3,7 @@
 
 use std::{mem::size_of, time::Instant};
 
-use muelle_shell::{recycle_bin, system};
+use whirlpool_shell::{recycle_bin, system};
 use windows::Win32::{
     System::{
         ProcessStatus::{

@@ -10,12 +10,12 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align, Color32, ColorImage, Layout, RichText, ScrollArea, Sense, TextureHandle,
-    TextureOptions, Ui, vec2,
+    self, Align, ColorImage, Layout, RichText, ScrollArea, Sense, TextureHandle, TextureOptions,
+    Ui, pos2, vec2,
 };
-use muelle_config::{Config, DockPosition, GenieSpeed, IslandStyle, Language};
-use muelle_shell::{autostart, dock_link, folder, imagery, launcher, system};
 use serde_json::{Map, Value};
+use whirlpool_config::{Config, DockPosition, GenieSpeed, IslandStyle, Language};
+use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
     text::Texts,
@@ -64,12 +64,12 @@ pub struct Settings {
 
 fn dock_exe() -> PathBuf {
     env::current_exe()
-        .map(|path| path.with_file_name("muelle.exe"))
-        .unwrap_or_else(|_| PathBuf::from("muelle.exe"))
+        .map(|path| path.with_file_name("whirlpool.exe"))
+        .unwrap_or_else(|_| PathBuf::from("whirlpool.exe"))
 }
 
 fn load_config() -> Config {
-    muelle_config::load(&muelle_config::default_path())
+    whirlpool_config::load(&whirlpool_config::default_path())
         .ok()
         .flatten()
         .unwrap_or_default()
@@ -91,8 +91,8 @@ fn spawn_writer() -> (Sender<Map<String, Value>>, Receiver<bool>) {
             while let Ok(more) = receive.try_recv() {
                 patch.extend(more);
             }
-            let ok =
-                muelle_config::update_preferences(&muelle_config::default_path(), patch).is_ok();
+            let ok = whirlpool_config::update_preferences(&whirlpool_config::default_path(), patch)
+                .is_ok();
             if ok {
                 dock_link::notify_config_changed();
             }
@@ -336,8 +336,7 @@ impl eframe::App for Settings {
             .show(ui, |ui| {
                 ui.label(
                     RichText::new(self.page_title(&t))
-                        .size(24.0)
-                        .strong()
+                        .font(ui::heading(26.0))
                         .color(palette.text),
                 );
                 ui.add_space(8.0);
@@ -376,22 +375,24 @@ impl Settings {
 
     fn sidebar(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
         ui.horizontal(|ui| {
-            let (rect, _) = ui.allocate_exact_size(vec2(30.0, 30.0), Sense::hover());
-            ui.painter()
-                .rect_filled(rect, egui::CornerRadius::same(9), ui::ACCENT);
-            ui.painter().rect_filled(
-                egui::Rect::from_center_size(rect.center() + vec2(0.0, 6.0), vec2(20.0, 5.0)),
-                egui::CornerRadius::same(3),
-                Color32::from_white_alpha(230),
-            );
-            ui.label(
-                RichText::new("Muelle")
-                    .size(19.0)
-                    .strong()
-                    .color(palette.text),
-            );
+            ui.spacing_mut().item_spacing.x = 11.0;
+            let (rect, _) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::hover());
+            ui::logo(ui.painter(), rect);
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                ui.label(
+                    RichText::new("Whirlpool")
+                        .font(ui::heading(17.0))
+                        .color(palette.text),
+                );
+                ui.label(
+                    RichText::new("dock + menu bar")
+                        .size(11.5)
+                        .color(palette.muted),
+                );
+            });
         });
-        ui.add_space(18.0);
+        ui.add_space(22.0);
         let pages = [
             (Page::Dock, t.get("dock")),
             (Page::Windows, t.get("windows")),
@@ -403,41 +404,55 @@ impl Settings {
             let selected = self.page == page;
             let (rect, response) =
                 ui.allocate_exact_size(vec2(ui.available_width(), 38.0), Sense::click());
+            let round = egui::CornerRadius::same(10);
             if selected {
                 ui.painter()
-                    .rect_filled(rect, egui::CornerRadius::same(9), ui::ACCENT);
-            } else if response.hovered() {
+                    .rect_filled(rect, round, ui::ACCENT.gamma_multiply(0.20));
+                // The tide mark: a short bar on the leading edge.
                 ui.painter().rect_filled(
-                    rect,
-                    egui::CornerRadius::same(9),
-                    palette.border.gamma_multiply(0.6),
+                    egui::Rect::from_center_size(
+                        pos2(rect.left() + 3.0, rect.center().y),
+                        vec2(3.0, 18.0),
+                    ),
+                    egui::CornerRadius::same(2),
+                    palette.accent_ink,
                 );
+            } else if response.hovered() {
+                ui.painter()
+                    .rect_filled(rect, round, palette.border.gamma_multiply(0.55));
             }
-            let color = if selected {
-                Color32::WHITE
+            let (color, font) = if selected {
+                (palette.accent_ink, ui::heading(14.0))
             } else {
-                palette.text
+                (palette.text, egui::FontId::proportional(14.0))
             };
             ui.painter().text(
-                rect.left_center() + vec2(14.0, 0.0),
+                rect.left_center() + vec2(16.0, 0.0),
                 egui::Align2::LEFT_CENTER,
                 label,
-                egui::FontId::proportional(14.5),
+                font,
                 color,
             );
             if badge && page == Page::System {
                 ui.painter()
-                    .circle_filled(rect.right_center() - vec2(16.0, 0.0), 5.0, DANGER);
+                    .circle_filled(rect.right_center() - vec2(16.0, 0.0), 4.5, DANGER);
             }
-            if response.clicked() {
+            if response
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
+            {
                 self.page = page;
             }
+            ui.add_space(2.0);
         }
         ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
             ui.label(
-                RichText::new(format!("v{}  ·  native Rust", env!("CARGO_PKG_VERSION")))
-                    .size(11.5)
-                    .color(palette.muted),
+                RichText::new(format!(
+                    "v{}  ·  100% native Rust",
+                    env!("CARGO_PKG_VERSION")
+                ))
+                .size(11.5)
+                .color(palette.muted),
             );
         });
     }
@@ -458,8 +473,7 @@ impl Settings {
                 ui.set_width(ui.available_width());
                 ui.label(
                     RichText::new(t.with_version("updateBannerTitle", &release.version))
-                        .strong()
-                        .size(15.0)
+                        .font(ui::heading(15.0))
                         .color(palette.text),
                 );
                 ui.horizontal(|ui| {
@@ -514,7 +528,7 @@ impl Settings {
                 ui.add(
                     egui::Slider::new(
                         &mut config.icon_size,
-                        muelle_config::ICON_SIZE_RANGE.0..=muelle_config::ICON_SIZE_RANGE.1,
+                        whirlpool_config::ICON_SIZE_RANGE.0..=whirlpool_config::ICON_SIZE_RANGE.1,
                     )
                     .suffix(" px"),
                 );
@@ -533,7 +547,7 @@ impl Settings {
                     ui.add(
                         egui::Slider::new(
                             &mut config.magnified_size,
-                            low..=muelle_config::MAX_MAGNIFIED_SIZE,
+                            low..=whirlpool_config::MAX_MAGNIFIED_SIZE,
                         )
                         .suffix(" px"),
                     );

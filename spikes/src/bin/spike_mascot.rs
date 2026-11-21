@@ -14,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use muelle_shell::screen;
+use whirlpool_shell::screen;
 use windows::Win32::{
     Foundation::RECT,
     System::WinRT::{
@@ -63,9 +63,9 @@ fn main() {
                 right: *right,
                 top: *top,
                 edge: match std::env::args().nth(7).as_deref() {
-                    Some("left") => muelle_core::frame::DockEdge::Left,
-                    Some("right") => muelle_core::frame::DockEdge::Right,
-                    _ => muelle_core::frame::DockEdge::Bottom,
+                    Some("left") => whirlpool_core::frame::DockEdge::Left,
+                    Some("right") => whirlpool_core::frame::DockEdge::Right,
+                    _ => whirlpool_core::frame::DockEdge::Bottom,
                 },
             }),
             _ => None,
@@ -88,7 +88,7 @@ fn main() {
                     left: 560,
                     right: 1360,
                     top: 900,
-                    edge: muelle_core::frame::DockEdge::Bottom,
+                    edge: whirlpool_core::frame::DockEdge::Bottom,
                 },
                 RECT {
                     left: 540,

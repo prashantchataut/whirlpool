@@ -11,8 +11,8 @@ use windows::{
 fn ready_monitor() -> Result<(Monitor, Owned<HANDLE>)> {
     // Explicitly provided executable: never launch a full dock in unit tests.
     let path = PathBuf::from(
-        env::var_os("MUELLE_ACCESSORY_TEST_EXE")
-            .context("Build muelle and set MUELLE_ACCESSORY_TEST_EXE to its absolute path")?,
+        env::var_os("WHIRLPOOL_ACCESSORY_TEST_EXE")
+            .context("Build whirlpool and set WHIRLPOOL_ACCESSORY_TEST_EXE to its absolute path")?,
     );
     ensure!(
         path.is_absolute() && path.is_file(),
@@ -49,7 +49,7 @@ fn wait_for_reader_cleanup(shared: &Arc<Shared>) {
 }
 
 #[test]
-#[ignore = "Requires MUELLE_ACCESSORY_TEST_EXE pointing to a built native worker"]
+#[ignore = "Requires WHIRLPOOL_ACCESSORY_TEST_EXE pointing to a built native worker"]
 fn monitor_repeated_shutdown_and_timeout_are_bounded() -> Result<()> {
     for _ in 0..3 {
         let (monitor, process) = ready_monitor()?;

@@ -6,7 +6,7 @@ mod tests;
 
 use super::protocol::{self, Model, Reading, Wire};
 use anyhow::{Result, ensure};
-use muelle_shell::accessories::Kind;
+use whirlpool_shell::accessories::Kind;
 
 fn reading(percent: Option<u8>) -> Reading {
     Reading {

@@ -1,5 +1,5 @@
 [package]
-name = "muelle"
+name = "whirlpool"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,9 +16,9 @@ winresource = "0.1"
 [dependencies]
 anyhow.workspace = true
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
-muelle-config.workspace = true
-muelle-core.workspace = true
-muelle-shell.workspace = true
+whirlpool-config.workspace = true
+whirlpool-core.workspace = true
+whirlpool-shell.workspace = true
 png = "0.18"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls", "system-proxy"] }
 serde.workspace = true

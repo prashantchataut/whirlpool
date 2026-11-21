@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Measures Muelle resource usage.
+  Measures Whirlpool resource usage.
 
 .DESCRIPTION
   Starts a release build of the dock, measures startup time, then records memory,
@@ -11,10 +11,10 @@
   computer is in use. CPU measurements are more reliable while the computer is idle.
 
 .EXAMPLE
-  cargo build --release -p muelle; ./scripts/measure.ps1
+  cargo build --release -p whirlpool; ./scripts/measure.ps1
 #>
 param(
-    [string]$Exe = (Join-Path $env:USERPROFILE '.cargo-target\muelle\release\muelle.exe'),
+    [string]$Exe = (Join-Path $env:USERPROFILE '.cargo-target\whirlpool\release\whirlpool.exe'),
     [int]$IdleSeconds = 10,
     # Startup work (icon cache, taskbar, status watches) settles over the first
     # seconds; sampling earlier counts it as idle use.
@@ -24,27 +24,27 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type @'
 using System; using System.Runtime.InteropServices;
-public static class MuelleMeasure {
+public static class WhirlpoolMeasure {
   [DllImport("user32.dll")] public static extern IntPtr FindWindow(string c, string n);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern uint GetGuiResources(IntPtr p, uint flags);
 }
 '@
 
-if (-not (Test-Path $Exe)) { throw "No existe $Exe. Compila antes: cargo build --release -p muelle" }
-if (Get-Process muelle -ErrorAction SilentlyContinue) { throw 'Ya hay un dock en marcha: ciérralo con `muelle --quit`.' }
+if (-not (Test-Path $Exe)) { throw "No existe $Exe. Compila antes: cargo build --release -p whirlpool" }
+if (Get-Process whirlpool -ErrorAction SilentlyContinue) { throw 'Ya hay un dock en marcha: ciérralo con `whirlpool --quit`.' }
 
 $clock = [Diagnostics.Stopwatch]::StartNew()
 Start-Process $Exe -WindowStyle Hidden | Out-Null
 $visibleMs = $null
 while ($clock.ElapsedMilliseconds -lt 10000) {
-    $h = [MuelleMeasure]::FindWindow('MuelleWindow', [NullString]::Value)
-    if ($h -ne [IntPtr]::Zero -and [MuelleMeasure]::IsWindowVisible($h)) { $visibleMs = $clock.ElapsedMilliseconds; break }
+    $h = [WhirlpoolMeasure]::FindWindow('WhirlpoolWindow', [NullString]::Value)
+    if ($h -ne [IntPtr]::Zero -and [WhirlpoolMeasure]::IsWindowVisible($h)) { $visibleMs = $clock.ElapsedMilliseconds; break }
     Start-Sleep -Milliseconds 5
 }
 
 Start-Sleep -Seconds $WarmSeconds   # Let startup and memory trimming finish.
-$procs = Get-CimInstance Win32_Process -Filter "Name='muelle.exe'"
+$procs = Get-CimInstance Win32_Process -Filter "Name='whirlpool.exe'"
 $cpuBefore = @{}
 foreach ($p in $procs) { $cpuBefore[$p.ProcessId] = (Get-Process -Id $p.ProcessId).TotalProcessorTime }
 Start-Sleep -Seconds $IdleSeconds
@@ -61,8 +61,8 @@ $rows = foreach ($p in $procs) {
         'CPU en reposo (ms)'  = [math]::Round(($proc.TotalProcessorTime - $cpuBefore[$p.ProcessId]).TotalMilliseconds, 1)
         Hilos                 = $proc.Threads.Count
         Handles               = $proc.HandleCount
-        GDI                   = [MuelleMeasure]::GetGuiResources($proc.Handle, 0)
-        USER                  = [MuelleMeasure]::GetGuiResources($proc.Handle, 1)
+        GDI                   = [WhirlpoolMeasure]::GetGuiResources($proc.Handle, 0)
+        USER                  = [WhirlpoolMeasure]::GetGuiResources($proc.Handle, 1)
     }
 }
 

@@ -5,7 +5,7 @@
 
 use std::{cell::RefCell, ffi::c_void, ptr};
 
-use muelle_shell::{
+use whirlpool_shell::{
     folder::{self, FolderItem},
     icons::IconImage,
 };

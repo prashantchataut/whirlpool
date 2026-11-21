@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "apps/dock", "apps/settings", "spikes"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 
@@ -14,9 +14,9 @@ thiserror = "2"
 windows = "0.62"
 windows-core = "0.62"
 windows-numerics = "0.3"
-muelle-config = { path = "crates/muelle-config" }
-muelle-core = { path = "crates/muelle-core" }
-muelle-shell = { path = "crates/muelle-shell" }
+whirlpool-config = { path = "crates/whirlpool-config" }
+whirlpool-core = { path = "crates/whirlpool-core" }
+whirlpool-shell = { path = "crates/whirlpool-shell" }
 
 [workspace.lints.clippy]
 perf = { level = "deny", priority = -1 }

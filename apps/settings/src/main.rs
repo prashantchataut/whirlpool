@@ -1,4 +1,4 @@
-//! Muelle settings: a native Rust window (egui) that edits the configuration
+//! Whirlpool settings: a native Rust window (egui) that edits the configuration
 //! file and tells the running dock to reload it. No web view, no runtime.
 //!
 //! The dock starts this program with `--update` once a day. Updates are
@@ -18,17 +18,17 @@ fn main() -> eframe::Result {
     if std::env::args().any(|argument| argument == "--update") {
         return Ok(());
     }
-    muelle_config::migrate_legacy_folder();
+    whirlpool_config::migrate_legacy_folder();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Muelle")
+            .with_title("Whirlpool")
             .with_inner_size([900.0, 640.0])
             .with_min_inner_size([760.0, 520.0]),
         centered: true,
         ..Default::default()
     };
     eframe::run_native(
-        "Muelle",
+        "Whirlpool",
         options,
         Box::new(|creation| {
             ui::install_theme(&creation.egui_ctx);

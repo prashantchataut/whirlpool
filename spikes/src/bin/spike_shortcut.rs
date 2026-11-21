@@ -12,7 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use muelle_shell::{launcher, pins};
+use whirlpool_shell::{launcher, pins};
 use windows::{
     Win32::{
         System::Com::{
@@ -64,7 +64,7 @@ fn main() {
     println!("to a .vbs file  -> {:?}", pins::shortcut_id(&to_script));
 
     let pinned = pins::keep_shortcut(&with_args).expect("pinned");
-    let kept_dir = dir.join("appdata").join("Muelle").join("Pins");
+    let kept_dir = dir.join("appdata").join("Whirlpool").join("Pins");
     let kept: Vec<_> = fs::read_dir(&kept_dir)
         .map(|d| d.flatten().map(|e| e.file_name()).collect())
         .unwrap_or_default();
@@ -75,7 +75,7 @@ fn main() {
     );
     let target = pins::launch_target(&pinned);
     println!("opens through   -> {target:?}");
-    let cache = muelle_shell::icon_cache::IconCache::new(dir.join("cache"));
+    let cache = whirlpool_shell::icon_cache::IconCache::new(dir.join("cache"));
     let visual = cache.get(&pinned, 48).expect("visual");
     println!(
         "dock label      -> {:?} (icon {}x{})",

@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{Result, bail, ensure};
-use muelle_shell::accessories::{Endpoint, Kind, Snapshot, State, assemble};
+use whirlpool_shell::accessories::{Endpoint, Kind, Snapshot, State, assemble};
 use windows::{
     Devices::Enumeration::{
         DeviceInformation, DeviceInformationKind, DeviceInformationUpdate, DeviceWatcher,
@@ -233,9 +233,9 @@ fn snapshot(
         }
     }
     devices.sort_by(|a, b| (a.kind, &a.id).cmp(&(b.kind, &b.id)));
-    devices.truncate(muelle_shell::accessories::MAX_DEVICES);
+    devices.truncate(whirlpool_shell::accessories::MAX_DEVICES);
     if !devices.is_empty()
-        && let Some(active) = muelle_shell::status::default_audio_container()
+        && let Some(active) = whirlpool_shell::status::default_audio_container()
     {
         for device in &mut devices {
             device.active_audio = device.kind == Kind::Headset && device.id == active;
@@ -279,7 +279,7 @@ pub fn run(visibility: Option<&str>) -> Result<()> {
     let _aep = watch(Source::Endpoint, tx.clone(), full.clone())?;
     let _nodes = watch(Source::Node, tx.clone(), full.clone())?;
     let _usb = watch(Source::Usb, tx.clone(), full.clone())
-        .inspect_err(|_| eprintln!("muelle: USB accessory discovery unavailable"))
+        .inspect_err(|_| eprintln!("whirlpool: USB accessory discovery unavailable"))
         .ok();
     let mut usb = usb::Sources::default();
     let (mut endpoints, mut nodes) = (BTreeMap::new(), BTreeMap::new());

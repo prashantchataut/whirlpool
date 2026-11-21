@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whirlpool — a native Rust dock and menu bar for Windows</title>
+<meta name="description" content="Whirlpool is a dock and menu bar for Windows 10 and 11, written entirely in Rust. Two plain executables, no web view, no telemetry.">
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/ui.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<svg class="vortex" id="vortex" viewBox="-500 -500 1000 1000" aria-hidden="true"></svg>
+
+<header class="top">
+  <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="28" height="28"><span>Whirlpool</span></a>
+  <nav>
+    <a href="#tour">Tour</a><a href="#specs">Specifications</a><a href="#releases">Releases</a>
+    <a class="gh" href="https://github.com/prashantchataut/whirlpool">Source</a>
+  </nav>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="hero-head">
+    <h1>Whirl<em>pool</em></h1>
+    <div class="hero-side">
+      <p class="lede">A dock and menu bar for Windows, written entirely in Rust. Two plain executables. No web view, no runtime, no telemetry.</p>
+      <div class="cta">
+        <a class="btn primary" id="dl" href="https://github.com/prashantchataut/whirlpool/releases/latest">Download for Windows</a>
+        <a class="btn" href="#tour">Take the tour</a>
+      </div>
+      <p class="mono fine">Windows 10 1903+ &nbsp;/&nbsp; Windows 11 &nbsp;/&nbsp; x64 &nbsp;/&nbsp; MIT</p>
+    </div>
+  </div>
+  <div class="stage-wrap" id="heroWrap">
+    <div class="desk hero-desk" id="heroDesk"></div>
+    <p class="mono hint">Live demo. Move your cursor across the dock.</p>
+  </div>
+</section>
+
+<section class="tour" id="tour">
+  <div class="tour-inner">
+    <ol class="chapters" id="chapters">
+      <li data-img="dock" class="on"><span class="mono n">01</span><h2>The dock</h2>
+        <p>Cursor-based magnification with a spring behind it, so icons swell as you approach and settle when you leave. Pin, reorder, group by dropping one app onto another, and let recent apps appear on their own.</p></li>
+      <li data-img="dock"><span class="mono n">02</span><h2>Windows, previewed</h2>
+        <p>Hover an app with several windows and get live, titled previews. Minimized windows fold into their icon with the Genie effect, in three speeds, or stay as thumbnails.</p></li>
+      <li data-img="menubar"><span class="mono n">03</span><h2>Menu bar and island</h2>
+        <p>Clock, network, volume, battery, input language and tray icons. A curved island shows what is playing and your AI plan limits, checked every five minutes, credentials never stored.</p></li>
+      <li data-img="settings-dark"><span class="mono n">04</span><h2>Settings, native</h2>
+        <p>A separate egui window with live changes, light and dark following Windows, and previews drawn over your own wallpaper. English, Spanish and French.</p></li>
+    </ol>
+    <div class="screen" id="screen">
+      <div class="frame">
+        <img data-k="dock" class="on" src="assets/screens/dock.png" alt="Whirlpool dock with a magnified icon and a two-window preview" loading="lazy">
+        <img data-k="menubar" src="assets/screens/menubar.png" alt="Menu bar with the usage island and quick settings open" loading="lazy">
+        <img data-k="settings-dark" src="assets/screens/settings-dark.png" alt="Whirlpool settings window, dark theme" loading="lazy">
+      </div>
+      <p class="mono cap" id="cap">Fig. 1 — Dock, bottom, magnification 1.62×</p>
+    </div>
+  </div>
+</section>
+
+<section class="specs" id="specs">
+  <div class="specs-head">
+    <p class="mono kicker">Specification sheet</p>
+    <h2>What is in the box.</h2>
+  </div>
+  <div class="sheet">
+    <dl>
+      <div><dt>Language</dt><dd>Rust, edition 2024. No JavaScript, no web view, no .NET.</dd></div>
+      <div><dt>Programs</dt><dd><b>whirlpool.exe</b> dock and menu bar<br><b>whirlpool-settings.exe</b> settings window</dd></div>
+      <div><dt>Size</dt><dd id="sizes">See the latest release.</dd></div>
+      <div><dt>Dock rendering</dt><dd>Win32, DirectComposition, Direct2D, DirectWrite</dd></div>
+      <div><dt>Settings rendering</dt><dd>egui on OpenGL, Inter typeface embedded</dd></div>
+      <div><dt>Backdrop</dt><dd>Glass blur on Windows 11. Solid surfaces on Windows 10, which has no desktop backdrop blur.</dd></div>
+      <div><dt>Requires</dt><dd>Windows 10 1903 or later, or Windows 11. 64-bit.</dd></div>
+      <div><dt>Themes</dt><dd>Light and dark, following Windows. Abyss and Foam palettes.</dd></div>
+      <div><dt>Languages</dt><dd>English, Spanish, French</dd></div>
+      <div><dt>Configuration</dt><dd class="mono">%APPDATA%\Whirlpool\config.json<br><span class="dim">Migrates from Muelle and WinDock folders on first run.</span></dd></div>
+      <div><dt>Install</dt><dd>No installer, no admin rights. Per-user.</dd></div>
+      <div><dt>Recovery</dt><dd>A watchdog restores the Windows taskbar if the dock exits. <span class="mono">whirlpool.exe --restore</span> does it by hand.</dd></div>
+      <div><dt>Network</dt><dd>Optional only: release check on opening Settings, and AI usage lookups. Both can be turned off. No telemetry.</dd></div>
+      <div><dt>License</dt><dd>MIT. Fork of Muelle by Crafter Station.</dd></div>
+    </dl>
+    <aside class="figs">
+      <figure><img src="assets/screens/settings-light.png" alt="Settings window in the Foam light theme" loading="lazy"><figcaption class="mono">Fig. 2 — Settings, Foam (light)</figcaption></figure>
+      <figure><img src="assets/screens/settings-dark.png" alt="Settings window in the Abyss dark theme" loading="lazy"><figcaption class="mono">Fig. 3 — Settings, Abyss (dark)</figcaption></figure>
+    </aside>
+  </div>
+</section>
+
+<section class="releases" id="releases">
+  <div class="rel-head">
+    <p class="mono kicker">Release menu</p>
+    <h2>Pick a build.</h2>
+  </div>
+  <div class="rel-grid">
+    <ul class="rel-list" id="relList"><li class="loading mono">Reading releases from GitHub…</li></ul>
+    <div class="install">
+      <p class="mono kicker">One line, no admin</p>
+      <div class="code"><code id="oneliner">irm https://raw.githubusercontent.com/prashantchataut/whirlpool/main/scripts/install.ps1 | iex</code><button id="copy" class="btn">Copy</button></div>
+      <p class="fine">The binaries are unsigned, so SmartScreen may ask you to choose <b>More info</b>, then <b>Run anyway</b>. Checksums are in <span class="mono">SHA256SUMS.txt</span> on each release.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div><img src="assets/icon.png" alt="" width="22" height="22"> Whirlpool</div>
+  <p>MIT licensed. A fork of <a href="https://github.com/crafter-station/Muelle">Muelle</a> by Crafter Station, via Muelle Native. Screens on this page are design renders drawn from the app's own palette and layout.</p>
+</footer>
+
+<script>window.WP_BASE=''</script>
+<script src="assets/ui.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

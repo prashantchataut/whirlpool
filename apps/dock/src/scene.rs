@@ -4,7 +4,7 @@
 use std::cell::Cell;
 
 use anyhow::Result;
-use muelle_core::{
+use whirlpool_core::{
     frame::{DockEdge, Frame as DockFrame},
     layout::{ItemKind, Layout, Rect},
     magnify::Magnified,
@@ -44,26 +44,26 @@ impl Theme {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(255, 255, 255, 46)
+                    rgba(226, 250, 247, 54)
                 } else {
-                    rgba(226, 226, 228, 255)
+                    rgba(216, 234, 232, 255)
                 },
                 separator: rgba(0, 0, 0, 56),
                 shadow: rgba(0, 0, 0, 56),
-                indicator: rgba(0, 0, 0, 170),
+                indicator: rgba(6, 74, 80, 205),
             }
         } else {
             Self {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(28, 28, 30, 82)
+                    rgba(4, 34, 44, 94)
                 } else {
-                    rgba(44, 44, 46, 255)
+                    rgba(14, 42, 52, 255)
                 },
                 separator: rgba(255, 255, 255, 64),
                 shadow: rgba(0, 0, 0, 96),
-                indicator: rgba(255, 255, 255, 215),
+                indicator: rgba(159, 240, 230, 235),
             }
         }
     }
@@ -297,7 +297,7 @@ fn attention_rect(icon: Rect, scale: f32) -> Rect {
 #[cfg(test)]
 mod attention_tests {
     use super::*;
-    use muelle_core::{
+    use whirlpool_core::{
         layout::{Metrics, layout},
         magnify::{Magnifier, magnify},
     };

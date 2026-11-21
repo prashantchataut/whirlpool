@@ -1,7 +1,7 @@
 //! Reports whether processes run elevated, as the dock decides it.
 //! Usage: spike_elevated <pid> [pid...]
 
-use muelle_shell::launcher::process_is_elevated;
+use whirlpool_shell::launcher::process_is_elevated;
 
 fn main() {
     for pid in std::env::args()

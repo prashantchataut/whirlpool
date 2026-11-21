@@ -1395,64 +1395,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "muelle"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "chrono",
- "muelle-config",
- "muelle-core",
- "muelle-shell",
- "png",
- "reqwest",
- "serde",
- "serde_json",
- "windows",
- "windows-collections",
- "windows-core",
- "windows-future",
- "windows-numerics",
- "winresource",
-]
-
-[[package]]
-name = "muelle-config"
-version = "0.2.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "muelle-core"
-version = "0.2.0"
-
-[[package]]
-name = "muelle-settings"
-version = "0.2.0"
-dependencies = [
- "eframe",
- "muelle-config",
- "muelle-shell",
- "serde",
- "serde_json",
- "windows",
- "windows-future",
- "winresource",
-]
-
-[[package]]
-name = "muelle-shell"
-version = "0.2.0"
-dependencies = [
- "serde",
- "thiserror 2.0.21",
- "windows",
- "windows-core",
-]
-
-[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2471,10 +2413,10 @@ name = "spikes"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "muelle-core",
- "muelle-shell",
  "serde",
  "serde_json",
+ "whirlpool-core",
+ "whirlpool-shell",
  "windows",
  "windows-collections",
  "windows-core",
@@ -2966,6 +2908,64 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "293198dcebfb821155b5092ab94b5a82ff180eddd7241df3bd6e66a4ffd1a585"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "whirlpool"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "png",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "whirlpool-config",
+ "whirlpool-core",
+ "whirlpool-shell",
+ "windows",
+ "windows-collections",
+ "windows-core",
+ "windows-future",
+ "windows-numerics",
+ "winresource",
+]
+
+[[package]]
+name = "whirlpool-config"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "whirlpool-core"
+version = "0.3.0"
+
+[[package]]
+name = "whirlpool-settings"
+version = "0.3.0"
+dependencies = [
+ "eframe",
+ "serde",
+ "serde_json",
+ "whirlpool-config",
+ "whirlpool-shell",
+ "windows",
+ "windows-future",
+ "winresource",
+]
+
+[[package]]
+name = "whirlpool-shell"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
+ "windows",
+ "windows-core",
 ]
 
 [[package]]

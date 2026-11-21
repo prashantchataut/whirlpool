@@ -12,8 +12,8 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use muelle_core::frame::DockEdge;
-use muelle_shell::icons::IconImage;
+use whirlpool_core::frame::DockEdge;
+use whirlpool_shell::icons::IconImage;
 use windows::{
     Foundation::TimeSpan,
     UI::Composition::{
@@ -508,7 +508,7 @@ impl Mascot {
         match Self::build(gfx, act, place, scale) {
             Ok(mascot) => Some(mascot),
             Err(error) => {
-                muelle_shell::log::line(&format!("cangrejo: {error:#}"));
+                whirlpool_shell::log::line(&format!("cangrejo: {error:#}"));
                 None
             }
         }
@@ -933,7 +933,7 @@ fn sprite(gfx: &Gfx, image: &IconImage) -> Result<SpriteVisual> {
 
 fn create_window(rect: RECT) -> Result<HWND> {
     static CLASS: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    let class = w!("MuelleMascot");
+    let class = w!("WhirlpoolMascot");
     // SAFETY: The class is registered once; the window is destroyed by
     // `Mascot::drop`, or by the caller if building the act fails.
     unsafe {

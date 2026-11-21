@@ -4,7 +4,7 @@
 
 use std::{env, thread, time::Duration};
 
-use muelle_shell::launcher;
+use whirlpool_shell::launcher;
 use windows::Win32::{
     Foundation::HWND,
     System::SystemInformation::GetTickCount,

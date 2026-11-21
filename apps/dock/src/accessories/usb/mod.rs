@@ -4,7 +4,6 @@ pub(super) mod protocol;
 
 use super::{WorkerJob, worker::Event};
 use anyhow::{Context, Result, ensure};
-use muelle_shell::accessories::{Device, Kind};
 use protocol::{Model, Reading};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -20,6 +19,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use whirlpool_shell::accessories::{Device, Kind};
 use windows::{
     Devices::HumanInterfaceDevice::HidDevice,
     Win32::{
@@ -246,7 +246,7 @@ impl Sources {
             let (jobs, receive) = mpsc::sync_channel::<Job>(1);
             let (tx, full) = (tx.clone(), full.clone());
             thread::Builder::new()
-                .name("muelle-usb-query".into())
+                .name("whirlpool-usb-query".into())
                 .spawn(move || {
                     while let Ok(job) = receive.recv() {
                         let result = probe(&job.paths);

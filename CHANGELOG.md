@@ -8,6 +8,30 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### English
+
+- **Renamed to Whirlpool**, with a new ocean identity: Abyss (dark) and Foam (light) palettes,
+  a tide-teal accent, a vortex mark and a regenerated icon. Dock glass, labels, menus, the
+  menu bar, group glow and the active-app indicator are tinted to match.
+- **Rebuilt settings window.** Embedded Inter typeface with a real semibold, themed sliders,
+  combo boxes and buttons, a sidebar with a leading tide mark, and a drawn vortex logo.
+- **Settings carry over.** `%APPDATA%\Muelle` (and the older `WinDock`) is moved to
+  `%APPDATA%\Whirlpool` on first run.
+- New website (`site/`) deployed to GitHub Pages, architecture and contributing docs.
+- Release pipeline publishes the changelog section as the release notes.
+- Dock behaviour and the shell and core crates are otherwise unchanged from Muelle Native 0.2.0.
+
+### Español
+
+- **Ahora se llama Whirlpool**, con identidad de océano: paletas Abyss (oscura) y Foam (clara),
+  acento verde marino, nueva marca en espiral e icono regenerado.
+- **Ajustes rediseñados**: tipografía Inter incrustada, controles con tema propio y barra lateral nueva.
+- **Tus ajustes se conservan**: la carpeta `Muelle` se mueve a `Whirlpool` en el primer inicio.
+
+*Entries below predate the rename; the product name in them was changed mechanically from "Muelle" to "Whirlpool".*
+
 ## [0.2.0]
 
 ### English
@@ -19,8 +43,8 @@ copia la sección de la versión que se publica a la release de GitHub.
   island previews drawn over your own wallpaper, animated switches, debounced saving.
 - Update checks use Windows' own HTTP client and open the release page; the executables
   are replaced by `scripts/install.ps1` or a manual download.
-- Release pipeline builds both programs on GitHub Actions and attaches `muelle.exe`,
-  `muelle-settings.exe`, a zip and SHA-256 sums.
+- Release pipeline builds both programs on GitHub Actions and attaches `whirlpool.exe`,
+  `whirlpool-settings.exe`, a zip and SHA-256 sums.
 - Dock, shell and core crates are unchanged from upstream 0.1.18.
 
 ### Español
@@ -52,7 +76,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   options and sliders have fewer icons, and the GitHub star is filled yellow.
 - Settings now illustrate Dock placement, island styles and Genie speeds, with
   native keyboard-selectable options, clearer icons and shorter descriptions.
-  A permanent sidebar link opens Muelle on GitHub to explore and star the project.
+  A permanent sidebar link opens Whirlpool on GitHub to explore and star the project.
 - Settings → Dock → Position on screen: Left, Bottom or Right, as on macOS.
   Bottom stays the default. On a side the dock runs top to bottom below the
   menu bar, icons grow and show their names inward, menus, groups and window
@@ -65,7 +89,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   Test-certificate trust is temporary and restricted to GitHub-hosted runners.
 - Settings → Menu bar → Show what's playing (issue #28). The music half of
   the island could not be turned off; now it can, and with AI usage off too
-  the menu bar shows no island at all. Off, Muelle also stops following media
+  the menu bar shows no island at all. Off, Whirlpool also stops following media
   sessions. On by default, as before.
 - Added "End task" beside "Quit" in a running app's context menu, including apps
   inside dock groups (issue #26). Force termination runs outside the UI thread
@@ -107,7 +131,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   saved Zen keys are not queried.
 - Fixed a blocking "Ordinal 381 Not Found" system dialog when launching applications
   with Uninstall Tool (`utshellext.dll`) or other third-party shell extensions installed
-  (issue #23). `muelle.exe` now embeds an application manifest declaring a dependency on
+  (issue #23). `whirlpool.exe` now embeds an application manifest declaring a dependency on
   `Microsoft.Windows.Common-Controls` 6.0.0.0 (along with PerMonitorV2 DPI awareness and
   Windows 10/11 compatibility), enabling shell extensions to resolve modern ComCtl32 exports
   such as `LoadIconWithScaleDown`.
@@ -140,7 +164,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   Se quitan iconos de subopciones y sliders; la estrella de GitHub es amarilla.
 - Ajustes incorpora vistas de la posición del Dock, los estilos de isla y la
   velocidad del genio, con selección por teclado, iconos y textos más breves.
-  Un enlace fijo al pie del sidebar abre Muelle en GitHub para conocer y apoyar
+  Un enlace fijo al pie del sidebar abre Whirlpool en GitHub para conocer y apoyar
   el proyecto con una estrella.
 - Ajustes → Dock → Posición en la pantalla: Izquierda, Abajo o Derecha, como
   en macOS. Abajo sigue siendo la predeterminada. En un lateral el dock va de
@@ -155,7 +179,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   de prueba es temporal y se limita a runners alojados de GitHub.
 - Ajustes → Barra superior → Mostrar lo que se reproduce (issue #28). La parte
   de música de la isla no se podía apagar; ahora sí, y si también desactivas el
-  uso de IA la barra superior no muestra ninguna isla. Apagado, Muelle deja
+  uso de IA la barra superior no muestra ninguna isla. Apagado, Whirlpool deja
   además de seguir las sesiones multimedia. Activado por defecto, como antes.
 - Añadido «Finalizar tarea» junto a «Salir» en el menú de una app abierta, también
   dentro de grupos del dock (issue #26). La finalización forzada se ejecuta fuera
@@ -191,7 +215,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   receptor lo sigue borrando al instante.
 - Corregido un diálogo de error bloqueante ("No se encuentra el ordinal 381") al abrir
   aplicaciones con Uninstall Tool (`utshellext.dll`) u otras extensiones del shell de
-  terceros instaladas (issue #23). `muelle.exe` ahora incrusta un manifiesto de aplicación
+  terceros instaladas (issue #23). `whirlpool.exe` ahora incrusta un manifiesto de aplicación
   que declara la dependencia de `Microsoft.Windows.Common-Controls` 6.0.0.0 (junto con
   reconocimiento DPI PerMonitorV2 y compatibilidad con Windows 10/11), permitiendo a las
   extensiones resolver funciones modernas de ComCtl32 como `LoadIconWithScaleDown`.
@@ -227,7 +251,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   future stable releases, with manual retries, native validation, final installer
   checksum checks, duplicate detection and explicit missing-token failures.
 - Added bounded graphics-device recovery and recovery of an existing dock when
-  Muelle is opened again. The watchdog closes the old instance before restarting;
+  Whirlpool is opened again. The watchdog closes the old instance before restarting;
   a blocked recovery close has an eight-second deadline. Repeated device loss
   within the first minute after recovery stops automatic restarts and restores
   the Windows taskbar. Graphics health reuses the existing watchdog heartbeat.
@@ -252,7 +276,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   publicación y las próximas releases estables, con reintentos manuales, validación
   nativa, comprobación del hash final, detección de duplicados y error si falta el token.
 - Añadida recuperación limitada ante pérdida del dispositivo gráfico y al abrir
-  Muelle de nuevo cuando ya existe una instancia. El guardián cierra la anterior
+  Whirlpool de nuevo cuando ya existe una instancia. El guardián cierra la anterior
   antes de reiniciarla; si el cierre de recuperación se bloquea, tiene un plazo de
   ocho segundos. Un nuevo fallo gráfico durante el primer minuto tras recuperar
   detiene los reinicios automáticos y devuelve la barra de Windows. La revisión
@@ -288,7 +312,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   Hardware compatibility still needs validation.
 - The menu bar now follows Windows' Battery percentage setting, showing the
   charge next to the battery icon when enabled. Preference changes apply
-  without restarting Muelle, through registry notifications rather than polling.
+  without restarting Whirlpool, through registry notifications rather than polling.
 - Fixed icons remaining over the desktop after dragging an app out of a dock
   group. Drag tracking now recovers missed pointer messages without taking
   focus, stops on release or Escape, and rejects late clicks after cancellation.
@@ -296,7 +320,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   horizontally. Recovered or collapsed groups no longer duplicate pinned apps
   in recent apps.
 - Fixed (issue #15): the Recycle Bin could keep its full icon after being
-  emptied, even after restarting Muelle. Right after a change, Explorer may
+  emptied, even after restarting Whirlpool. Right after a change, Explorer may
   still draw the previous state, and that icon was cached for the day under
   the other state. The empty and full icons now come from where Windows names
   them (`DefaultIcon`, including an icon you chose in Desktop icon settings),
@@ -317,7 +341,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   La compatibilidad con hardware real queda pendiente de validar.
 - La barra superior respeta la opción Porcentaje de batería de Windows y
   muestra la carga junto al icono cuando está activada. Los cambios se aplican
-  sin reiniciar Muelle, mediante notificaciones del registro, sin sondeo.
+  sin reiniciar Whirlpool, mediante notificaciones del registro, sin sondeo.
 - Corregido el icono que quedaba flotando sobre el escritorio al sacar una app
   de un grupo del dock. El arrastre recupera mensajes del puntero perdidos sin
   tomar el foco, termina al soltar o pulsar Escape y descarta clics tardíos tras
@@ -325,7 +349,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Agrupar requiere soltar sobre el icono también en vertical. Recuperar o
   reducir un grupo ya no duplica apps fijadas en las apps recientes.
 - Corregido (issue #15): la Papelera podía seguir con el icono de llena tras
-  vaciarla, incluso al reiniciar Muelle. Justo después de un cambio, Explorer
+  vaciarla, incluso al reiniciar Whirlpool. Justo después de un cambio, Explorer
   puede dibujar aún el estado anterior, y ese icono se guardaba en caché todo
   el día bajo el otro estado. Los iconos de vacía y llena se leen ahora de
   donde Windows los define (`DefaultIcon`, incluido un icono elegido en la
@@ -352,7 +376,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   open the folder, change it or remove it.
 - French: the dock, Settings and the installer are now also in French. Choose
   it in Settings → System, or leave Automatic to follow Windows. A language
-  Muelle does not know in the settings file now reads as Automatic instead of
+  Whirlpool does not know in the settings file now reads as Automatic instead of
   making the file invalid.
 - Mascot showcase: the website now previews the crab's reactions to AI limits,
   charging and energy saver, and the hero crab moves between the Notes window
@@ -385,7 +409,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   abrir la carpeta, cambiarla o quitarla.
 - Francés: el dock, Ajustes y el instalador también están en francés.
   Elígelo en Ajustes → Sistema, o deja Automático para seguir a Windows. Un
-  idioma que Muelle no conoce en el archivo de ajustes ahora se lee como
+  idioma que Whirlpool no conoce en el archivo de ajustes ahora se lee como
   Automático en lugar de invalidar el archivo.
 - Vista previa de la mascota: la web muestra las reacciones del cangrejo ante
   los límites de IA, la carga y el ahorro de energía; además, en la portada se
@@ -410,7 +434,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Automatic startup retries up to three times after a failed launch. Existing
   enabled tasks receive the recovery policy without enabling disabled tasks or
   changing the installation they launch. Settings checks the real registration.
-- If Explorer has not created its taskbar yet, Muelle retries taking it over
+- If Explorer has not created its taskbar yet, Whirlpool retries taking it over
   without blocking the interface or saving a false original taskbar setting.
 - Startup failures before graphics initialization are now recorded in the log.
 - Dock window previews keep their positions when switching or minimizing
@@ -427,7 +451,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - El inicio automático reintenta hasta tres veces si falla el arranque. Las
   tareas activadas reciben esta recuperación sin reactivar tareas deshabilitadas
   ni cambiar la instalación que ejecutan. Ajustes consulta el registro real.
-- Si Explorer todavía no ha creado su barra, Muelle vuelve a intentar ocultarla
+- Si Explorer todavía no ha creado su barra, Whirlpool vuelve a intentar ocultarla
   sin bloquear la interfaz ni guardar un estado original incorrecto.
 - El registro también recoge fallos anteriores a la inicialización gráfica.
 
@@ -442,7 +466,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - The menu bar's keyboard indicator opens a themed layout menu with the
   current keyboard marked and a link to Windows language settings. Changes
   are requested for the original typing window instead of simulating Win+Space.
-- Changing Muelle's language refreshes menu bar text even when its data has
+- Changing Whirlpool's language refreshes menu bar text even when its data has
   not changed. Menu bar controls retain the standard arrow cursor.
 - Menus return focus after a selection without overriding another app the
   user switched to while dismissing them. Auto-hide keeps the menu bar open
@@ -471,10 +495,10 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ### Español
 
-- El indicador de teclado de la barra abre un menú con el estilo de Muelle,
+- El indicador de teclado de la barra abre un menú con el estilo de Whirlpool,
   marca el teclado activo y permite abrir los ajustes de idioma de Windows.
   El cambio se solicita a la ventana donde se escribía, sin simular Win+Espacio.
-- Cambiar el idioma de Muelle actualiza los textos de la barra aunque no
+- Cambiar el idioma de Whirlpool actualiza los textos de la barra aunque no
   cambien sus datos. Los controles de la barra mantienen el cursor de flecha.
 - Los menús devuelven el foco tras una selección sin imponerse a otra app
   elegida al cerrarlos. La barra permanece visible mientras se usa su
@@ -510,14 +534,14 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Unplugging the charger now plays a short mascot reaction above the dock,
   including when unplugging also enables energy saver. It replaces an ongoing
   charging reaction and temporarily reveals an auto-hidden dock.
-- The first interactive installation opens Muelle Settings when it completes.
+- The first interactive installation opens Whirlpool Settings when it completes.
 
 ### Español
 
 - Al desconectar el cargador, la mascota también aparece sobre el dock,
   incluso si se activa el ahorro de energía a la vez. Sustituye la reacción
   de carga si todavía está en curso y muestra temporalmente el dock oculto.
-- La primera instalación interactiva abre Ajustes de Muelle al terminar.
+- La primera instalación interactiva abre Ajustes de Whirlpool al terminar.
 
 ## [0.1.11]
 
@@ -543,7 +567,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Energy-saver notifications now update the dock and menu bar directly from
   the state sent by Windows. Standard and high-savings modes both disable
   glass, and turning the saver off restores the transparency preference.
-- Muelle uses an interactive logon task to avoid Windows' discretionary delay
+- Whirlpool uses an interactive logon task to avoid Windows' discretionary delay
   of `Run` entries. Windows still controls when the process can start.
   Registration uses the Task Scheduler API with normal priority, battery
   support and a `Run` fallback. Enabled registrations migrate only for the
@@ -557,7 +581,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   Search or the text input host), and the dock took it for a full-screen app.
   Hidden and cloaked windows no longer count as full screen.
 - Diagnostics are written off the UI thread through a bounded queue.
-  `%LOCALAPPDATA%\Muelle\muelle.log` and its rotated backup each hold up to
+  `%LOCALAPPDATA%\Whirlpool\whirlpool.log` and its rotated backup each hold up to
   256 KB. The log records errors, full-screen transitions and initialization
   time measured from entering the dock initialization routine.
 
@@ -586,7 +610,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   superior con el estado enviado por Windows. Tanto el modo estándar como
   el ahorro máximo desactivan el cristal. Al desactivarlos, se recupera la
   preferencia de transparencia del sistema.
-- Muelle usa una tarea de inicio de sesión interactiva para evitar el retraso
+- Whirlpool usa una tarea de inicio de sesión interactiva para evitar el retraso
   que Windows puede aplicar a las entradas `Run`. Windows sigue decidiendo
   cuándo puede arrancar el proceso. La tarea se registra con la API del
   Programador, prioridad normal, soporte para batería y respaldo mediante
@@ -601,7 +625,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   pantalla (Inicio, Búsqueda o el host de entrada de texto), y el dock la
   tomaba por una app a pantalla completa. Las ventanas ocultas ya no cuentan.
 - El registro de diagnóstico se escribe fuera del hilo de la interfaz mediante
-  una cola acotada. `%LOCALAPPDATA%\Muelle\muelle.log` y su copia anterior
+  una cola acotada. `%LOCALAPPDATA%\Whirlpool\whirlpool.log` y su copia anterior
   ocupan hasta 256 KB cada uno. Guarda errores, cambios de pantalla completa
   y el tiempo medido desde que comienza la inicialización del dock.
 
@@ -628,7 +652,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   as `wscript.exe "script.vbs"`, a browser profile or a web app, opened the
   program alone. They now open through their shortcut, exactly as from
   Explorer or the taskbar, and show the shortcut's name and icon. A shortcut
-  dropped on the dock is kept in `%APPDATA%\Muelle\Pins`, so the pin survives
+  dropped on the dock is kept in `%APPDATA%\Whirlpool\Pins`, so the pin survives
   deleting the original; shortcuts to scripts or documents can be pinned too.
 - Dragging a file over the dock reads a dropped shortcut once, not on every
   mouse move.
@@ -657,7 +681,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   app web, abrían solo el programa. Ahora se abren a través de su acceso
   directo, igual que desde el Explorador o la barra de tareas, y muestran su
   nombre e icono. Un acceso directo soltado en el dock se guarda en
-  `%APPDATA%\Muelle\Pins`, así que la app fijada sigue funcionando aunque se
+  `%APPDATA%\Whirlpool\Pins`, así que la app fijada sigue funcionando aunque se
   borre el original; también se pueden fijar accesos a scripts o documentos.
 - Al arrastrar un archivo sobre el dock, un acceso directo se lee una sola vez,
   no en cada movimiento del ratón.
@@ -672,18 +696,18 @@ copia la sección de la versión que se publica a la release de GitHub.
   Windows then places it behind the active window.
 - GitHub Copilot usage was removed from the menu bar island. Its sign-in is
   only stored encrypted, and decrypting another app's secrets is what made
-  antivirus programs flag Muelle; Muelle no longer reads the Windows
+  antivirus programs flag Whirlpool; Whirlpool no longer reads the Windows
   Credential Manager either.
-- Fixed: some antivirus programs flagged Muelle 0.1.6–0.1.8 as a trojan and
+- Fixed: some antivirus programs flagged Whirlpool 0.1.6–0.1.8 as a trojan and
   deleted it, often right after updating. Two things looked like malware: to
-  show GitHub Copilot and Cursor usage, Muelle decrypted VS Code's stored
+  show GitHub Copilot and Cursor usage, Whirlpool decrypted VS Code's stored
   secrets and read Cursor's database (what password stealers do), and since
   0.1.7 it set itself up to start with Windows by running `schtasks.exe`
-  hidden. Muelle no longer does either: it starts from the usual `Run`
+  hidden. Whirlpool no longer does either: it starts from the usual `Run`
   registry entry (an existing startup task is moved there once), Copilot
   usage comes only from the Copilot CLI sign-in or `GH_TOKEN`/`GITHUB_TOKEN`,
   and Cursor usage was removed. The dock is also 28% smaller.
-- Fixed: after choosing an item in the dock's menu (Muelle Settings, for
+- Fixed: after choosing an item in the dock's menu (Whirlpool Settings, for
   one), the dock could stay magnified and stop reacting to the pointer.
 - Alt+Tab: the hidden dock shows only for Alt+Tab, no longer for Task View,
   whose virtual desktops it covered at the bottom of the screen; and it no
@@ -691,9 +715,9 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Alt+Tab: moving the mouse or clicking an empty spot no longer stops the
   dock's magnifier from following the selection, and closing a window from
   the switcher keeps it on the right app. Only the arrow keys, which move the
-  selection in ways Muelle cannot see, make it step aside.
+  selection in ways Whirlpool cannot see, make it step aside.
 - Automatic updates: once a day, a couple of minutes after you turn on the
-  computer (or every 24 hours if it stays on), Muelle installs new versions by
+  computer (or every 24 hours if it stays on), Whirlpool installs new versions by
   itself; the dock restarts in a moment. Never while an app is full screen. It can be turned off in Settings → System → "Install
   updates automatically". The dock itself still never uses the network.
 - Windows 10: the menu bar no longer shows a Widgets button, which Windows
@@ -710,29 +734,29 @@ copia la sección de la versión que se publica a la release de GitHub.
   antes el foco, y Windows la coloca entonces detrás de la ventana activa.
 - Se quitó el uso de GitHub Copilot de la isla de la barra superior. Su sesión
   solo se guarda cifrada, y descifrar los secretos de otra app es lo que hacía
-  que los antivirus marcaran Muelle; Muelle tampoco lee ya el Administrador de
+  que los antivirus marcaran Whirlpool; Whirlpool tampoco lee ya el Administrador de
   credenciales de Windows.
-- Corregido: algunos antivirus marcaban Muelle 0.1.6–0.1.8 como troyano y lo
+- Corregido: algunos antivirus marcaban Whirlpool 0.1.6–0.1.8 como troyano y lo
   borraban, a menudo justo al actualizar. Dos cosas parecían malware: para
-  mostrar el uso de GitHub Copilot y Cursor, Muelle descifraba los secretos
+  mostrar el uso de GitHub Copilot y Cursor, Whirlpool descifraba los secretos
   guardados de VS Code y leía la base de datos de Cursor (lo que hacen los
   ladrones de contraseñas), y desde la 0.1.7 se configuraba para iniciar con
-  Windows ejecutando `schtasks.exe` oculto. Muelle ya no hace ninguna de las
+  Windows ejecutando `schtasks.exe` oculto. Whirlpool ya no hace ninguna de las
   dos: arranca desde la entrada habitual `Run` del registro (una tarea de
   inicio existente se traslada ahí una vez), el uso de Copilot sale solo de la
   sesión de Copilot CLI o de `GH_TOKEN`/`GITHUB_TOKEN`, y se quitó el uso de
   Cursor. Además, el dock ocupa un 28 % menos.
 - Corregido: tras elegir una opción del menú del dock (por ejemplo, Ajustes
-  de Muelle), el dock podía quedarse ampliado y dejar de responder al puntero.
+  de Whirlpool), el dock podía quedarse ampliado y dejar de responder al puntero.
 - Alt+Tab: el dock oculto aparece solo con Alt+Tab, ya no con la Vista de
   tareas, cuyos escritorios virtuales tapaba abajo; y ya no parpadea un
   momento después de cancelar Alt+Tab con Esc.
 - Alt+Tab: mover el ratón o hacer clic en un hueco ya no impide que la lupa
   del dock siga la selección, y cerrar una ventana desde el selector la
   mantiene en la app correcta. Solo las flechas, que mueven la selección de
-  formas que Muelle no ve, hacen que se aparte.
+  formas que Whirlpool no ve, hacen que se aparte.
 - Actualizaciones automáticas: una vez al día, un par de minutos después de
-  encender el ordenador (o cada 24 horas si sigue encendido), Muelle instala
+  encender el ordenador (o cada 24 horas si sigue encendido), Whirlpool instala
   las versiones nuevas por sí solo; el dock se reinicia en un momento. Nunca
   con una app a pantalla completa. Se puede desactivar en Ajustes →
   Sistema → «Instalar actualizaciones automáticamente». El dock en sí sigue
@@ -839,9 +863,9 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ### English
 
-- Faster startup: Muelle now uses a Windows sign-in task instead of the Run
+- Faster startup: Whirlpool now uses a Windows sign-in task instead of the Run
   key, and keeps the taskbar hidden when Windows shuts down or restarts.
-- Taskbar pins stay in sync with the dock, including changes made while Muelle
+- Taskbar pins stay in sync with the dock, including changes made while Whirlpool
   is closed. Imported pins keep their order and include Store apps; removed
   apps no longer remain as broken dock icons.
 - The dock menu can import apps pinned to the Windows taskbar. Unchecking
@@ -857,11 +881,11 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ### Español
 
-- Inicio más rápido: Muelle ahora usa una tarea de Windows al iniciar sesión
+- Inicio más rápido: Whirlpool ahora usa una tarea de Windows al iniciar sesión
   en lugar de la clave Run y mantiene oculta la barra de tareas al apagar o
   reiniciar Windows.
 - Las apps fijadas en la barra de tareas se sincronizan con el dock, incluso
-  si el cambio ocurre mientras Muelle está cerrado. Las apps importadas
+  si el cambio ocurre mientras Whirlpool está cerrado. Las apps importadas
   conservan su orden e incluyen las de la Store; las desinstaladas ya no quedan
   como iconos rotos.
 - El menú del dock permite importar las apps fijadas en la barra de tareas.
@@ -893,7 +917,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   thumbnails on the right side of the dock remain available as an option.
 - The active-app click option was removed: clicking the app in front minimizes
   it, as on the Windows taskbar.
-- The dock's Muelle icon is sharper, and the Start button uses the Windows
+- The dock's Whirlpool icon is sharper, and the Start button uses the Windows
   logo.
 - Settings can turn off automatic update checks. The website adds privacy and
   code-signing policy pages.
@@ -915,7 +939,7 @@ copia la sección de la versión que se publica a la release de GitHub.
   dock. Las miniaturas en vivo a la derecha siguen disponibles como opción.
 - Se quitó la opción de clic en la app activa: al hacer clic en la app que está
   delante, se minimiza, como en la barra de Windows.
-- El icono de Muelle se ve más nítido en el dock y el botón Inicio usa el logo
+- El icono de Whirlpool se ve más nítido en el dock y el botón Inicio usa el logo
   de Windows.
 - Ajustes permite desactivar la búsqueda automática de actualizaciones. La web
   incorpora páginas de privacidad y firma de código.

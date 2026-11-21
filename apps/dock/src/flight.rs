@@ -11,7 +11,7 @@
 //!    screen: a snapshot, as macOS also uses for its genie;
 //! 3. the snapshot becomes one composition surface shared by thin horizontal
 //!    strips (plain composition visuals) that follow the genie curves
-//!    (`muelle_core::genie`), and they start flying at once;
+//!    (`whirlpool_core::genie`), and they start flying at once;
 //! 4. the stand-in stays under them for two more frames: composition commits
 //!    asynchronously while DWM drops a thumbnail on the very next frame, and
 //!    removing it at once left a frame with neither, a visible flash.
@@ -62,11 +62,11 @@ use std::{
 };
 
 use anyhow::Result;
-use muelle_core::{
+use whirlpool_core::{
     frame::DockEdge,
     genie::{Edges, Genie},
 };
-use muelle_shell::{icons::IconImage, screen, tracker};
+use whirlpool_shell::{icons::IconImage, screen, tracker};
 use windows::{
     Foundation::TimeSpan,
     UI::Composition::{
@@ -376,7 +376,7 @@ fn halved(image: &IconImage) -> IconImage {
 /// A transparent, click-through window that covers `screen` during a flight.
 fn create_window(screen: RECT) -> Option<HWND> {
     static CLASS: OnceLock<bool> = OnceLock::new();
-    let class = w!("MuelleFlight");
+    let class = w!("WhirlpoolFlight");
     // SAFETY: Standard class registration and window creation on the UI
     // thread; the window is destroyed here on failure, or by `Flight::drop`.
     unsafe {
@@ -689,7 +689,7 @@ impl Flight {
         // GDI reads what DWM composes next, and that includes the stand-in.
         let (sender, shot) = channel();
         let capture = thread::Builder::new()
-            .name("muelle-capture".into())
+            .name("whirlpool-capture".into())
             .spawn(move || {
                 let _permit = capture_permit;
                 let shot = screen::capture(visible).map(|image| {
@@ -1159,7 +1159,7 @@ mod native_tests {
             CreateWindowExW(
                 WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 w!("STATIC"),
-                w!("Muelle animation test"),
+                w!("Whirlpool animation test"),
                 WS_OVERLAPPEDWINDOW,
                 10,
                 10,
