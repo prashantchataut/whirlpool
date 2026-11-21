@@ -24,13 +24,17 @@ const io=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting)retur
 items.forEach(i=>io.observe(i));
 
 /* --- releases, straight from GitHub --- */
-const fmt=b=>b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';
+const fmt=b=>b>1048576?(b/1048576).toFixed(1)+' MB':b>=1024?Math.round(b/1024)+' KB':'<1 KB';
+/* Release bodies are markdown. Keep the English section, join wrapped lines into bullets, drop emphasis marks. */
+const bullets=md=>{const en=md.split(/^###\s*Espa/m)[0].split(/^---$/m)[0].replace(/^#+\s.*$/gm,'');const out=[];
+ en.split('\n').forEach(l=>{if(/^\s*-\s/.test(l))out.push(l.replace(/^\s*-\s/,'').trim());else if(l.trim()&&out.length)out[out.length-1]+=' '+l.trim()});
+ return out.slice(0,3).map(t=>t.replace(/\*\*|`/g,''))};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 fetch(`https://api.github.com/repos/${REPO}/releases?per_page=6`).then(r=>r.ok?r.json():Promise.reject(r.status)).then(rs=>{
  const list=document.getElementById('relList');
  if(!rs.length)throw 0;
  list.innerHTML=rs.map(r=>`<li><div class="rel-top"><h3>${esc(r.name||r.tag_name)}</h3><span class="mono tag">${esc(r.tag_name)}</span><span class="mono date">${new Date(r.published_at).toISOString().slice(0,10)}</span></div>
-  <div class="rel-notes">${esc((r.body||'').replace(/^#+\s.*$/gm,'').trim().split('\n').slice(0,5).join('\n'))}</div>
+  <ul class="rel-notes">${bullets(r.body||'').map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
   <div class="assets">${r.assets.map(a=>`<a class="asset" href="${a.browser_download_url}">${esc(a.name)}<span>${fmt(a.size)}</span></a>`).join('')}</div></li>`).join('');
  const exe=rs[0].assets.filter(a=>/\.exe$/.test(a.name));
  if(exe.length)document.getElementById('sizes').innerHTML=exe.map(a=>`<b>${esc(a.name)}</b> ${fmt(a.size)}`).join('<br>')+`<br><span class="dim">Measured from ${esc(rs[0].tag_name)}.</span>`;
