@@ -517,11 +517,11 @@ impl GroupView {
         dot.SetCenter(v2(dot_side / 2.0, dot_side / 2.0))?;
         dot.SetRadius(v2(dot_side / 2.0, dot_side / 2.0))?;
         let dot_brush = c.CreateColorBrushWithColor(if theme.light {
-            rgba(6, 98, 112, 215)
+            rgba(0, 0, 0, 170)
         } else {
-            rgba(120, 238, 222, 235)
+            rgba(255, 255, 255, 215)
         })?;
-        let glow_brush = c.CreateColorBrushWithColor(rgba(45, 205, 210, 80))?;
+        let glow_brush = c.CreateColorBrushWithColor(rgba(70, 215, 200, 90))?;
         let glow = (GLOW * s).round();
         for (index, (item, icon)) in items.iter().zip(&self.layout.icons).enumerate() {
             let side = (icon.right - icon.left) as f32;

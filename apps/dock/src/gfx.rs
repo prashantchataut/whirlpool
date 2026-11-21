@@ -410,9 +410,9 @@ impl Gfx {
     ) -> Result<LabelBrush> {
         let (pad_x, pad_y, arrow) = (11.0 * scale, 5.0 * scale, 6.0 * scale);
         let (fill, ink) = if light {
-            (rgb(0.93, 0.98, 0.98, 0.94), rgb(0.01, 0.12, 0.15, 0.92))
+            (rgb(0.94, 0.98, 0.97, 0.92), rgb(0.02, 0.10, 0.13, 0.90))
         } else {
-            (rgb(0.02, 0.10, 0.14, 0.90), rgb(0.90, 1.0, 0.98, 0.96))
+            (rgb(0.03, 0.11, 0.14, 0.88), rgb(0.91, 0.97, 0.95, 0.96))
         };
 
         let utf16: Vec<u16> = text.encode_utf16().collect();
@@ -543,7 +543,7 @@ impl Gfx {
             )
         } else {
             (
-                rgb(0.10, 0.30, 0.36, 0.64),
+                rgb(0.10, 0.28, 0.33, 0.62),
                 rgb(1.0, 1.0, 1.0, 0.34),
                 rgb(1.0, 1.0, 1.0, 0.12),
                 rgb(1.0, 1.0, 1.0, 0.92),
@@ -654,9 +654,9 @@ impl Gfx {
     ) -> Result<LabelBrush> {
         let (pad_x, pad_y) = (10.0 * scale, 4.0 * scale);
         let (fill_color, ink_color) = if light {
-            (rgb(0.93, 0.98, 0.98, 0.94), rgb(0.01, 0.12, 0.15, 0.92))
+            (rgb(0.94, 0.98, 0.97, 0.92), rgb(0.02, 0.10, 0.13, 0.90))
         } else {
-            (rgb(0.02, 0.10, 0.14, 0.90), rgb(0.90, 1.0, 0.98, 0.96))
+            (rgb(0.03, 0.11, 0.14, 0.88), rgb(0.91, 0.97, 0.95, 0.96))
         };
         let room = (max_width - 2.0 * pad_x).max(1.0);
         let utf16: Vec<u16> = text.encode_utf16().collect();
@@ -778,11 +778,11 @@ impl Gfx {
             let stops = [
                 D2D1_GRADIENT_STOP {
                     position: 0.0,
-                    color: rgb(0.36, 0.92, 0.84, 1.0),
+                    color: rgb(0.45, 0.90, 0.84, 1.0),
                 },
                 D2D1_GRADIENT_STOP {
                     position: 1.0,
-                    color: rgb(0.02, 0.40, 0.58, 1.0),
+                    color: rgb(0.04, 0.48, 0.58, 1.0),
                 },
             ];
             // SAFETY: Brushes and geometry live for the duration of the drawing calls.

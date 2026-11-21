@@ -786,10 +786,10 @@ pub(crate) fn draw_popup_background(
 
 pub(crate) fn popup_tint(dark: bool, glass: bool) -> Color {
     match (dark, glass) {
-        (true, true) => rgba(6, 30, 40, 184),
-        (false, true) => rgba(240, 250, 251, 222),
-        (true, false) => rgba(12, 38, 48, 255),
-        (false, false) => rgba(228, 243, 245, 255),
+        (true, true) => rgba(8, 30, 38, 178),
+        (false, true) => rgba(238, 248, 246, 215),
+        (true, false) => rgba(12, 36, 44, 255),
+        (false, false) => rgba(234, 245, 243, 255),
     }
 }
 
@@ -840,7 +840,7 @@ fn strip_mnemonic(label: &str) -> (String, Option<char>) {
 /// The user's accent color, as macOS highlights menus with its own.
 fn accent() -> Color {
     whirlpool_shell::system::accent_color()
-        .map_or(rgba(10, 132, 255, 255), |[r, g, b]| rgba(r, g, b, 255))
+        .map_or(rgba(14, 147, 152, 255), |[r, g, b]| rgba(r, g, b, 255))
 }
 
 fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color {

@@ -334,6 +334,13 @@ pub fn battery() -> Option<Battery> {
 /// Current date and time in the regional format of the user, e.g. "vie 13 nov  19:42".
 #[must_use]
 pub fn clock_text() -> String {
+    clock_text_with(true, None)
+}
+
+/// The menu bar clock. `hour24` forces a 24-hour (`Some(true)`) or 12-hour
+/// (`Some(false)`) clock; `None` follows Windows.
+#[must_use]
+pub fn clock_text_with(show_date: bool, hour24: Option<bool>) -> String {
     use windows::Win32::Globalization::{GetDateFormatEx, GetTimeFormatEx, TIME_NOSECONDS};
     let mut date = [0u16; 64];
     let mut time = [0u16; 32];
@@ -341,18 +348,38 @@ pub fn clock_text() -> String {
     // including the terminator (0 on failure).
     let (date_len, time_len) = unsafe {
         (
-            GetDateFormatEx(
-                None,
-                Default::default(),
-                None,
-                w!("ddd d MMM"),
-                Some(&mut date),
-                None,
-            ),
-            GetTimeFormatEx(None, TIME_NOSECONDS, None, None, Some(&mut time)),
+            if show_date {
+                GetDateFormatEx(
+                    None,
+                    Default::default(),
+                    None,
+                    w!("ddd d MMM"),
+                    Some(&mut date),
+                    None,
+                )
+            } else {
+                0
+            },
+            match hour24 {
+                Some(true) => {
+                    GetTimeFormatEx(None, Default::default(), None, w!("HH:mm"), Some(&mut time))
+                }
+                Some(false) => GetTimeFormatEx(
+                    None,
+                    Default::default(),
+                    None,
+                    w!("h:mm tt"),
+                    Some(&mut time),
+                ),
+                None => GetTimeFormatEx(None, TIME_NOSECONDS, None, None, Some(&mut time)),
+            },
         )
     };
     let text =
         |buffer: &[u16], len: i32| String::from_utf16_lossy(&buffer[..(len - 1).max(0) as usize]);
-    format!("{}  {}", text(&date, date_len), text(&time, time_len))
+    if show_date {
+        format!("{}  {}", text(&date, date_len), text(&time, time_len))
+    } else {
+        text(&time, time_len)
+    }
 }

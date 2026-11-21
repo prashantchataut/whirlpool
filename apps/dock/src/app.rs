@@ -243,6 +243,16 @@ const DRAG_POLL_MS: u32 = 16;
 
 /// Auto-hide slide speed (about 250 ms).
 const SLIDE_OMEGA: f32 = 24.0;
+/// How fast the dock sinks when Whirlpool quits.
+const QUIT_OMEGA: f32 = 14.0;
+/// How long the dock gets to sink before the window is destroyed.
+const QUIT_DELAY_MS: u64 = 420;
+/// Set once a quit is under way, so a second close request is final.
+static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Explorer can show the Windows taskbar again without telling anyone. A
+/// cheap check every few seconds puts it back; one wake-up at 0.2 Hz.
+const REPAIR_TIMER: usize = 40;
+const REPAIR_MS: u32 = 5_000;
 /// Screen-edge strip that reveals a hidden dock, in physical pixels.
 const REVEAL_STRIP: i32 = 2;
 /// An icon released this far above the magnified dock, in icon heights, leaves it.
@@ -787,6 +797,9 @@ struct App {
     config: Config,
     /// 0 = shown, 1 = hidden (auto-hide).
     slide: Spring,
+    /// The slide is playing the startup or quit animation, with its own
+    /// speed, instead of the usual auto-hide one.
+    slide_special: bool,
     press: Option<Press>,
     drag: Option<Dragging>,
     /// Files being dragged over the dock from another app.
@@ -2566,9 +2579,10 @@ impl App {
             whirlpool_shell::system::energy_saver_on(),
         );
         let before = self.power_seen.replace(now);
-        let charging_allowed = self
-            .charging_shown
-            .is_none_or(|shown| shown.elapsed() >= CHARGING_AGAIN);
+        let charging_allowed = self.config.charging_animation
+            && self
+                .charging_shown
+                .is_none_or(|shown| shown.elapsed() >= CHARGING_AGAIN);
         let act = power_act(before, now, charging_allowed);
         if let Some(act) = act {
             if matches!(act, mascot::Act::Charging | mascot::Act::Unplugged)
@@ -4097,6 +4111,16 @@ impl App {
             unsafe { SetTimer(Some(self.input), SYNC_TIMER, SYNC_DELAY_MS, None) };
         }
         let dt = now.duration_since(self.last_frame).as_secs_f32();
+        // The animation style scales every spring.
+        let speed = self.config.animation_style.speed();
+        self.amount.omega = HOVER_OMEGA * speed;
+        if self.slide_special {
+            if self.slide.is_settled() {
+                self.slide_special = false;
+            }
+        } else {
+            self.slide.omega = SLIDE_OMEGA * speed;
+        }
         self.amount.step(dt);
         self.slide.step(dt);
         self.last_frame = now;
@@ -4180,6 +4204,9 @@ impl App {
             bluetooth: self.config.menu_bar_bluetooth,
             battery_percent: self.config.menu_bar_battery_percent,
             island_style: self.config.menu_bar_island_style,
+            opacity: self.config.menu_bar_opacity,
+            date: self.config.menu_bar_date,
+            hour24: self.config.menu_bar_24h,
         };
         if !self.config.menu_bar {
             self.menubar = None;
@@ -5268,6 +5295,14 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
         }
         // A folder's submenu in the shortcuts folder's menu is about to open.
         WM_INITMENUPOPUP if folder_menu::init_popup(HMENU(w.0 as *mut _)) => {}
+        WM_CLOSE if !QUITTING.swap(true, Ordering::Relaxed) && begin_smooth_quit(hwnd) => {}
+        WM_TIMER if w.0 == REPAIR_TIMER => with_app("barra de Windows", |app| {
+            if app.taskbar_worker.is_none() && taskbar::needs_visibility_repair() {
+                app.taskbar_attempts = 0;
+                app.request_taskbar(false)?;
+            }
+            Ok(())
+        }),
         WM_DESTROY => unsafe { PostQuitMessage(0) },
         _ if SHELL_HOOK.get() == Some(&msg) => match w.0 {
             // Changing the foreground window does not change the app list; it
@@ -5304,6 +5339,45 @@ fn is_tracked(hwnd: isize) -> bool {
                 .is_some_and(|app| app.windows.iter().any(|window| window.hwnd == hwnd))
         })
     })
+}
+
+/// Sinks the dock into its edge, then asks again to close once it is gone.
+/// `false` means there is nothing to animate and the window can close now.
+fn begin_smooth_quit(hwnd: HWND) -> bool {
+    let started = APP.with(|cell| {
+        let Ok(mut app) = cell.try_borrow_mut() else {
+            return false;
+        };
+        app.as_mut().is_some_and(|app| {
+            if app.stage.is_none()
+                || app.config.auto_hide
+                || app.config.startup_animation.omega().is_none()
+                || app.slide.value > 0.99
+            {
+                return false;
+            }
+            app.slide_special = true;
+            app.slide.omega = QUIT_OMEGA;
+            app.slide.target = 1.0;
+            app.last_frame = Instant::now();
+            true
+        })
+    });
+    if started {
+        let window = hwnd.0 as isize;
+        let spawned = thread::Builder::new()
+            .name("whirlpool-quit".into())
+            .spawn(move || {
+                thread::sleep(std::time::Duration::from_millis(QUIT_DELAY_MS));
+                // SAFETY: Only a message with no data is posted.
+                unsafe {
+                    let _ =
+                        PostMessageW(Some(HWND(window as *mut _)), WM_CLOSE, WPARAM(0), LPARAM(0));
+                }
+            });
+        return spawned.is_ok();
+    }
+    false
 }
 
 fn is_animating() -> bool {
@@ -5415,6 +5489,12 @@ pub fn run() -> Result<()> {
         strings::set_language(config.language);
         let roster = roster_from(&config);
         let auto_hide = config.auto_hide;
+        // The dock starts below its edge and rises into place.
+        let startup_omega = if auto_hide {
+            None
+        } else {
+            config.startup_animation.omega()
+        };
         let mut app = App {
             visual,
             input,
@@ -5445,7 +5525,14 @@ pub fn run() -> Result<()> {
             placeholder: None,
             remove_label: None,
             config,
-            slide: Spring::at(if auto_hide { 1.0 } else { 0.0 }, SLIDE_OMEGA),
+            slide: match startup_omega {
+                Some(omega) => Spring {
+                    target: 0.0,
+                    ..Spring::at(1.0, omega)
+                },
+                None => Spring::at(if auto_hide { 1.0 } else { 0.0 }, SLIDE_OMEGA),
+            },
+            slide_special: startup_omega.is_some(),
             press: None,
             drag: None,
             incoming: Vec::new(),
@@ -5572,6 +5659,10 @@ pub fn run() -> Result<()> {
     // depending on load. Run it off the UI thread after the dock is visible.
     query_bin_in_background();
     with_app("ocultar la barra de Windows", |app| {
+        // The animation clock starts now, not when the window was created.
+        app.last_frame = Instant::now();
+        // SAFETY: A timer on our own live window.
+        unsafe { SetTimer(Some(app.visual), REPAIR_TIMER, REPAIR_MS, None) };
         app.request_taskbar(false)
     });
 

@@ -110,7 +110,83 @@ pub struct Config {
     /// menu, with a submenu for each folder inside, like a Windows 10 taskbar
     /// toolbar. Only one: the user arranges the folder as they like.
     pub shortcuts_folder: Option<String>,
+    /// How the dock moves: the feel of magnification and of sliding in and out.
+    pub animation_style: AnimationStyle,
+    /// How the dock arrives when Whirlpool starts.
+    pub startup_animation: StartupAnimation,
+    /// The charging scene when the charger is plugged in. Independent of the
+    /// other mascot moments, which `mascot` controls.
+    pub charging_animation: bool,
+    /// How strong the menu bar's tint is over the glass, in percent. 100 is
+    /// solid; the default matches the original look.
+    pub menu_bar_opacity: u32,
+    /// Show the date next to the time in the menu bar.
+    pub menu_bar_date: bool,
+    /// Force a 24-hour (`Some(true)`) or 12-hour (`Some(false)`) clock;
+    /// `None` follows Windows.
+    pub menu_bar_24h: Option<bool>,
+    /// The wallpaper preset Whirlpool last applied (see `whirlpool-shell`).
+    pub wallpaper: Option<String>,
 }
+
+/// The feel of every spring in the dock. Springs never overshoot; the style
+/// changes how quickly they settle.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AnimationStyle {
+    /// Slow and floaty.
+    Relaxed,
+    /// Quick and crisp.
+    Snappy,
+    /// The original feel. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Smooth,
+}
+
+impl AnimationStyle {
+    /// Multiplier on every spring's angular frequency.
+    #[must_use]
+    pub fn speed(self) -> f32 {
+        match self {
+            Self::Relaxed => 0.7,
+            Self::Smooth => 1.0,
+            Self::Snappy => 1.6,
+        }
+    }
+}
+
+/// How the dock comes in when it starts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StartupAnimation {
+    /// The dock simply appears.
+    Off,
+    /// A long, soft glide up from the edge.
+    Glide,
+    /// A quick slide.
+    Swift,
+    /// A confident rise: the default. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Rise,
+}
+
+impl StartupAnimation {
+    /// Angular frequency of the slide, or `None` when there is no animation.
+    #[must_use]
+    pub fn omega(self) -> Option<f32> {
+        match self {
+            Self::Off => None,
+            Self::Glide => Some(5.5),
+            Self::Rise => Some(9.0),
+            Self::Swift => Some(16.0),
+        }
+    }
+}
+
+/// Bounds of `Config::menu_bar_opacity`.
+pub const MENU_BAR_OPACITY_RANGE: (u32, u32) = (10, 100);
 
 /// Pinned apps the user gathered in one dock icon by dropping one on
 /// another. Its `id` stands for it in `pinned`, in its place.
@@ -197,6 +273,13 @@ impl Config {
         self.magnified_size = self
             .magnified_size
             .clamp(self.icon_size, MAX_MAGNIFIED_SIZE);
+        self.menu_bar_opacity = self
+            .menu_bar_opacity
+            .clamp(MENU_BAR_OPACITY_RANGE.0, MENU_BAR_OPACITY_RANGE.1);
+        self.wallpaper = self
+            .wallpaper
+            .map(|id| id.trim().to_owned())
+            .filter(|id| !id.is_empty());
         self.shortcuts_folder = self
             .shortcuts_folder
             .map(|folder| folder.trim().to_owned())
@@ -250,21 +333,31 @@ impl Default for Config {
             auto_update: true,
             language: Language::Auto,
             shortcuts_folder: None,
+            animation_style: AnimationStyle::Smooth,
+            startup_animation: StartupAnimation::Rise,
+            charging_animation: true,
+            menu_bar_opacity: 50,
+            menu_bar_date: true,
+            menu_bar_24h: None,
+            wallpaper: None,
         }
     }
 }
 
-/// Moves the settings folder from before the app was renamed to Whirlpool.
+/// Brings settings over from the earlier names of this app (`WinDock`, then
+/// `Muelle`). The first folder that exists wins; the old one is renamed, so a
+/// user who switches to Whirlpool keeps pins, groups and every preference.
 pub fn migrate_legacy_folder() {
     let roaming = PathBuf::from(env::var_os("APPDATA").unwrap_or_default());
-    let (old, new) = (roaming.join("WinDock"), roaming.join("Whirlpool"));
-    if old.is_dir() && !new.exists() {
-        let _ = fs::rename(old, new);
+    let new = roaming.join("Whirlpool");
+    if new.exists() {
+        return;
     }
-    // Coming from Muelle: carry the settings over, and leave the original untouched.
-    let muelle = roaming.join("Muelle").join("config.json");
-    if muelle.is_file() && !new.exists() && fs::create_dir_all(&new).is_ok() {
-        let _ = fs::copy(muelle, new.join("config.json"));
+    for old in ["Muelle", "WinDock"] {
+        let old = roaming.join(old);
+        if old.is_dir() && fs::rename(&old, &new).is_ok() {
+            return;
+        }
     }
 }
 
@@ -393,6 +486,51 @@ mod tests {
         let folder = env::temp_dir().join(format!("whirlpool-test-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&folder);
         folder.join("config.json")
+    }
+
+    #[test]
+    fn an_old_config_file_gets_the_new_options_at_their_defaults() {
+        let old: Config = serde_json::from_str(r#"{"iconSize":52,"autoHide":true}"#).unwrap();
+        assert_eq!(old.icon_size, 52);
+        assert_eq!(old.startup_animation, StartupAnimation::Rise);
+        assert_eq!(old.animation_style, AnimationStyle::Smooth);
+        assert!(old.charging_animation);
+        assert_eq!(old.menu_bar_opacity, 50);
+    }
+
+    #[test]
+    fn values_from_a_newer_version_read_as_the_default() {
+        let config: Config =
+            serde_json::from_str(r#"{"animationStyle":"wobbly","startupAnimation":"warp"}"#)
+                .unwrap();
+        assert_eq!(config.animation_style, AnimationStyle::Smooth);
+        assert_eq!(config.startup_animation, StartupAnimation::Rise);
+    }
+
+    #[test]
+    fn out_of_range_opacity_and_blank_wallpaper_are_repaired() {
+        let config = Config {
+            menu_bar_opacity: 400,
+            wallpaper: Some("  ".into()),
+            ..Config::default()
+        }
+        .sanitized();
+        assert_eq!(config.menu_bar_opacity, MENU_BAR_OPACITY_RANGE.1);
+        assert_eq!(config.wallpaper, None);
+        let low = Config {
+            menu_bar_opacity: 0,
+            ..Config::default()
+        }
+        .sanitized();
+        assert_eq!(low.menu_bar_opacity, MENU_BAR_OPACITY_RANGE.0);
+    }
+
+    #[test]
+    fn animation_speeds_are_ordered_and_off_has_no_slide() {
+        assert!(AnimationStyle::Relaxed.speed() < AnimationStyle::Smooth.speed());
+        assert!(AnimationStyle::Smooth.speed() < AnimationStyle::Snappy.speed());
+        assert_eq!(StartupAnimation::Off.omega(), None);
+        assert!(StartupAnimation::Glide.omega() < StartupAnimation::Swift.omega());
     }
 
     #[test]

@@ -8,3 +8,4 @@ pub mod layout;
 pub mod magnify;
 pub mod roster;
 pub mod spring;
+pub mod wallpaper;

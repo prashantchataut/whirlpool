@@ -6,12 +6,20 @@ use eframe::egui::{
     Response, RichText, Sense, Stroke, StrokeKind, TextureHandle, Ui, Vec2, pos2, vec2,
 };
 
-/// The current: a deep teal that holds 3:1 against both the abyss and the shallows.
-pub const ACCENT: Color32 = Color32::from_rgb(0x0e, 0xa5, 0xa8);
-/// Foam: the bright end of the water, used for highlights on dark surfaces.
-pub const FOAM: Color32 = Color32::from_rgb(0x7a, 0xee, 0xde);
-/// Coral: the single warm signal colour, reserved for things that need attention.
-pub const DANGER: Color32 = Color32::from_rgb(0xf2, 0x64, 0x4a);
+/// Tide: the single accent. Deep enough for white text, bright enough on abyss.
+pub const ACCENT: Color32 = Color32::from_rgb(0x0e, 0x93, 0x98);
+/// Foam: the pale highlight used for marks and the active nav label.
+pub const FOAM: Color32 = Color32::from_rgb(0x9f, 0xf0, 0xe6);
+pub const DANGER: Color32 = Color32::from_rgb(0xe5, 0x4b, 0x4b);
+
+/// The bold weight; egui has no synthetic bold, so the font is real.
+pub fn semibold() -> egui::FontFamily {
+    egui::FontFamily::Name("semibold".into())
+}
+
+pub fn heading(size: f32) -> FontId {
+    FontId::new(size, semibold())
+}
 
 /// Colors that depend on the light or dark theme.
 #[derive(Clone, Copy)]
@@ -23,50 +31,152 @@ pub struct Palette {
     pub text: Color32,
     pub muted: Color32,
     pub track: Color32,
+    /// Accent used for text and thin strokes (needs contrast on `window`).
+    pub accent_ink: Color32,
 }
 
 impl Palette {
     pub fn of(ui: &Ui) -> Self {
-        if ui.visuals().dark_mode {
+        Self::for_mode(ui.visuals().dark_mode)
+    }
+
+    pub const fn for_mode(dark: bool) -> Self {
+        if dark {
+            // Abyss: blue-green blacks, never neutral grey.
             Self {
-                window: Color32::from_rgb(0x07, 0x14, 0x19),
-                sidebar: Color32::from_rgb(0x0a, 0x1b, 0x22),
-                card: Color32::from_rgb(0x0e, 0x25, 0x2d),
-                border: Color32::from_rgb(0x1b, 0x3a, 0x45),
-                text: Color32::from_rgb(0xe6, 0xf4, 0xf2),
-                muted: Color32::from_rgb(0x84, 0xa8, 0xad),
-                track: Color32::from_rgb(0x2a, 0x4b, 0x56),
+                window: Color32::from_rgb(0x07, 0x15, 0x1b),
+                sidebar: Color32::from_rgb(0x0a, 0x1d, 0x25),
+                card: Color32::from_rgb(0x0e, 0x27, 0x30),
+                border: Color32::from_rgb(0x1a, 0x3b, 0x46),
+                text: Color32::from_rgb(0xe7, 0xf3, 0xf0),
+                muted: Color32::from_rgb(0x84, 0xa5, 0xab),
+                track: Color32::from_rgb(0x2a, 0x4c, 0x56),
+                accent_ink: FOAM,
             }
         } else {
+            // Foam: sea-glass whites.
             Self {
-                window: Color32::from_rgb(0xee, 0xf6, 0xf7),
-                sidebar: Color32::from_rgb(0xdf, 0xed, 0xef),
-                card: Color32::from_rgb(0xfa, 0xfd, 0xfd),
-                border: Color32::from_rgb(0xcb, 0xdf, 0xe2),
-                text: Color32::from_rgb(0x08, 0x1e, 0x24),
-                muted: Color32::from_rgb(0x4f, 0x6f, 0x76),
-                track: Color32::from_rgb(0xb4, 0xcc, 0xd0),
+                window: Color32::from_rgb(0xee, 0xf5, 0xf4),
+                sidebar: Color32::from_rgb(0xe0, 0xec, 0xea),
+                card: Color32::from_rgb(0xfb, 0xfe, 0xfd),
+                border: Color32::from_rgb(0xcb, 0xdd, 0xda),
+                text: Color32::from_rgb(0x0b, 0x1f, 0x26),
+                muted: Color32::from_rgb(0x55, 0x73, 0x7a),
+                track: Color32::from_rgb(0xb4, 0xcb, 0xc9),
+                accent_ink: Color32::from_rgb(0x0a, 0x6e, 0x73),
             }
         }
     }
 }
 
+fn load_fonts(ctx: &egui::Context) {
+    use egui::{FontData, FontDefinitions, FontFamily};
+    use std::sync::Arc;
+    let mut fonts = FontDefinitions::default();
+    fonts.font_data.insert(
+        "inter".into(),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../assets/fonts/Inter-Regular.ttf"
+        ))),
+    );
+    fonts.font_data.insert(
+        "inter-semibold".into(),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../assets/fonts/Inter-SemiBold.ttf"
+        ))),
+    );
+    // Inter first; the bundled egui fonts stay behind it for symbols.
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, "inter".into());
+    let mut bold = vec!["inter-semibold".to_owned()];
+    bold.extend(
+        fonts
+            .families
+            .get(&FontFamily::Proportional)
+            .cloned()
+            .unwrap_or_default(),
+    );
+    fonts.families.insert(semibold(), bold);
+    ctx.set_fonts(fonts);
+}
+
+fn style_for(style: &mut egui::Style, p: Palette) {
+    style.spacing.item_spacing = vec2(10.0, 8.0);
+    style.spacing.button_padding = vec2(14.0, 6.0);
+    style.spacing.slider_width = 190.0;
+    style.spacing.combo_width = 150.0;
+    let v = &mut style.visuals;
+    v.panel_fill = p.window;
+    v.window_fill = p.card;
+    v.extreme_bg_color = p.window;
+    v.faint_bg_color = p.card;
+    v.window_stroke = Stroke::new(1.0, p.border);
+    v.window_corner_radius = CornerRadius::same(14);
+    v.menu_corner_radius = CornerRadius::same(10);
+    v.selection.bg_fill = ACCENT;
+    v.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+    v.hyperlink_color = p.accent_ink;
+    let radius = CornerRadius::same(9);
+    for (w, fill) in [
+        (&mut v.widgets.inactive, p.border.gamma_multiply(0.55)),
+        (&mut v.widgets.hovered, p.border),
+        (&mut v.widgets.active, p.track),
+    ] {
+        w.corner_radius = radius;
+        w.weak_bg_fill = fill;
+        w.bg_fill = fill;
+        w.bg_stroke = Stroke::NONE;
+        w.fg_stroke = Stroke::new(1.0, p.text);
+    }
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, p.text);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, p.border);
+    v.widgets.open.corner_radius = radius;
+    v.widgets.open.weak_bg_fill = p.border;
+}
+
 /// Applies the theme once; both light and dark follow Windows.
 pub fn install_theme(ctx: &egui::Context) {
+    load_fonts(ctx);
     ctx.set_theme(egui::ThemePreference::System);
-    ctx.all_styles_mut(|style| {
-        style.spacing.item_spacing = vec2(10.0, 8.0);
-        style.spacing.button_padding = vec2(14.0, 6.0);
-        style.spacing.slider_width = 190.0;
-        style.visuals.selection.bg_fill = ACCENT;
-        style.visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
-        style.visuals.hyperlink_color = ACCENT;
-        style.visuals.text_cursor.stroke = Stroke::new(2.0, ACCENT);
-        style.visuals.widgets.inactive.corner_radius = CornerRadius::same(8);
-        style.visuals.widgets.hovered.corner_radius = CornerRadius::same(8);
-        style.visuals.widgets.active.corner_radius = CornerRadius::same(8);
-        style.visuals.window_corner_radius = CornerRadius::same(12);
+    ctx.style_mut_of(egui::Theme::Dark, |s| style_for(s, Palette::for_mode(true)));
+    ctx.style_mut_of(egui::Theme::Light, |s| {
+        style_for(s, Palette::for_mode(false))
     });
+}
+
+/// The Whirlpool mark: a tide-colored tile with a two-armed vortex in foam.
+pub fn logo(painter: &Painter, rect: Rect) {
+    let radius = rect.width() * 0.3;
+    painter.rect_filled(rect, CornerRadius::same((rect.width() * 0.3) as u8), ACCENT);
+    painter.rect_filled(
+        Rect::from_min_max(rect.center(), rect.right_bottom()),
+        CornerRadius {
+            nw: 0,
+            ne: 0,
+            sw: 0,
+            se: radius as u8,
+        },
+        Color32::from_rgba_unmultiplied(0, 40, 60, 60),
+    );
+    let c = rect.center();
+    let max_r = rect.width() * 0.34;
+    for arm in 0..2 {
+        let phase = arm as f32 * std::f32::consts::PI;
+        let points: Vec<egui::Pos2> = (0..=40)
+            .map(|i| {
+                let t = i as f32 / 40.0;
+                let angle = phase + t * 4.6;
+                let r = max_r * (0.14 + 0.86 * t);
+                pos2(c.x + r * angle.cos(), c.y + r * angle.sin())
+            })
+            .collect();
+        let width = (rect.width() * 0.075).max(1.5);
+        painter.add(egui::Shape::line(points, Stroke::new(width, FOAM)));
+    }
+    painter.circle_filled(c, rect.width() * 0.045, Color32::WHITE);
 }
 
 /// A rounded group of rows with an optional small title above it.
@@ -76,16 +186,16 @@ pub fn card(ui: &mut Ui, title: Option<&str>, add: impl FnOnce(&mut Ui)) {
         ui.add_space(6.0);
         ui.label(
             RichText::new(title.to_uppercase())
-                .size(11.5)
-                .strong()
+                .font(heading(11.0))
+                .extra_letter_spacing(1.2)
                 .color(palette.muted),
         );
     }
     Frame::new()
         .fill(palette.card)
         .stroke(Stroke::new(1.0, palette.border))
-        .corner_radius(CornerRadius::same(12))
-        .inner_margin(Margin::symmetric(16, 6))
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::symmetric(18, 6))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.spacing_mut().item_spacing.y = 0.0;
@@ -265,7 +375,7 @@ fn desktop(painter: &Painter, rect: Rect, backdrop: &Backdrop) {
             painter.add(mesh);
         }
         None => {
-            painter.rect_filled(rect, round, Color32::from_rgb(0x0c, 0x3b, 0x55));
+            painter.rect_filled(rect, round, Color32::from_rgb(0x0b, 0x3c, 0x4d));
             painter.rect_filled(
                 Rect::from_min_max(rect.center_top(), rect.right_bottom()).shrink(1.0),
                 CornerRadius {
@@ -274,7 +384,7 @@ fn desktop(painter: &Painter, rect: Rect, backdrop: &Backdrop) {
                     sw: 0,
                     se: 10,
                 },
-                Color32::from_rgb(0x1f, 0x8f, 0xa0),
+                Color32::from_rgb(0x1f, 0x8a, 0x8f),
             );
         }
     }
@@ -326,11 +436,11 @@ pub fn preview_dock(
             pos2(dock.center().x - icon / 2.0, dock.top() + offset)
         };
         let color = [
-            Color32::from_rgb(0xff, 0x8a, 0x6b),
-            Color32::from_rgb(0xff, 0xd1, 0x8a),
-            Color32::from_rgb(0x5a, 0xd1, 0xf0),
-            Color32::from_rgb(0x2d, 0xe0, 0xb5),
-            Color32::from_rgb(0x9a, 0xc4, 0xff),
+            Color32::from_rgb(0xff, 0x8a, 0x5c),
+            Color32::from_rgb(0xf4, 0xd3, 0x5e),
+            Color32::from_rgb(0x5a, 0xc8, 0xe8),
+            Color32::from_rgb(0x3d, 0xd9, 0xb0),
+            Color32::from_rgb(0x8f, 0xa8, 0xff),
         ][index];
         painter.rect_filled(
             Rect::from_min_size(min, Vec2::splat(icon)),
@@ -374,7 +484,11 @@ pub fn preview_island(
                 },
                 ink,
             );
-            painter.circle_filled(pos2(notch.left() + 11.0, notch.center().y), 3.0, FOAM);
+            painter.circle_filled(
+                pos2(notch.left() + 11.0, notch.center().y),
+                3.0,
+                Color32::from_rgb(0x1d, 0xd1, 0xa1),
+            );
         }
         _ => {
             let bubble = Rect::from_min_size(
@@ -382,7 +496,11 @@ pub fn preview_island(
                 vec2(50.0, 16.0),
             );
             painter.rect_filled(bubble, CornerRadius::same(8), ink);
-            painter.circle_filled(pos2(bubble.left() + 9.0, bubble.center().y), 3.0, FOAM);
+            painter.circle_filled(
+                pos2(bubble.left() + 9.0, bubble.center().y),
+                3.0,
+                Color32::from_rgb(0x1d, 0xd1, 0xa1),
+            );
         }
     }
 }
@@ -394,7 +512,7 @@ pub fn preview_speed(
     speed: whirlpool_config::GenieSpeed,
 ) {
     use whirlpool_config::GenieSpeed;
-    let palette_fill = Color32::from_rgb(0x0b, 0x2a, 0x35);
+    let palette_fill = Color32::from_rgb(0x0a, 0x1d, 0x25);
     painter.rect_filled(rect, CornerRadius::same(10), palette_fill);
     // A bar that fills faster the faster the genie flies.
     let fraction = match speed {
@@ -406,54 +524,9 @@ pub fn preview_speed(
     painter.rect_filled(
         track,
         CornerRadius::same(4),
-        Color32::from_rgb(0x1e, 0x4a, 0x58),
+        Color32::from_rgb(0x2a, 0x4c, 0x56),
     );
     let mut filled = track;
     filled.set_right(track.left() + track.width() * fraction);
     painter.rect_filled(filled, CornerRadius::same(4), ACCENT);
-}
-
-/// The Whirlpool mark: two spiral arms drawn as vector strokes, so it stays
-/// sharp at any scale and needs no image asset.
-pub fn vortex(painter: &Painter, center: egui::Pos2, radius: f32, color: Color32) {
-    const STEPS: usize = 48;
-    const TURNS: f32 = 1.55;
-    for arm in 0..2 {
-        let offset = arm as f32 * std::f32::consts::PI;
-        let points: Vec<egui::Pos2> = (0..=STEPS)
-            .map(|step| {
-                let t = step as f32 / STEPS as f32;
-                // Arms start wide and wind in; the curve eases so the eye lands at the middle.
-                let r = radius * (1.0 - t).powf(0.85);
-                let angle = offset + t * TURNS * std::f32::consts::TAU;
-                center + vec2(angle.cos(), angle.sin()) * r
-            })
-            .collect();
-        let width = if arm == 0 { 2.4 } else { 1.6 };
-        painter.add(egui::Shape::line(points, Stroke::new(width, color)));
-    }
-    painter.circle_filled(center, radius * 0.1, color);
-}
-
-/// A quiet sine line: the waterline that sits under every page title.
-pub fn waterline(ui: &mut Ui, width: f32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(width, 10.0), Sense::hover());
-    let points: Vec<egui::Pos2> = (0..=60)
-        .map(|i| {
-            let t = i as f32 / 60.0;
-            pos2(
-                rect.left() + t * rect.width(),
-                rect.center().y + (t * std::f32::consts::TAU * 3.0).sin() * 2.2,
-            )
-        })
-        .collect();
-    // Fades out to the right, like a ripple losing energy.
-    let steps = points.len() - 1;
-    for (index, pair) in points.windows(2).enumerate() {
-        let fade = 1.0 - index as f32 / steps as f32;
-        ui.painter().line_segment(
-            [pair[0], pair[1]],
-            Stroke::new(1.6, ACCENT.gamma_multiply(0.15 + 0.85 * fade)),
-        );
-    }
 }

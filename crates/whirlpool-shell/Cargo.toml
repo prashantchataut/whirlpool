@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
+whirlpool-core.workspace = true
 thiserror.workspace = true
 # `#[implement]` (COM callbacks in `status`) expands to paths in windows-core.
 windows-core.workspace = true

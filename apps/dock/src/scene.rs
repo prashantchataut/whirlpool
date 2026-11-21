@@ -44,27 +44,26 @@ impl Theme {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(232, 250, 252, 58)
+                    rgba(226, 250, 247, 54)
                 } else {
-                    rgba(214, 236, 240, 255)
+                    rgba(216, 234, 232, 255)
                 },
-                separator: rgba(4, 60, 72, 64),
-                shadow: rgba(2, 40, 52, 64),
-                // Running-app dot: deep teal on the light dock, foam on the dark one.
-                indicator: rgba(6, 98, 112, 215),
+                separator: rgba(0, 0, 0, 56),
+                shadow: rgba(0, 0, 0, 56),
+                indicator: rgba(6, 74, 80, 205),
             }
         } else {
             Self {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(4, 26, 36, 96)
+                    rgba(4, 34, 44, 94)
                 } else {
-                    rgba(12, 38, 48, 255)
+                    rgba(14, 42, 52, 255)
                 },
-                separator: rgba(150, 230, 236, 58),
-                shadow: rgba(0, 12, 20, 110),
-                indicator: rgba(120, 238, 222, 235),
+                separator: rgba(255, 255, 255, 64),
+                shadow: rgba(0, 0, 0, 96),
+                indicator: rgba(159, 240, 230, 235),
             }
         }
     }
@@ -74,7 +73,7 @@ impl Theme {
         if self.light {
             rgba(255, 255, 255, 120)
         } else {
-            rgba(150, 240, 240, 44)
+            rgba(255, 255, 255, 46)
         }
     }
 
@@ -180,7 +179,7 @@ impl GlassSurface {
 }
 
 /// Outline of the icon a dragged app would join in a group.
-const MERGE_ACCENT: Color = rgba(45, 205, 210, 230);
+const MERGE_ACCENT: Color = rgba(80, 150, 255, 230);
 
 const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color {
     Color {
@@ -247,7 +246,7 @@ impl AttentionBadge {
         shape.SetStrokeBrush(&c.CreateColorBrushWithColor(if theme.light {
             rgba(255, 255, 255, 245)
         } else {
-            rgba(4, 26, 36, 245)
+            rgba(38, 38, 40, 245)
         })?)?;
         shape.SetStrokeThickness(0.12)?;
         let visual = c.CreateShapeVisual()?;

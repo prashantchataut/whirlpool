@@ -1,0 +1,30 @@
+name: Previews
+
+# Builds the site and screenshots it in a real browser. Download the artifact to refresh docs/previews.
+on:
+  workflow_dispatch:
+
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the site
+        working-directory: site
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          (npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &)
+      - name: Screenshot
+        run: |
+          npm install --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+          sleep 3
+          node scripts/shoot.mjs http://localhost:4173/whirlpool/ docs/previews
+      - uses: actions/upload-artifact@v4
+        with:
+          name: previews
+          path: docs/previews/*.png

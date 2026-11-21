@@ -48,6 +48,17 @@ fn main() {
     resources.set_icon("../../assets/brand/whirlpool.ico");
     // Code signing checks that every signed file names the same product.
     resources.set("ProductName", "Whirlpool");
+    resources.set("CompanyName", "Whirlpool");
+    resources.set(
+        "LegalCopyright",
+        "Copyright (c) Whirlpool contributors. MIT License.",
+    );
+    resources.set("OriginalFilename", "whirlpool.exe");
+    resources.set("InternalName", "whirlpool");
+    resources.set(
+        "Comments",
+        "Open source: https://github.com/prashantchataut/whirlpool",
+    );
     resources.set("FileDescription", "Whirlpool dock");
     // Ensure Microsoft.Windows.Common-Controls 6.0.0.0 is declared so shell
     // extensions (like utshellext.dll) find modern exports like LoadIconWithScaleDown
