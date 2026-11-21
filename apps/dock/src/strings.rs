@@ -4,8 +4,8 @@
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
-use muelle_config::Language;
-use muelle_shell::system::{UiLanguage, ui_language};
+use whirlpool_config::Language;
+use whirlpool_shell::system::{UiLanguage, ui_language};
 
 pub struct Strings {
     pub open: &'static str,
@@ -64,12 +64,12 @@ const ES: Strings = Strings {
     empty_bin: "&Vaciar papelera",
     turn_hiding_on: "Activar &ocultación automática",
     turn_hiding_off: "Desactivar &ocultación automática",
-    quit_dock: "Salir de &Muelle",
+    quit_dock: "Salir de &Whirlpool",
     start: "Inicio",
     remove: "Quitar",
     close_window: "&Cerrar",
     ungroup: "&Desagrupar",
-    settings: "&Ajustes de Muelle…",
+    settings: "&Ajustes de Whirlpool…",
     run_as_admin: "Ejecutar como a&dministrador",
     show_desktop: "Mostrar &escritorio",
     task_manager: "Administrador de &tareas",
@@ -107,12 +107,12 @@ const EN: Strings = Strings {
     empty_bin: "&Empty Recycle Bin",
     turn_hiding_on: "Turn Hiding &On",
     turn_hiding_off: "Turn Hiding &Off",
-    quit_dock: "Quit &Muelle",
+    quit_dock: "Quit &Whirlpool",
     start: "Start",
     remove: "Remove",
     close_window: "&Close",
     ungroup: "&Ungroup",
-    settings: "Muelle &Settings…",
+    settings: "Whirlpool &Settings…",
     run_as_admin: "Run as a&dministrator",
     show_desktop: "Show &Desktop",
     task_manager: "Task &Manager",
@@ -150,12 +150,12 @@ const FR: Strings = Strings {
     empty_bin: "&Vider la Corbeille",
     turn_hiding_on: "Activer le &masquage automatique",
     turn_hiding_off: "Désactiver le &masquage automatique",
-    quit_dock: "&Quitter Muelle",
+    quit_dock: "&Quitter Whirlpool",
     start: "Démarrer",
     remove: "Retirer",
     close_window: "&Fermer",
     ungroup: "&Dégrouper",
-    settings: "&Réglages de Muelle…",
+    settings: "&Réglages de Whirlpool…",
     run_as_admin: "Exécuter en tant qu'&administrateur",
     show_desktop: "Afficher le &Bureau",
     task_manager: "&Gestionnaire des tâches",

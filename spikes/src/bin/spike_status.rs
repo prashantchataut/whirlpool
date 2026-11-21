@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use muelle_shell::status::{self, AudioWatch, NetworkWatch};
+use whirlpool_shell::status::{self, AudioWatch, NetworkWatch};
 use windows::{
     Win32::{
         Foundation::HWND,

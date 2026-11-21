@@ -151,7 +151,7 @@ carga, suspensión y convivencia con G HUB, GG y NGENUITY.
   apagado: también se limita a 60 segundos ese intento de descubrirlo.
 - Pausa mientras la barra esté auto-oculta o cubierta. Dos eventos de kernel comunican
   visibilidad; no hay un timer de UI ni escrituras bloqueantes a una tubería.
-- Cada consulta corre en otro `muelle.exe --accessory-usb-query`, con Job Object y
+- Cada consulta corre en otro `whirlpool.exe --accessory-usb-query`, con Job Object y
   plazo de dos segundos. HID usa I/O overlapped, 150 ms por intercambio con auriculares,
   400 ms por petición HID++ a través de receptor (la radio despierta antes al ratón;
   el monitor de referencia usa 400 ms en su ping) y 1.250 ms para la secuencia. Si un controlador no cancela, solo se termina ese hijo;
@@ -166,7 +166,7 @@ carga, suspensión y convivencia con G HUB, GG y NGENUITY.
 El intervalo de 60 segundos sustituye al inicial de cinco minutos. En operación
 normal, por interfaz visible, pasa de unas 12 a unas 60 consultas por hora
 (aproximadamente 48 adicionales). El coste de CPU acumulado de las consultas
-crece con su frecuencia; no implica que el consumo total de Muelle se multiplique
+crece con su frecuencia; no implica que el consumo total de Whirlpool se multiplique
 por cinco. Se mantienen el mismo pool, una consulta simultánea y el mismo límite
 de memoria de cada proceso temporal.
 
@@ -184,15 +184,15 @@ hardware para evitar lectores que interfieran con software del fabricante.
 ## Verificación
 
 ```powershell
-cargo test -p muelle -p muelle-shell -p muelle-config --locked
-cargo clippy -p muelle -p muelle-shell -p muelle-config --all-targets --locked -- -D warnings
-cargo build -p muelle --locked
-$env:MUELLE_ACCESSORY_TEST_EXE = 'C:\Users\USUARIO\.cargo-target\muelle\debug\muelle.exe'
-cargo test -p muelle --locked monitor_repeated_shutdown_and_timeout_are_bounded -- --ignored --test-threads=1
-cargo test -p muelle --locked usb_process_deadline_terminates_a_stalled_provider -- --ignored --test-threads=1
-cargo test -p muelle --locked accessory_indicators_render_without_controls_or_popups -- --ignored --test-threads=1
-cargo test -p muelle --locked accessory_opt_out_blocks_startup_resume_and_retry -- --ignored --test-threads=1
-cargo test -p muelle --locked long_requests_receive_short_or_long_replies_and_cancel_the_other_read -- --test-threads=1
+cargo test -p whirlpool -p whirlpool-shell -p whirlpool-config --locked
+cargo clippy -p whirlpool -p whirlpool-shell -p whirlpool-config --all-targets --locked -- -D warnings
+cargo build -p whirlpool --locked
+$env:WHIRLPOOL_ACCESSORY_TEST_EXE = 'C:\Users\USUARIO\.cargo-target\whirlpool\debug\whirlpool.exe'
+cargo test -p whirlpool --locked monitor_repeated_shutdown_and_timeout_are_bounded -- --ignored --test-threads=1
+cargo test -p whirlpool --locked usb_process_deadline_terminates_a_stalled_provider -- --ignored --test-threads=1
+cargo test -p whirlpool --locked accessory_indicators_render_without_controls_or_popups -- --ignored --test-threads=1
+cargo test -p whirlpool --locked accessory_opt_out_blocks_startup_resume_and_retry -- --ignored --test-threads=1
+cargo test -p whirlpool --locked long_requests_receive_short_or_long_replies_and_cancel_the_other_read -- --test-threads=1
 ```
 
 Ajustar la variable al ejecutable de ese equipo. Las pruebas cubren protocolo por
@@ -279,7 +279,7 @@ La compilación optimizada del dock también terminó correctamente.
 Para ejecutar la prueba de filtro (solo metadatos):
 
 ```powershell
-cargo test -p muelle --locked accessory_usb_discovery_enumerates_allowlist -- --ignored --test-threads=1
+cargo test -p whirlpool --locked accessory_usb_discovery_enumerates_allowlist -- --ignored --test-threads=1
 ```
 
 Reversión de este bloque: adaptadores `headsets.rs` y `headsets/`, sus perfiles y

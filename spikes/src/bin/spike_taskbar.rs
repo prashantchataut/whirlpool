@@ -154,7 +154,7 @@ fn watch() -> Result<()> {
     unsafe {
         let _ = TASKBAR_CREATED.set(RegisterWindowMessageW(w!("TaskbarCreated")));
         let instance = GetModuleHandleW(None)?;
-        let class = w!("MuelleSpikeTaskbarWatch");
+        let class = w!("WhirlpoolSpikeTaskbarWatch");
         RegisterClassW(&WNDCLASSW {
             lpfnWndProc: Some(wndproc),
             hInstance: instance.into(),

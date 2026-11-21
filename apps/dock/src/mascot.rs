@@ -12,8 +12,8 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use muelle_core::frame::DockEdge;
-use muelle_shell::icons::IconImage;
+use whirlpool_core::frame::DockEdge;
+use whirlpool_shell::icons::IconImage;
 use windows::{
     Foundation::TimeSpan,
     UI::Composition::{
@@ -40,11 +40,11 @@ use crate::gfx::Gfx;
 /// Sprite cells. `.` is transparent.
 fn color(cell: u8) -> Option<[u8; 3]> {
     Some(match cell {
-        b'k' | b'e' => [43, 20, 18],
-        b'o' => [232, 116, 64],
-        b'h' => [255, 214, 160],
-        b'd' => [204, 84, 44],
-        b'p' => [244, 140, 140],
+        b'k' | b'e' => [6, 30, 40],
+        b'o' => [30, 158, 170],
+        b'h' => [150, 232, 224],
+        b'd' => [14, 102, 122],
+        b'p' => [255, 142, 120],
         b'm' => [226, 70, 60],
         b'b' => [70, 160, 235],
         b'B' => [170, 215, 250],
@@ -508,7 +508,7 @@ impl Mascot {
         match Self::build(gfx, act, place, scale) {
             Ok(mascot) => Some(mascot),
             Err(error) => {
-                muelle_shell::log::line(&format!("cangrejo: {error:#}"));
+                whirlpool_shell::log::line(&format!("cangrejo: {error:#}"));
                 None
             }
         }
@@ -933,7 +933,7 @@ fn sprite(gfx: &Gfx, image: &IconImage) -> Result<SpriteVisual> {
 
 fn create_window(rect: RECT) -> Result<HWND> {
     static CLASS: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    let class = w!("MuelleMascot");
+    let class = w!("WhirlpoolMascot");
     // SAFETY: The class is registered once; the window is destroyed by
     // `Mascot::drop`, or by the caller if building the act fails.
     unsafe {

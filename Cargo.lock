@@ -1395,14 +1395,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "muelle"
-version = "0.2.0"
+name = "whirlpool"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "muelle-config",
- "muelle-core",
- "muelle-shell",
+ "whirlpool-config",
+ "whirlpool-core",
+ "whirlpool-shell",
  "png",
  "reqwest",
  "serde",
@@ -1416,8 +1416,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "muelle-config"
-version = "0.2.0"
+name = "whirlpool-config"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1425,16 +1425,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "muelle-core"
-version = "0.2.0"
+name = "whirlpool-core"
+version = "0.1.0"
 
 [[package]]
-name = "muelle-settings"
-version = "0.2.0"
+name = "whirlpool-settings"
+version = "0.1.0"
 dependencies = [
  "eframe",
- "muelle-config",
- "muelle-shell",
+ "whirlpool-config",
+ "whirlpool-shell",
  "serde",
  "serde_json",
  "windows",
@@ -1443,8 +1443,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "muelle-shell"
-version = "0.2.0"
+name = "whirlpool-shell"
+version = "0.1.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -2471,8 +2471,8 @@ name = "spikes"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "muelle-core",
- "muelle-shell",
+ "whirlpool-core",
+ "whirlpool-shell",
  "serde",
  "serde_json",
  "windows",

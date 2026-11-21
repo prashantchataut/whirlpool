@@ -2,7 +2,7 @@
 //! whether each one still exists, the input language indicator and which
 //! privacy indicators (microphone, camera, location) are on.
 
-use muelle_shell::{
+use whirlpool_shell::{
     pins::{app_exists, taskbar_pins},
     status::privacy,
     system::input_language,

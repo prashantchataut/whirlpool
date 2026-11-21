@@ -3,7 +3,7 @@
 
 use std::time::Instant;
 
-use muelle_shell::screen;
+use whirlpool_shell::screen;
 use windows::Win32::{
     Foundation::RECT,
     Graphics::Gdi::{

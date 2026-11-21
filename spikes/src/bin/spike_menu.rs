@@ -12,7 +12,7 @@ mod menu;
 
 use std::{io::Write, time::Duration};
 
-use muelle_shell::screen;
+use whirlpool_shell::screen;
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, POINT, RECT, WPARAM},
@@ -93,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                 enabled: false,
             },
             menu::MenuItem::Separator,
-            menu::MenuItem::action(5, "&Salir de Muelle"),
+            menu::MenuItem::action(5, "&Salir de Whirlpool"),
         ];
         let scenario = std::env::args().nth(3).unwrap_or_default();
         std::thread::spawn(move || {
@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
                 WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
             };
             std::thread::sleep(Duration::from_millis(150));
-            let Ok(menu) = FindWindowW(w!("MuelleMenu"), None) else {
+            let Ok(menu) = FindWindowW(w!("WhirlpoolMenu"), None) else {
                 return;
             };
             let at = |y: i32| LPARAM(((y as u32 & 0xFFFF) << 16 | 40) as isize);

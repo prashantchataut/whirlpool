@@ -407,7 +407,7 @@ mod tests {
     // Native overlapped I/O against local fixtures, never a real HID device.
     fn collection(size: usize, suffix: &str) -> Result<(Owned<HANDLE>, Hid)> {
         let name = HSTRING::from(format!(
-            r"\\.\pipe\muelle-hid-{}-{}-{suffix}",
+            r"\\.\pipe\whirlpool-hid-{}-{}-{suffix}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?

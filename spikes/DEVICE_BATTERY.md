@@ -1,7 +1,7 @@
 # Diagnóstico de batería de accesorios — entrega 11a
 
 Prototipo propio en Rust para decidir qué datos puede consumir la barra superior.
-Se ejecuta aparte: no arranca Muelle, no modifica su configuración y no incorpora
+Se ejecuta aparte: no arranca Whirlpool, no modifica su configuración y no incorpora
 lectores ni dependencias residentes al dock. La integración visual corresponde a 11b.
 
 ## Ejecutar

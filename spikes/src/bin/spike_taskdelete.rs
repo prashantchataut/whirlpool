@@ -14,7 +14,7 @@ use windows::{
 fn main() -> Result<()> {
     let name = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| "MuelleTest-borrar".into());
+        .unwrap_or_else(|| "WhirlpoolTest-borrar".into());
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)?;

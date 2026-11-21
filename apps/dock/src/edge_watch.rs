@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
-use muelle_core::frame::DockEdge;
+use whirlpool_core::frame::DockEdge;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, POINT, RECT, WPARAM},
     System::Threading::GetCurrentThreadId,
@@ -182,7 +182,7 @@ impl EdgeWatch {
     pub fn start(window: HWND) -> Result<Self> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let join = thread::Builder::new()
-            .name("muelle-edge".into())
+            .name("whirlpool-edge".into())
             .spawn(move || {
                 // SAFETY: This thread owns the message queue and timer.
                 unsafe {
@@ -270,7 +270,7 @@ mod tests {
             let window = CreateWindowExW(
                 Default::default(),
                 w!("STATIC"),
-                w!("Muelle edge test"),
+                w!("Whirlpool edge test"),
                 WS_POPUP,
                 0,
                 0,

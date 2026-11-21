@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 
-use muelle_config::Language;
-use muelle_shell::system::{self, UiLanguage};
+use whirlpool_config::Language;
+use whirlpool_shell::system::{self, UiLanguage};
 
 const EN: &str = include_str!("../i18n/en.json");
 const ES: &str = include_str!("../i18n/es.json");

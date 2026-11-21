@@ -59,14 +59,14 @@ pub fn graphics_error(error: &anyhow::Error) {
     if !device_lost(error) || STOPPING.swap(true, Ordering::Relaxed) {
         return;
     }
-    muelle_shell::log::line(&format!("dispositivo gráfico perdido: {error:#}"));
+    whirlpool_shell::log::line(&format!("dispositivo gráfico perdido: {error:#}"));
     if can_restart(*recovered, started.elapsed()) {
         if let Err(error) = guard::request_restart(std::process::id()) {
-            muelle_shell::log::line(&format!("no se pudo pedir recuperación: {error:#}"));
+            whirlpool_shell::log::line(&format!("no se pudo pedir recuperación: {error:#}"));
         }
     } else {
-        muelle_shell::log::line(
-            "fallo gráfico repetido antes de 60 s; se detiene Muelle y se devuelve la barra de Windows",
+        whirlpool_shell::log::line(
+            "fallo gráfico repetido antes de 60 s; se detiene Whirlpool y se devuelve la barra de Windows",
         );
     }
     // SAFETY: Drawing and UI dispatch run on the dock's UI thread. Wake its

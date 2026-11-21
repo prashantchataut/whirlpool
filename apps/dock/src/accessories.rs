@@ -21,8 +21,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use muelle_shell::accessories::{Snapshot, State};
 use serde::{Deserialize, Serialize};
+use whirlpool_shell::accessories::{Snapshot, State};
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HWND, INVALID_HANDLE_VALUE, LPARAM, WPARAM},
     System::{
@@ -143,7 +143,7 @@ impl Monitor {
         });
         let background = shared.clone();
         thread::Builder::new()
-            .name("muelle-accessories".into())
+            .name("whirlpool-accessories".into())
             .spawn(move || {
                 if background.alive.load(Ordering::Acquire) {
                     let _ = read_worker(&background);
