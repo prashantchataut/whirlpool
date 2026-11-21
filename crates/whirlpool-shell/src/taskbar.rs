@@ -13,13 +13,13 @@ use std::{env, fs, mem::size_of, path::PathBuf};
 use windows::{
     Win32::{
         Foundation::{COLORREF, HWND, LPARAM},
-        Graphics::Gdi::CreateRectRgn,
+        Graphics::Gdi::{CreateRectRgn, SetWindowRgn},
         UI::{
             Shell::{ABM_GETSTATE, ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA, SHAppBarMessage},
             WindowsAndMessaging::{
                 FindWindowExW, FindWindowW, GWL_EXSTYLE, GetLayeredWindowAttributes,
                 GetWindowLongPtrW, LWA_ALPHA, SetLayeredWindowAttributes, SetWindowLongPtrW,
-                SetWindowRgn, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+                WS_EX_LAYERED, WS_EX_TRANSPARENT,
             },
         },
     },
