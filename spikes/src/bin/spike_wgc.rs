@@ -1,11 +1,11 @@
-//! Is Muelle visible to Windows.Graphics.Capture, the API that the Snipping
+//! Is Whirlpool visible to Windows.Graphics.Capture, the API that the Snipping
 //! Tool and most screen recorders use? Captures one frame of the primary
 //! monitor and compares a row of pixels with what GDI sees there.
 //! Usage: `spike_wgc [y]` (default: row 10, inside the menu bar).
 
 use std::time::{Duration, Instant};
 
-use muelle_shell::screen;
+use whirlpool_shell::screen;
 use windows::{
     Foundation::TypedEventHandler,
     Graphics::{

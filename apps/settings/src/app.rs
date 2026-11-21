@@ -13,9 +13,9 @@ use eframe::egui::{
     self, Align, Color32, ColorImage, Layout, RichText, ScrollArea, Sense, TextureHandle,
     TextureOptions, Ui, vec2,
 };
-use muelle_config::{Config, DockPosition, GenieSpeed, IslandStyle, Language};
-use muelle_shell::{autostart, dock_link, folder, imagery, launcher, system};
 use serde_json::{Map, Value};
+use whirlpool_config::{Config, DockPosition, GenieSpeed, IslandStyle, Language};
+use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
     text::Texts,
@@ -64,12 +64,12 @@ pub struct Settings {
 
 fn dock_exe() -> PathBuf {
     env::current_exe()
-        .map(|path| path.with_file_name("muelle.exe"))
-        .unwrap_or_else(|_| PathBuf::from("muelle.exe"))
+        .map(|path| path.with_file_name("whirlpool.exe"))
+        .unwrap_or_else(|_| PathBuf::from("whirlpool.exe"))
 }
 
 fn load_config() -> Config {
-    muelle_config::load(&muelle_config::default_path())
+    whirlpool_config::load(&whirlpool_config::default_path())
         .ok()
         .flatten()
         .unwrap_or_default()
@@ -91,8 +91,8 @@ fn spawn_writer() -> (Sender<Map<String, Value>>, Receiver<bool>) {
             while let Ok(more) = receive.try_recv() {
                 patch.extend(more);
             }
-            let ok =
-                muelle_config::update_preferences(&muelle_config::default_path(), patch).is_ok();
+            let ok = whirlpool_config::update_preferences(&whirlpool_config::default_path(), patch)
+                .is_ok();
             if ok {
                 dock_link::notify_config_changed();
             }
@@ -340,7 +340,8 @@ impl eframe::App for Settings {
                         .strong()
                         .color(palette.text),
                 );
-                ui.add_space(8.0);
+                ui::waterline(ui, 120.0);
+                ui.add_space(6.0);
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
@@ -376,16 +377,21 @@ impl Settings {
 
     fn sidebar(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
         ui.horizontal(|ui| {
-            let (rect, _) = ui.allocate_exact_size(vec2(30.0, 30.0), Sense::hover());
-            ui.painter()
-                .rect_filled(rect, egui::CornerRadius::same(9), ui::ACCENT);
+            let (rect, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
             ui.painter().rect_filled(
-                egui::Rect::from_center_size(rect.center() + vec2(0.0, 6.0), vec2(20.0, 5.0)),
-                egui::CornerRadius::same(3),
-                Color32::from_white_alpha(230),
+                rect,
+                egui::CornerRadius::same(10),
+                Color32::from_rgb(0x04, 0x22, 0x2c),
             );
+            ui.painter().rect_stroke(
+                rect,
+                egui::CornerRadius::same(10),
+                egui::Stroke::new(1.0, ui::ACCENT.gamma_multiply(0.7)),
+                egui::StrokeKind::Inside,
+            );
+            ui::vortex(ui.painter(), rect.center(), 11.5, ui::FOAM);
             ui.label(
-                RichText::new("Muelle")
+                RichText::new("Whirlpool")
                     .size(19.0)
                     .strong()
                     .color(palette.text),
@@ -404,8 +410,16 @@ impl Settings {
             let (rect, response) =
                 ui.allocate_exact_size(vec2(ui.available_width(), 38.0), Sense::click());
             if selected {
-                ui.painter()
-                    .rect_filled(rect, egui::CornerRadius::same(9), ui::ACCENT);
+                ui.painter().rect_filled(
+                    rect,
+                    egui::CornerRadius::same(9),
+                    ui::ACCENT.gamma_multiply(0.20),
+                );
+                ui.painter().rect_filled(
+                    egui::Rect::from_min_size(rect.left_center() - vec2(0.0, 9.0), vec2(3.0, 18.0)),
+                    egui::CornerRadius::same(2),
+                    ui::FOAM,
+                );
             } else if response.hovered() {
                 ui.painter().rect_filled(
                     rect,
@@ -414,7 +428,11 @@ impl Settings {
                 );
             }
             let color = if selected {
-                Color32::WHITE
+                if ui.visuals().dark_mode {
+                    ui::FOAM
+                } else {
+                    Color32::from_rgb(0x06, 0x5f, 0x66)
+                }
             } else {
                 palette.text
             };
@@ -514,7 +532,7 @@ impl Settings {
                 ui.add(
                     egui::Slider::new(
                         &mut config.icon_size,
-                        muelle_config::ICON_SIZE_RANGE.0..=muelle_config::ICON_SIZE_RANGE.1,
+                        whirlpool_config::ICON_SIZE_RANGE.0..=whirlpool_config::ICON_SIZE_RANGE.1,
                     )
                     .suffix(" px"),
                 );
@@ -533,7 +551,7 @@ impl Settings {
                     ui.add(
                         egui::Slider::new(
                             &mut config.magnified_size,
-                            low..=muelle_config::MAX_MAGNIFIED_SIZE,
+                            low..=whirlpool_config::MAX_MAGNIFIED_SIZE,
                         )
                         .suffix(" px"),
                     );

@@ -1,13 +1,13 @@
-//! Muelle: a macOS-style dock for Windows 11.
+//! Whirlpool: a macOS-style dock for Windows 11.
 //!
 //! Usage:
-//! - `muelle`                     starts or recovers the dock
-//! - `muelle --quit`              closes the running dock
-//! - `muelle --restore`           restores the Windows taskbar
-//! - `muelle --autostart on|off`  enables or disables startup with Windows
-//! - `muelle --guard <pid>`       internal watchdog process
-//! - `muelle --usage-worker`      internal one-shot quota reader
-//! - `muelle --shell-worker`      internal one-shot shell action
+//! - `whirlpool`                     starts or recovers the dock
+//! - `whirlpool --quit`              closes the running dock
+//! - `whirlpool --restore`           restores the Windows taskbar
+//! - `whirlpool --autostart on|off`  enables or disables startup with Windows
+//! - `whirlpool --guard <pid>`       internal watchdog process
+//! - `whirlpool --usage-worker`      internal one-shot quota reader
+//! - `whirlpool --shell-worker`      internal one-shot shell action
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -36,7 +36,7 @@ mod usage;
 use std::env;
 
 use anyhow::{Context, Result, bail};
-use muelle_shell::{autostart, taskbar};
+use whirlpool_shell::{autostart, taskbar};
 use windows::{
     Win32::{
         Foundation::{ERROR_ALREADY_EXISTS, GetLastError},
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         ["--autostart", "on"] => {
-            let exe = env::current_exe().context("no se pudo localizar muelle.exe")?;
+            let exe = env::current_exe().context("no se pudo localizar whirlpool.exe")?;
             Ok(autostart::set(Some(&exe.to_string_lossy()))?)
         }
         ["--autostart", "off"] => Ok(autostart::set(None)?),
@@ -88,13 +88,13 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
-        _ => bail!("uso: muelle [--quit | --restore | --autostart on|off]"),
+        _ => bail!("uso: whirlpool [--quit | --restore | --autostart on|off]"),
     }
 }
 
 fn run_dock(recovered: bool) -> Result<()> {
     // SAFETY: The static name is valid; the handle is released when the process exits.
-    let _single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Muelle.Dock"))?) };
+    let _single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Dock"))?) };
     // SAFETY: Reads the thread's last error immediately after the call.
     if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         guard::recover_existing()?;
@@ -103,7 +103,7 @@ fn run_dock(recovered: bool) -> Result<()> {
 
     recovery::configure(recovered);
     let startup = std::time::Instant::now();
-    muelle_shell::log::line(concat!(
+    whirlpool_shell::log::line(concat!(
         "proceso iniciado, versión ",
         env!("CARGO_PKG_VERSION")
     ));
@@ -112,13 +112,13 @@ fn run_dock(recovered: bool) -> Result<()> {
     let result = initialize_dock();
     if let Err(error) = &result {
         recovery::graphics_error(error);
-        muelle_shell::log::line(&format!(
+        whirlpool_shell::log::line(&format!(
             "el dock falló tras {} ms desde el inicio del proceso: {error:#}",
             startup.elapsed().as_millis()
         ));
     }
     taskbar::give_back_on_exit();
-    muelle_shell::log::flush();
+    whirlpool_shell::log::flush();
     result
 }
 
@@ -138,7 +138,7 @@ fn initialize_dock() -> Result<()> {
 
     // Moves the `Run` autostart of 0.1.9-0.1.10 to the logon task, off the UI thread.
     let _ = std::thread::Builder::new()
-        .name("muelle-autostart".into())
+        .name("whirlpool-autostart".into())
         .spawn(autostart::migrate);
     app::run()
 }

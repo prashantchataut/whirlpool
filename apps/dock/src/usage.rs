@@ -15,10 +15,10 @@ use std::{
 };
 
 use chrono::{DateTime, Local, Utc};
-use muelle_shell::icons::IconImage;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use whirlpool_shell::icons::IconImage;
 use windows::Win32::{
     Foundation::{CloseHandle, HWND, LPARAM, WPARAM},
     System::Diagnostics::ToolHelp::{
@@ -1245,7 +1245,7 @@ mod tests {
     fn opencode_reads_native_windows_xdg_storage_without_changing_environment() -> anyhow::Result<()>
     {
         let root = env::temp_dir().join(format!(
-            "muelle-opencode-auth-{}-{}",
+            "whirlpool-opencode-auth-{}-{}",
             std::process::id(),
             SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
         ));

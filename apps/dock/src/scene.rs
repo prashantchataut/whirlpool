@@ -4,7 +4,7 @@
 use std::cell::Cell;
 
 use anyhow::Result;
-use muelle_core::{
+use whirlpool_core::{
     frame::{DockEdge, Frame as DockFrame},
     layout::{ItemKind, Layout, Rect},
     magnify::Magnified,
@@ -44,26 +44,27 @@ impl Theme {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(255, 255, 255, 46)
+                    rgba(232, 250, 252, 58)
                 } else {
-                    rgba(226, 226, 228, 255)
+                    rgba(214, 236, 240, 255)
                 },
-                separator: rgba(0, 0, 0, 56),
-                shadow: rgba(0, 0, 0, 56),
-                indicator: rgba(0, 0, 0, 170),
+                separator: rgba(4, 60, 72, 64),
+                shadow: rgba(2, 40, 52, 64),
+                // Running-app dot: deep teal on the light dock, foam on the dark one.
+                indicator: rgba(6, 98, 112, 215),
             }
         } else {
             Self {
                 light,
                 glass,
                 tint: if glass {
-                    rgba(28, 28, 30, 82)
+                    rgba(4, 26, 36, 96)
                 } else {
-                    rgba(44, 44, 46, 255)
+                    rgba(12, 38, 48, 255)
                 },
-                separator: rgba(255, 255, 255, 64),
-                shadow: rgba(0, 0, 0, 96),
-                indicator: rgba(255, 255, 255, 215),
+                separator: rgba(150, 230, 236, 58),
+                shadow: rgba(0, 12, 20, 110),
+                indicator: rgba(120, 238, 222, 235),
             }
         }
     }
@@ -73,7 +74,7 @@ impl Theme {
         if self.light {
             rgba(255, 255, 255, 120)
         } else {
-            rgba(255, 255, 255, 46)
+            rgba(150, 240, 240, 44)
         }
     }
 
@@ -179,7 +180,7 @@ impl GlassSurface {
 }
 
 /// Outline of the icon a dragged app would join in a group.
-const MERGE_ACCENT: Color = rgba(80, 150, 255, 230);
+const MERGE_ACCENT: Color = rgba(45, 205, 210, 230);
 
 const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color {
     Color {
@@ -246,7 +247,7 @@ impl AttentionBadge {
         shape.SetStrokeBrush(&c.CreateColorBrushWithColor(if theme.light {
             rgba(255, 255, 255, 245)
         } else {
-            rgba(38, 38, 40, 245)
+            rgba(4, 26, 36, 245)
         })?)?;
         shape.SetStrokeThickness(0.12)?;
         let visual = c.CreateShapeVisual()?;
@@ -297,7 +298,7 @@ fn attention_rect(icon: Rect, scale: f32) -> Rect {
 #[cfg(test)]
 mod attention_tests {
     use super::*;
-    use muelle_core::{
+    use whirlpool_core::{
         layout::{Metrics, layout},
         magnify::{Magnifier, magnify},
     };

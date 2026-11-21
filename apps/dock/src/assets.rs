@@ -12,7 +12,7 @@ use std::{
 };
 
 use anyhow::Result;
-use muelle_shell::{
+use whirlpool_shell::{
     icon_cache::{AppVisual, IconCache},
     power,
 };
@@ -50,7 +50,7 @@ impl Visuals {
         Self::start(window, message, |id, variant| {
             IconCache::default()
                 .get_variant(id, variant, ICON_SIZE)
-                .inspect_err(|error| eprintln!("muelle: {error}"))
+                .inspect_err(|error| eprintln!("whirlpool: {error}"))
                 .ok()
         })
     }
@@ -71,7 +71,7 @@ impl Visuals {
             let load = Arc::clone(&load);
             let window = Arc::clone(&window);
             thread::Builder::new()
-                .name(format!("muelle-icons-{index}"))
+                .name(format!("whirlpool-icons-{index}"))
                 .spawn(move || {
                     power::set_thread_efficiency(true);
                     // SAFETY: Each worker owns its COM apartment and balances
@@ -231,7 +231,7 @@ mod tests {
         let mut visuals = Visuals::start(HWND::default(), 0, |_, variant| {
             Some(AppVisual {
                 name: variant.to_owned(),
-                icon: muelle_shell::icons::IconImage {
+                icon: whirlpool_shell::icons::IconImage {
                     width: 1,
                     height: 1,
                     bgra: vec![0, 0, 0, 255],

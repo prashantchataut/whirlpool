@@ -6,8 +6,8 @@ use std::{sync::mpsc, thread};
 use serde::Deserialize;
 use windows_future as _;
 
-pub const REPOSITORY: &str = "https://github.com/prashantchataut/muelle-native";
-const LATEST: &str = "https://api.github.com/repos/prashantchataut/muelle-native/releases/latest";
+pub const REPOSITORY: &str = "https://github.com/prashantchataut/whirlpool";
+const LATEST: &str = "https://api.github.com/repos/prashantchataut/whirlpool/releases/latest";
 
 #[derive(Clone, Debug)]
 pub struct Release {
@@ -49,7 +49,7 @@ fn fetch() -> Option<Release> {
         .UserAgent()
         .ok()?
         .TryParseAdd(&HSTRING::from(concat!(
-            "muelle-settings/",
+            "whirlpool-settings/",
             env!("CARGO_PKG_VERSION")
         )))
         .ok()?;

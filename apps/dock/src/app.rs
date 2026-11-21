@@ -22,8 +22,8 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use muelle_config::{Config, DockGroup, DockPosition};
-use muelle_core::{
+use whirlpool_config::{Config, DockGroup, DockPosition};
+use whirlpool_core::{
     attention::Attention,
     bounce,
     frame::{DockEdge, Frame as DockFrame},
@@ -32,7 +32,7 @@ use muelle_core::{
     roster::{Group, Roster},
     spring::Spring,
 };
-use muelle_shell::{
+use whirlpool_shell::{
     appbar::{ABN_FULLSCREENAPP, AppBar, Edge},
     end_task::PreparedEndTask,
     files,
@@ -131,7 +131,7 @@ const PBT_APMRESUMEAUTOMATIC: usize = 0x0012;
 const PBT_APMPOWERSTATUSCHANGE: usize = 0x000A;
 const PBT_POWERSETTINGCHANGE: usize = 0x8013;
 
-const WINDOW_CLASS: PCWSTR = muelle_shell::dock_link::DOCK_WINDOW_CLASS;
+const WINDOW_CLASS: PCWSTR = whirlpool_shell::dock_link::DOCK_WINDOW_CLASS;
 const APPBAR_CALLBACK: u32 = WM_APP + 1;
 const TASKBAR_TAKEN: u32 = WM_APP + 2;
 const BIN_CHANGED: u32 = WM_APP + 3;
@@ -256,8 +256,8 @@ const MERGE_SIDE: f32 = 0.25;
 /// Longest hover label of a group, which lists its apps.
 const GROUP_LABEL_CHARS: usize = 48;
 
-const START_ID: &str = "muelle:start";
-const WINDOW_ID_PREFIX: &str = "muelle:window:";
+const START_ID: &str = "whirlpool:start";
+const WINDOW_ID_PREFIX: &str = "whirlpool:window:";
 const WINDOW_TITLE_CHARS: usize = 40;
 /// Fraction of a thumbnail slot covered by the app badge (see `scene`).
 const BADGE_CORNER: f32 = crate::scene::BADGE_SIZE * crate::scene::BADGE_INSIDE;
@@ -773,8 +773,8 @@ struct App {
     /// Energy saver on or off: glass follows (see `system::transparency_enabled`).
     _saver_watch: power::SaverWatch,
     /// Hears pins and unpins on the Windows taskbar.
-    pin_watch: Option<muelle_shell::watch::RegistryWatch>,
-    badge_watch: Option<muelle_shell::watch::RegistryWatch>,
+    pin_watch: Option<whirlpool_shell::watch::RegistryWatch>,
+    badge_watch: Option<whirlpool_shell::watch::RegistryWatch>,
     attention: Attention,
     attention_enabled: bool,
     assets: HashMap<String, Asset>,
@@ -868,8 +868,8 @@ fn explorer_id() -> String {
 /// Saved settings or, on first launch, the defaults with the apps pinned to
 /// the Windows taskbar.
 fn load_config() -> Config {
-    let path = muelle_config::default_path();
-    match muelle_config::load(&path) {
+    let path = whirlpool_config::default_path();
+    match whirlpool_config::load(&path) {
         Ok(Some(config)) => config,
         Ok(None) => {
             let pins = taskbar_pins();
@@ -878,18 +878,19 @@ fn load_config() -> Config {
                 taskbar_pins: Some(pins),
                 ..Config::default()
             };
-            match muelle_config::update(&path, |saved| Ok(saved.unwrap_or_else(|| config.clone())))
-            {
+            match whirlpool_config::update(&path, |saved| {
+                Ok(saved.unwrap_or_else(|| config.clone()))
+            }) {
                 Ok(saved) => saved,
                 Err(error) => {
-                    eprintln!("muelle: {error}");
+                    eprintln!("whirlpool: {error}");
                     config
                 }
             }
         }
         Err(error) => {
             // Do not overwrite it; the user may want to repair the file.
-            eprintln!("muelle: {error}; se usan los valores por defecto");
+            eprintln!("whirlpool: {error}; se usan los valores por defecto");
             Config::default()
         }
     }
@@ -919,12 +920,12 @@ fn roster_from(config: &Config) -> Roster {
 
 fn save_settings(roster: &Roster, config: &Config) {
     if let Err(error) = save_dock_config(roster, config, false) {
-        eprintln!("muelle: {error}");
+        eprintln!("whirlpool: {error}");
     }
 }
 
 fn save_dock_config(roster: &Roster, config: &Config, toggle_hide: bool) -> Result<Config> {
-    let saved = muelle_config::update(&muelle_config::default_path(), |saved| {
+    let saved = whirlpool_config::update(&whirlpool_config::default_path(), |saved| {
         let mut saved = saved.unwrap_or_else(|| config.clone());
         saved.pinned = roster.pinned().to_vec();
         saved.groups = roster
@@ -948,7 +949,7 @@ fn save_dock_config(roster: &Roster, config: &Config, toggle_hide: bool) -> Resu
 /// Takes the shortcuts folder out of the dock. Only that preference changes
 /// on disk: Settings owns the others and may have changed them since.
 fn forget_shortcuts_folder(config: &Config) -> Result<()> {
-    muelle_config::update(&muelle_config::default_path(), |saved| {
+    whirlpool_config::update(&whirlpool_config::default_path(), |saved| {
         let mut saved = saved.unwrap_or_else(|| config.clone());
         saved.shortcuts_folder = None;
         Ok(saved)
@@ -1108,7 +1109,7 @@ impl App {
                 let icon = self
                     .gfx
                     .group_brush(wanted, &images, entry.members.len(), light)
-                    .inspect_err(|error| eprintln!("muelle: icono del grupo `{id}`: {error:#}"))
+                    .inspect_err(|error| eprintln!("whirlpool: icono del grupo `{id}`: {error:#}"))
                     .ok()
                     .or_else(|| self.placeholder.clone());
                 let names: Vec<String> = entry
@@ -1128,7 +1129,9 @@ impl App {
                         light,
                         edge,
                     )
-                    .inspect_err(|error| eprintln!("muelle: etiqueta del grupo `{id}`: {error:#}"))
+                    .inspect_err(|error| {
+                        eprintln!("whirlpool: etiqueta del grupo `{id}`: {error:#}")
+                    })
                     .ok();
                 self.assets.insert(
                     id.clone(),
@@ -1189,7 +1192,7 @@ impl App {
                     let side = wanted.min(visual.icon.width);
                     self.gfx
                         .icon_brush(&visual.icon, side)
-                        .inspect_err(|error| eprintln!("muelle: icono de `{id}`: {error:#}"))
+                        .inspect_err(|error| eprintln!("whirlpool: icono de `{id}`: {error:#}"))
                         .ok()
                 })
                 .or_else(|| self.placeholder.clone());
@@ -1197,7 +1200,7 @@ impl App {
             let label = self
                 .gfx
                 .label_brush(&name, scale, light, edge)
-                .inspect_err(|error| eprintln!("muelle: etiqueta de `{id}`: {error:#}"))
+                .inspect_err(|error| eprintln!("whirlpool: etiqueta de `{id}`: {error:#}"))
                 .ok();
             self.assets.insert(
                 id.clone(),
@@ -1256,7 +1259,7 @@ impl App {
             && let Err(error) = bar.refresh(&self.gfx)
         {
             crate::recovery::graphics_error(&error);
-            muelle_shell::log::line(&format!("actualización de la barra superior: {error:#}"));
+            whirlpool_shell::log::line(&format!("actualización de la barra superior: {error:#}"));
         }
         let monitor = self
             .dock_monitor()
@@ -2192,7 +2195,7 @@ impl App {
             self.render()?;
         }
         if let Err(error) = self.start_following() {
-            eprintln!("muelle: Alt+Tab: {error:#}");
+            eprintln!("whirlpool: Alt+Tab: {error:#}");
         }
         Ok(())
     }
@@ -2407,7 +2410,7 @@ impl App {
                 .map_or(std::time::Duration::ZERO, |tried| {
                     UPDATE_EVERY.saturating_sub(tried.elapsed())
                 });
-            let wait = muelle_shell::updates::due_in(UPDATE_EVERY)
+            let wait = whirlpool_shell::updates::due_in(UPDATE_EVERY)
                 .max(UPDATE_AFTER_START.saturating_sub(self.launched.elapsed()))
                 .max(since_try);
             SetTimer(Some(self.input), UPDATE_TIMER, millis(wait), None);
@@ -2432,17 +2435,17 @@ impl App {
             return;
         }
         // Recorded first: whatever happens, the next look is tomorrow.
-        muelle_shell::updates::mark_checked();
+        whirlpool_shell::updates::mark_checked();
         self.update_tried = Some(Instant::now());
         self.schedule_update();
         let settings = env::current_exe()
             .ok()
-            .map(|exe| exe.with_file_name("muelle-settings.exe"))
+            .map(|exe| exe.with_file_name("whirlpool-settings.exe"))
             .filter(|path| path.exists());
         if let Some(settings) = settings
             && let Err(error) = std::process::Command::new(settings).arg("--update").spawn()
         {
-            eprintln!("muelle: actualización: {error}");
+            eprintln!("whirlpool: actualización: {error}");
         }
     }
 
@@ -2472,7 +2475,7 @@ impl App {
             self.slide.target = 0.0;
             self.last_frame = Instant::now();
             if let Err(error) = self.place_windows().and_then(|()| self.render()) {
-                muelle_shell::log::line(&format!("mostrar el dock para la mascota: {error:#}"));
+                whirlpool_shell::log::line(&format!("mostrar el dock para la mascota: {error:#}"));
                 self.stop_mascot();
             }
         }
@@ -2559,8 +2562,8 @@ impl App {
     /// along the dock. Only on the change itself, never at startup.
     fn power_moment(&mut self) {
         let now = (
-            muelle_shell::system::battery().map(|battery| battery.charging),
-            muelle_shell::system::energy_saver_on(),
+            whirlpool_shell::system::battery().map(|battery| battery.charging),
+            whirlpool_shell::system::energy_saver_on(),
         );
         let before = self.power_seen.replace(now);
         let charging_allowed = self
@@ -2850,7 +2853,7 @@ impl App {
     }
 
     /// A single app or shortcut dropped between icons is pinned there.
-    fn pin_action(&self, state: &muelle_core::magnify::Magnified) -> DropAction {
+    fn pin_action(&self, state: &whirlpool_core::magnify::Magnified) -> DropAction {
         let Some(id) = self.incoming_pin.clone() else {
             return DropAction::Nothing;
         };
@@ -2981,7 +2984,7 @@ impl App {
             }),
             DropAction::Pin { id, before } => {
                 // A dropped shortcut that is needed to open the app (it has
-                // arguments, or opens a script) is kept as Muelle's own copy,
+                // arguments, or opens a script) is kept as Whirlpool's own copy,
                 // so the pin keeps working if the original is deleted.
                 let id = match files.first() {
                     Some(file) if tracker::is_shortcut(file) => {
@@ -3244,7 +3247,7 @@ impl App {
             if self.prune_missing_apps() {
                 save_settings(&self.roster, &self.config);
                 if let Err(error) = self.refresh() {
-                    muelle_shell::log::line(&format!("app desinstalada: {error:#}"));
+                    whirlpool_shell::log::line(&format!("app desinstalada: {error:#}"));
                 }
             }
             None
@@ -3319,7 +3322,7 @@ impl App {
                 .and_then(|visual| {
                     self.gfx
                         .icon_brush(&visual.icon, side.min(visual.icon.width))
-                        .inspect_err(|error| eprintln!("muelle: icono de `{app}`: {error:#}"))
+                        .inspect_err(|error| eprintln!("whirlpool: icono de `{app}`: {error:#}"))
                         .ok()
                 })
                 .or_else(|| self.placeholder.clone());
@@ -3381,7 +3384,7 @@ impl App {
             .or_else(|| self.placeholder.clone());
         self.ghost = brush.and_then(|brush| {
             DragGhost::show(&self.gfx, &brush, side, point)
-                .inspect_err(|error| eprintln!("muelle: icono arrastrado: {error:#}"))
+                .inspect_err(|error| eprintln!("whirlpool: icono arrastrado: {error:#}"))
                 .ok()
         });
         self.press = None;
@@ -3706,7 +3709,7 @@ impl App {
             }
             CMD_REMOVE_FOLDER => {
                 if let Err(error) = forget_shortcuts_folder(&self.config) {
-                    eprintln!("muelle: {error}");
+                    eprintln!("whirlpool: {error}");
                 }
                 self.config.shortcuts_folder = None;
                 self.refresh()?;
@@ -3758,7 +3761,7 @@ impl App {
     fn reload_config(&mut self) -> Result<()> {
         self.close_preview();
         self.close_group_view();
-        let Ok(Some(saved)) = muelle_config::load(&muelle_config::default_path()) else {
+        let Ok(Some(saved)) = whirlpool_config::load(&whirlpool_config::default_path()) else {
             return Ok(());
         };
         // Pinned and recent apps belong to the dock; the settings app only
@@ -4116,20 +4119,22 @@ impl App {
         }
         let window = self.visual.0 as isize;
         self.taskbar_attempts = self.taskbar_attempts.saturating_add(1);
-        self.taskbar_worker = Some(thread::Builder::new().name("muelle-taskbar".into()).spawn(
-            move || {
-                let hidden = taskbar::take_over();
-                // SAFETY: Only a message with scalar data is sent to our UI.
-                unsafe {
-                    let _ = PostMessageW(
-                        Some(HWND(window as *mut _)),
-                        TASKBAR_TAKEN,
-                        WPARAM(usize::from(rebuild)),
-                        LPARAM(isize::from(hidden)),
-                    );
-                }
-            },
-        )?);
+        self.taskbar_worker = Some(
+            thread::Builder::new()
+                .name("whirlpool-taskbar".into())
+                .spawn(move || {
+                    let hidden = taskbar::take_over();
+                    // SAFETY: Only a message with scalar data is sent to our UI.
+                    unsafe {
+                        let _ = PostMessageW(
+                            Some(HWND(window as *mut _)),
+                            TASKBAR_TAKEN,
+                            WPARAM(usize::from(rebuild)),
+                            LPARAM(isize::from(hidden)),
+                        );
+                    }
+                })?,
+        );
         Ok(())
     }
 
@@ -4147,7 +4152,7 @@ impl App {
                     SetTimer(Some(self.input), TASKBAR_TIMER, TASKBAR_DELAY_MS, None);
                 }
             } else {
-                muelle_shell::log::line(
+                whirlpool_shell::log::line(
                     "barra de Windows pendiente tras 50 intentos; se reintentará al reiniciarse Explorer o reanudar Windows",
                 );
             }
@@ -4186,7 +4191,7 @@ impl App {
                 self.config.menu_bar_auto_hide,
                 widgets,
             )
-            .inspect_err(|error| eprintln!("muelle: barra superior: {error:#}"))
+            .inspect_err(|error| eprintln!("whirlpool: barra superior: {error:#}"))
             .ok();
         }
         if let Some(bar) = &mut self.menubar {
@@ -4204,7 +4209,7 @@ impl App {
                     bar.set_accessories_enabled(&self.gfx, self.config.accessory_battery)
                 });
             if let Err(error) = applied {
-                eprintln!("muelle: barra superior: {error:#}");
+                eprintln!("whirlpool: barra superior: {error:#}");
             }
         }
         self.apply_edge_settings();
@@ -4263,7 +4268,7 @@ impl App {
         if enabled && self.edge_watch.is_none() {
             self.edge_watch = EdgeWatch::start(self.visual)
                 .inspect_err(|error| {
-                    muelle_shell::log::line(&format!("bordes de pantalla: {error:#}"))
+                    whirlpool_shell::log::line(&format!("bordes de pantalla: {error:#}"))
                 })
                 .ok();
         } else if !enabled && self.edge_watch.take().is_some() {
@@ -4441,7 +4446,7 @@ impl App {
             // An auxiliary bar failure must not strand a hidden dock.
             if let Err(error) = bar.set_visible(!bar_fullscreen) {
                 crate::recovery::graphics_error(&error);
-                muelle_shell::log::line(&format!("visibilidad de la barra superior: {error:#}"));
+                whirlpool_shell::log::line(&format!("visibilidad de la barra superior: {error:#}"));
             }
         }
         // Windows sometimes omits the shell event when a full-screen app
@@ -4458,7 +4463,7 @@ impl App {
             }
         }
         if fullscreen != self.fullscreen {
-            muelle_shell::log::line(&format!(
+            whirlpool_shell::log::line(&format!(
                 "{} por pantalla completa (al frente: {})",
                 if fullscreen { "se oculta" } else { "vuelve" },
                 tracker::foreground_class()
@@ -4490,7 +4495,7 @@ impl App {
         // Updating an app name can fail transiently; it must never prevent
         // the dock or bar from returning after full-screen mode.
         if let Err(error) = self.update_menu_bar_app() {
-            eprintln!("muelle: nombre de la barra superior: {error:#}");
+            eprintln!("whirlpool: nombre de la barra superior: {error:#}");
         }
         Ok(())
     }
@@ -4561,14 +4566,14 @@ fn with_app_then(what: &str, action: impl FnOnce(&mut App) -> Result<Option<Outs
         // Modal calls run outside the borrow, so this should not happen. If it
         // does, discard the message rather than terminating the dock.
         let Ok(mut app) = cell.try_borrow_mut() else {
-            eprintln!("muelle: {what}: el dock estaba ocupado; se ignora");
+            eprintln!("whirlpool: {what}: el dock estaba ocupado; se ignora");
             return None;
         };
         match app.as_mut().map(action) {
             Some(Ok(outside)) => outside,
             Some(Err(error)) => {
                 crate::recovery::graphics_error(&error);
-                muelle_shell::log::line(&format!("{what}: {error:#}"));
+                whirlpool_shell::log::line(&format!("{what}: {error:#}"));
                 None
             }
             None => None,
@@ -4893,7 +4898,7 @@ fn query_bin_in_background() {
     }
     let window = MAIN_WINDOW.load(Ordering::Relaxed);
     let spawned = thread::Builder::new()
-        .name("muelle-recycle-query".into())
+        .name("whirlpool-recycle-query".into())
         .spawn(move || {
             power::set_thread_efficiency(true);
             // SAFETY: COM is initialized and released on this thread; the message
@@ -4920,7 +4925,7 @@ fn query_bin_in_background() {
         });
     if let Err(error) = spawned {
         BIN_QUERY.0.store(0, Ordering::Release);
-        eprintln!("muelle: no se pudo consultar la Papelera: {error}");
+        eprintln!("whirlpool: no se pudo consultar la Papelera: {error}");
     }
 }
 
@@ -4932,7 +4937,7 @@ fn run_outside(outside: Outside) {
     let submit = |action| {
         let result = shell_work::dispatch(action);
         if let Err(error) = result {
-            eprintln!("muelle: operación no iniciada: {error:#}");
+            eprintln!("whirlpool: operación no iniciada: {error:#}");
             shell_work::notify_not_started();
         }
     };
@@ -4962,16 +4967,16 @@ fn run_outside(outside: Outside) {
             // The settings app is installed next to the dock.
             let settings = env::current_exe()
                 .ok()
-                .map(|exe| exe.with_file_name("muelle-settings.exe"));
+                .map(|exe| exe.with_file_name("whirlpool-settings.exe"));
             match settings {
                 Some(path) if path.exists() => submit(ShellAction::Open {
                     id: path.to_string_lossy().into_owned(),
                 }),
-                _ => eprintln!("muelle: no se encontró muelle-settings.exe junto al dock"),
+                _ => eprintln!("whirlpool: no se encontró whirlpool-settings.exe junto al dock"),
             }
         }
         Outside::InputMenu { gfx, anchor, dark } => {
-            use muelle_shell::keyboard;
+            use whirlpool_shell::keyboard;
             let context = keyboard::Context::current();
             let layouts = keyboard::layouts(strings::text().keyboard);
             const SETTINGS: u32 = u32::MAX;
@@ -5010,7 +5015,7 @@ fn run_outside(outside: Outside) {
                     .and_then(|index| layouts.get(index as usize)),
             ) && let Err(error) = context.request(layout.handle)
             {
-                muelle_shell::log::line(&format!("cambiar teclado: {error}"));
+                whirlpool_shell::log::line(&format!("cambiar teclado: {error}"));
                 shell_work::notify_not_started();
             }
             menu_bar_refresh();
@@ -5019,10 +5024,10 @@ fn run_outside(outside: Outside) {
             // Captured kernel handles are Send; no HWND or PID is resolved
             // again after the menu. Never wait on an unresponsive UI thread.
             let started = thread::Builder::new()
-                .name("muelle-end-task".into())
+                .name("whirlpool-end-task".into())
                 .spawn(move || {
                     if let Err(error) = target.terminate() {
-                        muelle_shell::log::line(&format!("finalizar tarea: {error}"));
+                        whirlpool_shell::log::line(&format!("finalizar tarea: {error}"));
                         shell_work::notify_end_task_failed();
                     }
                 });
@@ -5340,7 +5345,7 @@ fn message_loop() {
                 let status = GetMessageW(&mut msg, None, 0, 0);
                 if status.0 <= 0 {
                     if status.0 < 0 {
-                        eprintln!("muelle: error al leer la cola de mensajes de Windows");
+                        eprintln!("whirlpool: error al leer la cola de mensajes de Windows");
                     }
                     return;
                 }
@@ -5352,7 +5357,7 @@ fn message_loop() {
 
 pub fn run() -> Result<()> {
     let startup = Instant::now();
-    muelle_shell::log::line(concat!("inicio, versión ", env!("CARGO_PKG_VERSION")));
+    whirlpool_shell::log::line(concat!("inicio, versión ", env!("CARGO_PKG_VERSION")));
     let gfx = Gfx::new()?.with_error_handler(crate::recovery::graphics_error);
     // SAFETY: The thread is already a single-threaded COM apartment (see
     // `main`); OLE adds drag and drop on top of it and is released at the end.
@@ -5374,7 +5379,7 @@ pub fn run() -> Result<()> {
             CreateWindowExW(
                 base | extra,
                 class,
-                w!("Muelle"),
+                w!("Whirlpool"),
                 WS_POPUP,
                 0,
                 0,
@@ -5405,7 +5410,7 @@ pub fn run() -> Result<()> {
             .cast::<ICompositorDesktopInterop>()?
             .CreateDesktopWindowTarget(visual, true)?;
 
-        muelle_config::migrate_legacy_folder();
+        whirlpool_config::migrate_legacy_folder();
         let config = load_config();
         strings::set_language(config.language);
         let roster = roster_from(&config);
@@ -5431,7 +5436,7 @@ pub fn run() -> Result<()> {
             bin_full: false,
             _bin_watch: BinWatch::register(input, BIN_CHANGED),
             _saver_watch: power::SaverWatch::new(input.0 as isize),
-            pin_watch: muelle_shell::pins::watch(visual.0 as isize, PINS_CHANGED),
+            pin_watch: whirlpool_shell::pins::watch(visual.0 as isize, PINS_CHANGED),
             badge_watch: status::watch_taskbar_settings(visual.0 as isize, TASKBAR_PREFS_CHANGED),
             attention: Attention::default(),
             attention_enabled: status::taskbar_badges_enabled(),
@@ -5486,7 +5491,7 @@ pub fn run() -> Result<()> {
         };
         let _ = TASKBAR_CREATED.set(RegisterWindowMessageW(w!("TaskbarCreated")));
         let _ = CONFIG_CHANGED.set(RegisterWindowMessageW(
-            muelle_shell::dock_link::CONFIG_CHANGED,
+            whirlpool_shell::dock_link::CONFIG_CHANGED,
         ));
         MAIN_WINDOW.store(visual.0 as isize, Ordering::Relaxed);
         // The dock inherits the "ignore Ctrl+C" attribute from its parent
@@ -5494,13 +5499,13 @@ pub fn run() -> Result<()> {
         let _ = SetConsoleCtrlHandler(None, false);
         let _ = SetConsoleCtrlHandler(Some(on_console_ctrl), true);
 
-        // Apps uninstalled while Muelle was closed leave the dock.
+        // Apps uninstalled while Whirlpool was closed leave the dock.
         if app.prune_missing_apps() {
             save_settings(&app.roster, &app.config);
         }
-        // Pins and unpins made on the Windows taskbar while Muelle was closed.
+        // Pins and unpins made on the Windows taskbar while Whirlpool was closed.
         if let Err(error) = app.sync_taskbar_pins() {
-            eprintln!("muelle: apps fijadas de la barra de Windows: {error:#}");
+            eprintln!("whirlpool: apps fijadas de la barra de Windows: {error:#}");
         }
         app.sync()?;
         // `sync` recomposes only when the list changes; run it unconditionally at startup.
@@ -5512,7 +5517,7 @@ pub fn run() -> Result<()> {
         app.apply_menu_bar_setting();
         // Otherwise the bar shows no app name until the user switches windows.
         if let Err(error) = app.update_menu_bar_app() {
-            eprintln!("muelle: barra superior: {error:#}");
+            eprintln!("whirlpool: barra superior: {error:#}");
         }
 
         // The shell notifies this window when a window is created, closed,
@@ -5570,7 +5575,7 @@ pub fn run() -> Result<()> {
         app.request_taskbar(false)
     });
 
-    muelle_shell::log::line(&format!(
+    whirlpool_shell::log::line(&format!(
         "interfaz inicializada en {} ms desde app::run; comienza el bucle de mensajes",
         startup.elapsed().as_millis()
     ));
@@ -5667,7 +5672,7 @@ mod attention_tests {
             CreateWindowExW(
                 WS_EX_TOOLWINDOW,
                 w!("STATIC"),
-                w!("Muelle badge receiver test"),
+                w!("Whirlpool badge receiver test"),
                 WS_POPUP,
                 -32000,
                 -32000,
@@ -5683,7 +5688,7 @@ mod attention_tests {
             CreateWindowExW(
                 WS_EX_APPWINDOW | WS_EX_NOACTIVATE,
                 w!("STATIC"),
-                w!("Muelle native attention test"),
+                w!("Whirlpool native attention test"),
                 WS_OVERLAPPEDWINDOW,
                 -32000,
                 -32000,
@@ -5887,7 +5892,7 @@ mod activation_tests {
                 CreateWindowExW(
                     WS_EX_TOOLWINDOW,
                     w!("STATIC"),
-                    w!("Muelle activation test"),
+                    w!("Whirlpool activation test"),
                     WS_OVERLAPPEDWINDOW,
                     -32000,
                     -32000,

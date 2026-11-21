@@ -18,16 +18,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --release -p muelle -p muelle-settings
+        run: cargo build --release -p whirlpool -p whirlpool-settings
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item target/release/muelle.exe, target/release/muelle-settings.exe dist/
+          Copy-Item target/release/whirlpool.exe, target/release/whirlpool-settings.exe dist/
           Copy-Item scripts/install.ps1 dist/
-          Compress-Archive -Path dist/muelle.exe, dist/muelle-settings.exe -DestinationPath dist/Muelle-Native-x64.zip
+          Compress-Archive -Path dist/whirlpool.exe, dist/whirlpool-settings.exe -DestinationPath dist/Whirlpool-x64.zip
           Push-Location dist
-          Get-FileHash muelle.exe, muelle-settings.exe, Muelle-Native-x64.zip -Algorithm SHA256 |
+          Get-FileHash whirlpool.exe, whirlpool-settings.exe, Whirlpool-x64.zip -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS.txt
           Pop-Location
       - name: Publish release
@@ -35,13 +35,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/muelle.exe
-            dist/muelle-settings.exe
-            dist/Muelle-Native-x64.zip
+            dist/whirlpool.exe
+            dist/whirlpool-settings.exe
+            dist/Whirlpool-x64.zip
             dist/install.ps1
             dist/SHA256SUMS.txt
           generate_release_notes: true
       - uses: actions/upload-artifact@v4
         with:
-          name: muelle-native-x64
+          name: whirlpool-x64
           path: dist/*

@@ -17,21 +17,21 @@
 //! and volume changes arrive through separate notifications; nothing polls.
 
 use anyhow::Result;
-use muelle_config::{IslandStyle, Language};
-use muelle_shell::{
-    accessories::{Kind as AccessoryKind, Snapshot as AccessorySnapshot},
-    appbar::{AppBar, Edge},
-    launcher,
-    status::{self, AudioWatch, Network, NetworkWatch, Privacy, TaskbarButtons, Volume},
-    system::{self, Battery},
-    watch::RegistryWatch,
-};
 use std::{
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicI32, AtomicIsize, Ordering},
     },
     time::{Duration, Instant},
+};
+use whirlpool_config::{IslandStyle, Language};
+use whirlpool_shell::{
+    accessories::{Kind as AccessoryKind, Snapshot as AccessorySnapshot},
+    appbar::{AppBar, Edge},
+    launcher,
+    status::{self, AudioWatch, Network, NetworkWatch, Privacy, TaskbarButtons, Volume},
+    system::{self, Battery},
+    watch::RegistryWatch,
 };
 use windows::{
     Foundation::{TimeSpan, TypedEventHandler},
@@ -426,7 +426,7 @@ pub struct MenuBar {
     /// "Show what is playing": off, nothing listens to media sessions.
     media_enabled: bool,
     cover: Option<(
-        Option<Arc<muelle_shell::icons::IconImage>>,
+        Option<Arc<whirlpool_shell::icons::IconImage>>,
         CompositionSurfaceBrush,
     )>,
     volume_drag: Option<Span>,
@@ -449,7 +449,7 @@ pub struct MenuBar {
     /// Windows' taskbar preferences, including the battery percentage.
     settings_watch: Option<RegistryWatch>,
     /// Energy saver on or off arrives as `WM_POWERBROADCAST`; glass follows.
-    _saver_watch: muelle_shell::power::SaverWatch,
+    _saver_watch: whirlpool_shell::power::SaverWatch,
     audio: Option<AudioWatch>,
 }
 
@@ -551,7 +551,7 @@ unsafe extern "system" fn bar_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -
             if msg == WM_POWERBROADCAST && w.0 == PBT_POWERSETTINGCHANGE as usize {
                 // SAFETY: Windows owns the setting payload for this message.
                 unsafe {
-                    muelle_shell::power::power_setting_changed(l);
+                    whirlpool_shell::power::power_setting_changed(l);
                 }
             }
             if !TICK_PENDING.swap(true, Ordering::Relaxed) {
@@ -1010,7 +1010,7 @@ impl MenuBar {
         auto_hide: bool,
         widgets: MenuBarWidgets,
     ) -> Result<Self> {
-        let class = w!("MuelleMenuBar");
+        let class = w!("WhirlpoolMenuBar");
         // SAFETY: Standard class registration and window creation on the UI
         // thread; the window is destroyed in `Drop`.
         let hwnd = unsafe {
@@ -1026,7 +1026,7 @@ impl MenuBar {
             let hwnd = CreateWindowExW(
                 WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 class,
-                w!("Muelle"),
+                w!("Whirlpool"),
                 WS_POPUP,
                 0,
                 0,
@@ -1108,7 +1108,7 @@ impl MenuBar {
             _network: NetworkWatch::new(hwnd.0 as isize, STATUS_CHANGED),
             privacy_watch: status::watch_privacy(hwnd.0 as isize, REGISTRY_CHANGED),
             settings_watch: status::watch_taskbar_settings(hwnd.0 as isize, REGISTRY_CHANGED),
-            _saver_watch: muelle_shell::power::SaverWatch::new(hwnd.0 as isize),
+            _saver_watch: whirlpool_shell::power::SaverWatch::new(hwnd.0 as isize),
             audio: AudioWatch::new(hwnd.0 as isize, AUDIO_CHANGED),
         };
         AUDIO_TICK_PENDING.store(false, Ordering::Relaxed);
@@ -1211,7 +1211,7 @@ impl MenuBar {
             ACCESSORIES_CHANGED,
             self.visible && (!self.auto_hide || self.revealed),
         )
-        .inspect_err(|error| eprintln!("muelle: accesorios: {error:#}"))
+        .inspect_err(|error| eprintln!("whirlpool: accesorios: {error:#}"))
         .ok();
         self.refresh(gfx)
     }
@@ -1251,7 +1251,7 @@ impl MenuBar {
         }
         self.place()?;
         if animated && let Err(error) = self.animate_visibility(gfx, inside) {
-            muelle_shell::log::line(&format!("animación de barra superior: {error:#}"));
+            whirlpool_shell::log::line(&format!("animación de barra superior: {error:#}"));
             self.hide_until = None;
             self.reset_surface()?;
             self.place()?;
@@ -1535,7 +1535,7 @@ impl MenuBar {
     /// The edge watcher has verified the pointer's dwell on this bar.
     pub fn edge_rested(&mut self, gfx: &Gfx, point: POINT) -> Result<()> {
         if self.visible && self.auto_hide && !self.revealed {
-            if muelle_shell::tracker::caption_button_at(point, self.bounds) {
+            if whirlpool_shell::tracker::caption_button_at(point, self.bounds) {
                 edge_watch::retry_on_move(edge_watch::Target::MenuBar);
             } else {
                 self.hover(gfx, true)?;
@@ -1590,7 +1590,7 @@ impl MenuBar {
             .is_some_and(AudioWatch::take_default_changed);
         let retry_due = Instant::now() >= self.accessory_retry_at
             && self.accessories.as_ref().is_none_or(|monitor| {
-                monitor.snapshot().state == muelle_shell::accessories::State::Unavailable
+                monitor.snapshot().state == whirlpool_shell::accessories::State::Unavailable
             });
         if self.accessories_enabled && (audio_changed || retry_due) {
             self.restart_accessories(gfx)?;
@@ -2890,7 +2890,7 @@ impl MenuBar {
             }
         }
         if let Err(error) = self.flush_volume() {
-            muelle_shell::log::line(&format!("ajustar volumen: {error:#}"));
+            whirlpool_shell::log::line(&format!("ajustar volumen: {error:#}"));
         }
         self.volume_target = None;
         Ok(true)
@@ -4002,7 +4002,7 @@ mod island_tests {
                 }
             }
         }
-        let image = Arc::new(muelle_shell::icons::IconImage {
+        let image = Arc::new(whirlpool_shell::icons::IconImage {
             width: 8,
             height: 8,
             bgra: [20, 40, 80, 255].repeat(64),
@@ -4243,7 +4243,7 @@ mod island_tests {
 
     #[test]
     fn accessory_status_ignores_hidden_metadata_and_hides_incomplete_readings() {
-        use muelle_shell::accessories::{Device, State};
+        use whirlpool_shell::accessories::{Device, State};
         let mut snapshot = AccessorySnapshot {
             state: State::Ready,
             ..Default::default()
@@ -4423,7 +4423,7 @@ mod island_tests {
             bar.pointer_left_at(&gfx, point)?;
             assert!(unsafe { IsWindowVisible(bar.hwnd) }.as_bool());
             let surface = bar.surface.clone();
-            bar.set_app_name(&gfx, "Muelle regression test")?;
+            bar.set_app_name(&gfx, "Whirlpool regression test")?;
             assert_eq!(
                 bar.surface, surface,
                 "redraws must preserve the animation parent"
@@ -4502,7 +4502,7 @@ mod island_tests {
         };
         let gfx = Gfx::new()?;
         let mut bar = MenuBar::create(&gfx, false, true, true, MenuBarWidgets::default())?;
-        bar.set_app_name(&gfx, "Muelle animation test")?;
+        bar.set_app_name(&gfx, "Whirlpool animation test")?;
         bar.set_auto_hide(true)?;
         let inside = POINT {
             x: bar.bounds.left + 100,

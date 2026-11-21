@@ -67,7 +67,7 @@ fn report(name: &str, window: HWND, point: POINT) {
         };
         println!(
             "{name}: caption_button_at={} frame={frame:?} point={point:?} dwm buttons={:?} nchittest={} (8 min, 9 max, 20 close)",
-            muelle_shell::tracker::caption_button_at(point, screen),
+            whirlpool_shell::tracker::caption_button_at(point, screen),
             dwm.map(|()| buttons),
             if answered.0 != 0 {
                 hit.to_string()
@@ -104,12 +104,12 @@ fn main() {
         RegisterClassW(&WNDCLASSW {
             lpfnWndProc: Some(proc),
             hInstance: instance.into(),
-            lpszClassName: w!("MuelleSpikeCaption"),
+            lpszClassName: w!("WhirlpoolSpikeCaption"),
             ..Default::default()
         });
         let Ok(hwnd) = CreateWindowExW(
             Default::default(),
-            w!("MuelleSpikeCaption"),
+            w!("WhirlpoolSpikeCaption"),
             w!("caption"),
             WS_OVERLAPPEDWINDOW,
             300,

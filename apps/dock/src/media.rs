@@ -1,7 +1,6 @@
 //! Windows media sessions are read on a dedicated MTA worker. Event callbacks
 //! only mark the state dirty and wake the worker, even during bursts.
 
-use muelle_shell::{icons::IconImage, imagery};
 use std::{
     sync::{
         Arc, Mutex, OnceLock,
@@ -11,6 +10,7 @@ use std::{
     thread,
     time::Duration,
 };
+use whirlpool_shell::{icons::IconImage, imagery};
 use windows::{
     Foundation::TypedEventHandler,
     Media::Control::{
@@ -140,7 +140,7 @@ impl Watch {
         {
             let (window, state, events) = (window.clone(), state.clone(), events.clone());
             thread::Builder::new()
-                .name("muelle-media".into())
+                .name("whirlpool-media".into())
                 .spawn(move || {
                     // SAFETY: This is a new thread. The apartment is kept alive
                     // until all of the worker's WinRT objects have been dropped.

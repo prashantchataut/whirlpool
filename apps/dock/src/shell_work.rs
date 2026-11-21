@@ -14,8 +14,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use muelle_shell::{files, launcher, pins::unpin_from_taskbar, recycle_bin};
 use serde::{Deserialize, Serialize};
+use whirlpool_shell::{files, launcher, pins::unpin_from_taskbar, recycle_bin};
 use windows::Win32::{
     Foundation::{HANDLE, HWND, WAIT_TIMEOUT},
     System::{
@@ -83,10 +83,10 @@ impl Action {
         match self {
             // Through its shortcut when it has one with arguments (issue #8).
             Self::Open { id } => {
-                launcher::open(&muelle_shell::pins::launch_target(&id).unwrap_or(id))?
+                launcher::open(&whirlpool_shell::pins::launch_target(&id).unwrap_or(id))?
             }
             Self::OpenAsAdmin { id } => {
-                launcher::open_as_admin(&muelle_shell::pins::launch_target(&id).unwrap_or(id))?;
+                launcher::open_as_admin(&whirlpool_shell::pins::launch_target(&id).unwrap_or(id))?;
             }
             Self::Reveal { path } => launcher::reveal(&path)?,
             Self::OpenWith { app, files } => launcher::open_with(&app, &files)?,
@@ -127,7 +127,7 @@ impl<T: Send + 'static> Queue<T> {
             let receiver = Arc::clone(&receiver);
             let run = Arc::clone(&run);
             thread::Builder::new()
-                .name(format!("muelle-shell-{index}"))
+                .name(format!("whirlpool-shell-{index}"))
                 .spawn(move || {
                     loop {
                         let job = {
@@ -159,7 +159,7 @@ impl Workers {
     fn new() -> Result<Self> {
         let execute = |action| {
             if let Err(error) = start_helper(action) {
-                eprintln!("muelle: operación del shell: {error:#}");
+                eprintln!("whirlpool: operación del shell: {error:#}");
             }
         };
         Ok(Self {
@@ -201,14 +201,14 @@ fn notify_failure(message: &'static str) {
         return;
     }
     let shown = thread::Builder::new()
-        .name("muelle-shell-notice".into())
+        .name("whirlpool-shell-notice".into())
         .spawn(move || {
             // SAFETY: Independent native dialog; it never disables the dock.
             unsafe {
                 MessageBoxW(
                     None,
                     &windows::core::HSTRING::from(message),
-                    windows::core::w!("Muelle"),
+                    windows::core::w!("Whirlpool"),
                     MB_OK | MB_ICONWARNING,
                 );
             }

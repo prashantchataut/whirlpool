@@ -20,4 +20,4 @@ jobs:
       - name: Test
         run: cargo test --workspace
       - name: Build release binaries
-        run: cargo build --release -p muelle -p muelle-settings
+        run: cargo build --release -p whirlpool -p whirlpool-settings

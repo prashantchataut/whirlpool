@@ -6,8 +6,12 @@ use eframe::egui::{
     Response, RichText, Sense, Stroke, StrokeKind, TextureHandle, Ui, Vec2, pos2, vec2,
 };
 
-pub const ACCENT: Color32 = Color32::from_rgb(0x3b, 0x82, 0xf6);
-pub const DANGER: Color32 = Color32::from_rgb(0xef, 0x44, 0x44);
+/// The current: a deep teal that holds 3:1 against both the abyss and the shallows.
+pub const ACCENT: Color32 = Color32::from_rgb(0x0e, 0xa5, 0xa8);
+/// Foam: the bright end of the water, used for highlights on dark surfaces.
+pub const FOAM: Color32 = Color32::from_rgb(0x7a, 0xee, 0xde);
+/// Coral: the single warm signal colour, reserved for things that need attention.
+pub const DANGER: Color32 = Color32::from_rgb(0xf2, 0x64, 0x4a);
 
 /// Colors that depend on the light or dark theme.
 #[derive(Clone, Copy)]
@@ -25,23 +29,23 @@ impl Palette {
     pub fn of(ui: &Ui) -> Self {
         if ui.visuals().dark_mode {
             Self {
-                window: Color32::from_rgb(0x14, 0x15, 0x19),
-                sidebar: Color32::from_rgb(0x1a, 0x1b, 0x21),
-                card: Color32::from_rgb(0x22, 0x24, 0x2b),
-                border: Color32::from_rgb(0x32, 0x35, 0x3f),
-                text: Color32::from_rgb(0xf1, 0xf2, 0xf5),
-                muted: Color32::from_rgb(0x9a, 0x9f, 0xad),
-                track: Color32::from_rgb(0x45, 0x49, 0x55),
+                window: Color32::from_rgb(0x07, 0x14, 0x19),
+                sidebar: Color32::from_rgb(0x0a, 0x1b, 0x22),
+                card: Color32::from_rgb(0x0e, 0x25, 0x2d),
+                border: Color32::from_rgb(0x1b, 0x3a, 0x45),
+                text: Color32::from_rgb(0xe6, 0xf4, 0xf2),
+                muted: Color32::from_rgb(0x84, 0xa8, 0xad),
+                track: Color32::from_rgb(0x2a, 0x4b, 0x56),
             }
         } else {
             Self {
-                window: Color32::from_rgb(0xf4, 0xf5, 0xf8),
-                sidebar: Color32::from_rgb(0xea, 0xec, 0xf1),
-                card: Color32::WHITE,
-                border: Color32::from_rgb(0xdd, 0xe0, 0xe7),
-                text: Color32::from_rgb(0x16, 0x18, 0x1d),
-                muted: Color32::from_rgb(0x6a, 0x70, 0x7e),
-                track: Color32::from_rgb(0xc5, 0xca, 0xd4),
+                window: Color32::from_rgb(0xee, 0xf6, 0xf7),
+                sidebar: Color32::from_rgb(0xdf, 0xed, 0xef),
+                card: Color32::from_rgb(0xfa, 0xfd, 0xfd),
+                border: Color32::from_rgb(0xcb, 0xdf, 0xe2),
+                text: Color32::from_rgb(0x08, 0x1e, 0x24),
+                muted: Color32::from_rgb(0x4f, 0x6f, 0x76),
+                track: Color32::from_rgb(0xb4, 0xcc, 0xd0),
             }
         }
     }
@@ -56,6 +60,8 @@ pub fn install_theme(ctx: &egui::Context) {
         style.spacing.slider_width = 190.0;
         style.visuals.selection.bg_fill = ACCENT;
         style.visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.hyperlink_color = ACCENT;
+        style.visuals.text_cursor.stroke = Stroke::new(2.0, ACCENT);
         style.visuals.widgets.inactive.corner_radius = CornerRadius::same(8);
         style.visuals.widgets.hovered.corner_radius = CornerRadius::same(8);
         style.visuals.widgets.active.corner_radius = CornerRadius::same(8);
@@ -259,7 +265,7 @@ fn desktop(painter: &Painter, rect: Rect, backdrop: &Backdrop) {
             painter.add(mesh);
         }
         None => {
-            painter.rect_filled(rect, round, Color32::from_rgb(0x2b, 0x3a, 0x67));
+            painter.rect_filled(rect, round, Color32::from_rgb(0x0c, 0x3b, 0x55));
             painter.rect_filled(
                 Rect::from_min_max(rect.center_top(), rect.right_bottom()).shrink(1.0),
                 CornerRadius {
@@ -268,7 +274,7 @@ fn desktop(painter: &Painter, rect: Rect, backdrop: &Backdrop) {
                     sw: 0,
                     se: 10,
                 },
-                Color32::from_rgb(0x7c, 0x4d, 0xb5),
+                Color32::from_rgb(0x1f, 0x8f, 0xa0),
             );
         }
     }
@@ -278,9 +284,9 @@ pub fn preview_dock(
     painter: &Painter,
     rect: Rect,
     backdrop: &Backdrop,
-    position: muelle_config::DockPosition,
+    position: whirlpool_config::DockPosition,
 ) {
-    use muelle_config::DockPosition;
+    use whirlpool_config::DockPosition;
     desktop(painter, rect, backdrop);
     let glass = Color32::from_rgba_unmultiplied(255, 255, 255, 70);
     let icon = 5.0 + (backdrop.icon_size as f32 - 32.0) / 64.0 * 6.0;
@@ -320,11 +326,11 @@ pub fn preview_dock(
             pos2(dock.center().x - icon / 2.0, dock.top() + offset)
         };
         let color = [
-            Color32::from_rgb(0xff, 0x6b, 0x6b),
-            Color32::from_rgb(0xfe, 0xca, 0x57),
-            Color32::from_rgb(0x48, 0xdb, 0xfb),
-            Color32::from_rgb(0x1d, 0xd1, 0xa1),
-            Color32::from_rgb(0xa2, 0x9b, 0xfe),
+            Color32::from_rgb(0xff, 0x8a, 0x6b),
+            Color32::from_rgb(0xff, 0xd1, 0x8a),
+            Color32::from_rgb(0x5a, 0xd1, 0xf0),
+            Color32::from_rgb(0x2d, 0xe0, 0xb5),
+            Color32::from_rgb(0x9a, 0xc4, 0xff),
         ][index];
         painter.rect_filled(
             Rect::from_min_size(min, Vec2::splat(icon)),
@@ -338,9 +344,9 @@ pub fn preview_island(
     painter: &Painter,
     rect: Rect,
     backdrop: &Backdrop,
-    style: muelle_config::IslandStyle,
+    style: whirlpool_config::IslandStyle,
 ) {
-    use muelle_config::IslandStyle;
+    use whirlpool_config::IslandStyle;
     desktop(painter, rect, backdrop);
     let bar = Rect::from_min_size(rect.min, vec2(rect.width(), 12.0));
     painter.rect_filled(
@@ -368,11 +374,7 @@ pub fn preview_island(
                 },
                 ink,
             );
-            painter.circle_filled(
-                pos2(notch.left() + 11.0, notch.center().y),
-                3.0,
-                Color32::from_rgb(0x1d, 0xd1, 0xa1),
-            );
+            painter.circle_filled(pos2(notch.left() + 11.0, notch.center().y), 3.0, FOAM);
         }
         _ => {
             let bubble = Rect::from_min_size(
@@ -380,11 +382,7 @@ pub fn preview_island(
                 vec2(50.0, 16.0),
             );
             painter.rect_filled(bubble, CornerRadius::same(8), ink);
-            painter.circle_filled(
-                pos2(bubble.left() + 9.0, bubble.center().y),
-                3.0,
-                Color32::from_rgb(0x1d, 0xd1, 0xa1),
-            );
+            painter.circle_filled(pos2(bubble.left() + 9.0, bubble.center().y), 3.0, FOAM);
         }
     }
 }
@@ -393,10 +391,10 @@ pub fn preview_speed(
     painter: &Painter,
     rect: Rect,
     _backdrop: &Backdrop,
-    speed: muelle_config::GenieSpeed,
+    speed: whirlpool_config::GenieSpeed,
 ) {
-    use muelle_config::GenieSpeed;
-    let palette_fill = Color32::from_rgb(0x1f, 0x22, 0x30);
+    use whirlpool_config::GenieSpeed;
+    let palette_fill = Color32::from_rgb(0x0b, 0x2a, 0x35);
     painter.rect_filled(rect, CornerRadius::same(10), palette_fill);
     // A bar that fills faster the faster the genie flies.
     let fraction = match speed {
@@ -408,9 +406,54 @@ pub fn preview_speed(
     painter.rect_filled(
         track,
         CornerRadius::same(4),
-        Color32::from_rgb(0x3a, 0x3f, 0x52),
+        Color32::from_rgb(0x1e, 0x4a, 0x58),
     );
     let mut filled = track;
     filled.set_right(track.left() + track.width() * fraction);
     painter.rect_filled(filled, CornerRadius::same(4), ACCENT);
+}
+
+/// The Whirlpool mark: two spiral arms drawn as vector strokes, so it stays
+/// sharp at any scale and needs no image asset.
+pub fn vortex(painter: &Painter, center: egui::Pos2, radius: f32, color: Color32) {
+    const STEPS: usize = 48;
+    const TURNS: f32 = 1.55;
+    for arm in 0..2 {
+        let offset = arm as f32 * std::f32::consts::PI;
+        let points: Vec<egui::Pos2> = (0..=STEPS)
+            .map(|step| {
+                let t = step as f32 / STEPS as f32;
+                // Arms start wide and wind in; the curve eases so the eye lands at the middle.
+                let r = radius * (1.0 - t).powf(0.85);
+                let angle = offset + t * TURNS * std::f32::consts::TAU;
+                center + vec2(angle.cos(), angle.sin()) * r
+            })
+            .collect();
+        let width = if arm == 0 { 2.4 } else { 1.6 };
+        painter.add(egui::Shape::line(points, Stroke::new(width, color)));
+    }
+    painter.circle_filled(center, radius * 0.1, color);
+}
+
+/// A quiet sine line: the waterline that sits under every page title.
+pub fn waterline(ui: &mut Ui, width: f32) {
+    let (rect, _) = ui.allocate_exact_size(vec2(width, 10.0), Sense::hover());
+    let points: Vec<egui::Pos2> = (0..=60)
+        .map(|i| {
+            let t = i as f32 / 60.0;
+            pos2(
+                rect.left() + t * rect.width(),
+                rect.center().y + (t * std::f32::consts::TAU * 3.0).sin() * 2.2,
+            )
+        })
+        .collect();
+    // Fades out to the right, like a ripple losing energy.
+    let steps = points.len() - 1;
+    for (index, pair) in points.windows(2).enumerate() {
+        let fade = 1.0 - index as f32 / steps as f32;
+        ui.painter().line_segment(
+            [pair[0], pair[1]],
+            Stroke::new(1.6, ACCENT.gamma_multiply(0.15 + 0.85 * fade)),
+        );
+    }
 }
