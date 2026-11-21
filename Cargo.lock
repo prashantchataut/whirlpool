@@ -2912,7 +2912,7 @@ dependencies = [
 
 [[package]]
 name = "whirlpool"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2933,7 +2933,7 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-config"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2942,16 +2942,17 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-core"
-version = "0.3.0"
+version = "1.0.0"
 
 [[package]]
 name = "whirlpool-settings"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "eframe",
  "serde",
  "serde_json",
  "whirlpool-config",
+ "whirlpool-core",
  "whirlpool-shell",
  "windows",
  "windows-future",
@@ -2960,10 +2961,11 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-shell"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
+ "whirlpool-core",
  "windows",
  "windows-core",
 ]

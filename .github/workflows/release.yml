@@ -1,8 +1,7 @@
 name: Release
 
-# Push a tag such as v0.3.0 to build both programs on Windows (MSVC) and attach
-# the executables to a GitHub release. The release body is the matching section
-# of CHANGELOG.md.
+# Push a tag such as v1.0.0 to build both programs on Windows, write checksums and a
+# build-provenance attestation, and attach everything to a GitHub release.
 on:
   push:
     tags: ['v*']
@@ -10,16 +9,34 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace
       - name: Build
         run: cargo build --release -p whirlpool -p whirlpool-settings
+      - name: Sign (only when a certificate is configured)
+        if: env.CERT_PFX != ''
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:CERT_PFX))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
+          foreach ($exe in 'whirlpool.exe', 'whirlpool-settings.exe') {
+            & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD "target/release/$exe"
+            if ($LASTEXITCODE -ne 0) { throw "signing $exe failed" }
+          }
+          Remove-Item "$env:RUNNER_TEMP\cert.pfx"
       - name: Package
         shell: pwsh
         run: |
@@ -31,15 +48,26 @@ jobs:
           Get-FileHash whirlpool.exe, whirlpool-settings.exe, Whirlpool-x64.zip -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS.txt
           Pop-Location
-          # Release notes: the CHANGELOG section for this tag.
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          # Release notes: the CHANGELOG section of this version, English part first.
+          $version = ($env:GITHUB_REF_NAME -replace '^v', '')
           $text = Get-Content CHANGELOG.md -Raw
-          $m = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($version))\]\s*\r?\n(.*?)(?=^## \[|\z)")
-          if ($m.Success) { $m.Groups[1].Value.Trim() | Set-Content dist/notes.md } else { "Whirlpool $version" | Set-Content dist/notes.md }
+          $m = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($version))\]\s*(.*?)(?=^## \[|\z)")
+          $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Whirlpool $version" }
+          $notes += "`n`n---`nVerify: see [docs/TRUST.md](https://github.com/$env:GITHUB_REPOSITORY/blob/main/docs/TRUST.md). SHA-256 sums are in SHA256SUMS.txt."
+          Set-Content dist/notes.md $notes
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/whirlpool.exe
+            dist/whirlpool-settings.exe
+            dist/Whirlpool-x64.zip
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Whirlpool ${{ github.ref_name }}
           body_path: dist/notes.md
           files: |
             dist/whirlpool.exe

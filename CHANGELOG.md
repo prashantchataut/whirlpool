@@ -8,6 +8,30 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ## [Unreleased]
 
+## [1.0.0]
+
+### English
+
+- **A new mark.** A luminous three-arm vortex on a glass squircle, generated from maths (`scripts/make_icon.py`) so it is reproducible. New `.ico` (16 to 256 px, bolder at small sizes) and SVG.
+- **Wallpapers.** 24 procedural wallpapers (vortex, mesh gradients, horizons) drawn at the exact resolution of your screen, with Shuffle. Nothing is downloaded.
+- **Personalize page** in Settings: animation style (Relaxed / Smooth / Snappy), startup animation (Off / Glide / Rise / Swift), a separate charging-animation switch, menu bar tint strength, date on/off and a 24h / 12h / Windows clock.
+- **Smoother motion.** The dock rises from its edge on start and sinks into it when you quit.
+- **Settings fits your screen.** The window sizes itself to the monitor's work area and scale and declares per-monitor DPI awareness, so it is sharp and never taller than the display.
+- **The Windows taskbar stays hidden.** A second layer (an empty window region) and a five-second repair check keep it hidden when Explorer brings it back. `whirlpool.exe --restore` still returns it.
+- **Trust.** Both executables carry full version information and a manifest; releases ship `SHA256SUMS.txt` and a build-provenance attestation; see `docs/TRUST.md`.
+- **Website rebuilt from scratch** with a glass and dithered-data look.
+
+### Español
+
+- **Un nuevo logo**, un vórtice luminoso de tres brazos sobre un cuadrado de cristal, generado por código.
+- **Fondos de pantalla.** 24 fondos procedurales a la resolución exacta de tu pantalla, con modo aleatorio. No se descarga nada.
+- **Página Personalizar** en Ajustes: estilo de animación, animación de inicio, animación de carga y apariencia de la barra de menús (opacidad, fecha y reloj de 24 h / 12 h).
+- **Movimiento más suave.** El dock sube desde el borde al iniciar y se hunde al cerrar.
+- **Ajustes se adapta a tu pantalla** y declara DPI por monitor.
+- **La barra de Windows sigue oculta**, con una segunda capa y una comprobación cada cinco segundos.
+- **Confianza.** Información de versión en los ejecutables, sumas SHA-256 y atestación de procedencia.
+
+
 ## [0.3.0]
 
 ### English

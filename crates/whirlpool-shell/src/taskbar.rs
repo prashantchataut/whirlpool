@@ -13,12 +13,13 @@ use std::{env, fs, mem::size_of, path::PathBuf};
 use windows::{
     Win32::{
         Foundation::{COLORREF, HWND, LPARAM},
+        Graphics::Gdi::CreateRectRgn,
         UI::{
             Shell::{ABM_GETSTATE, ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA, SHAppBarMessage},
             WindowsAndMessaging::{
                 FindWindowExW, FindWindowW, GWL_EXSTYLE, GetLayeredWindowAttributes,
                 GetWindowLongPtrW, LWA_ALPHA, SetLayeredWindowAttributes, SetWindowLongPtrW,
-                WS_EX_LAYERED, WS_EX_TRANSPARENT,
+                SetWindowRgn, WS_EX_LAYERED, WS_EX_TRANSPARENT,
             },
         },
     },
@@ -160,7 +161,14 @@ fn set_ghost(hwnd: HWND, ghost: bool) -> bool {
             if SetLayeredWindowAttributes(hwnd, COLORREF(0), 0, LWA_ALPHA).is_err() {
                 return false;
             }
+            // Second layer: an empty region leaves nothing to draw or hit even
+            // if Explorer resets the alpha (Windows 11 does, now and then).
+            let region = CreateRectRgn(0, 0, 0, 0);
+            if !region.is_invalid() {
+                SetWindowRgn(hwnd, Some(region), false);
+            }
         } else if style & GHOST_STYLES != 0 {
+            SetWindowRgn(hwnd, None, true);
             let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style & !GHOST_STYLES);
         }

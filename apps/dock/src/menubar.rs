@@ -183,6 +183,10 @@ pub struct MenuBarWidgets {
     pub bluetooth: bool,
     pub battery_percent: Option<bool>,
     pub island_style: IslandStyle,
+    /// Strength of the bar's tint over the glass, in percent.
+    pub opacity: u32,
+    pub date: bool,
+    pub hour24: Option<bool>,
 }
 
 impl Default for MenuBarWidgets {
@@ -194,6 +198,9 @@ impl Default for MenuBarWidgets {
             bluetooth: true,
             battery_percent: None,
             island_style: IslandStyle::Notch,
+            opacity: 50,
+            date: true,
+            hour24: None,
         }
     }
 }
@@ -1793,7 +1800,7 @@ impl MenuBar {
             light: system::uses_light_theme(),
             glass: system::transparency_enabled(),
             app_name: self.app_name.clone(),
-            clock: system::clock_text(),
+            clock: system::clock_text_with(self.widgets.date, self.widgets.hour24),
             input: system::input_language(),
             battery: system::battery(),
             status: self.status,
@@ -1897,9 +1904,10 @@ impl MenuBar {
         let layers = root.Children()?;
         // Without transparency the bar is solid, as macOS draws it with
         // "Reduce transparency".
+        let alpha = (look.widgets.opacity.clamp(10, 100) * 255 / 100) as u8;
         let tint = match (look.light, look.glass) {
-            (true, true) => rgba(244, 252, 250, 110),
-            (false, true) => rgba(6, 28, 36, 128),
+            (true, true) => rgba(244, 252, 250, alpha),
+            (false, true) => rgba(6, 28, 36, alpha),
             (true, false) => rgba(230, 242, 240, 255),
             (false, false) => rgba(10, 34, 42, 255),
         };

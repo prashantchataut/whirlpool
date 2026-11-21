@@ -14,7 +14,10 @@ use eframe::egui::{
     Ui, pos2, vec2,
 };
 use serde_json::{Map, Value};
-use whirlpool_config::{Config, DockPosition, GenieSpeed, IslandStyle, Language};
+use whirlpool_config::{
+    AnimationStyle, Config, DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
+};
+use whirlpool_core::wallpaper;
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
@@ -33,6 +36,7 @@ const DOCK_OWNED: [&str; 5] = ["version", "pinned", "groups", "recent", "taskbar
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
     Dock,
+    Personalize,
     Windows,
     MenuBar,
     System,
@@ -60,6 +64,11 @@ pub struct Settings {
     update_rx: Option<Receiver<Option<update::Release>>>,
     reset_armed: Option<Instant>,
     banner_dismissed: bool,
+    wall_thumbs: Vec<(&'static str, TextureHandle)>,
+    wall_thumbs_rx: Option<Receiver<Vec<(&'static str, ColorImage)>>>,
+    wall_apply_rx: Option<Receiver<(String, bool)>>,
+    wall_busy: Option<&'static str>,
+    wall_failed: bool,
 }
 
 fn dock_exe() -> PathBuf {
@@ -102,6 +111,25 @@ fn spawn_writer() -> (Sender<Map<String, Value>>, Receiver<bool>) {
         }
     });
     (send, done_receive)
+}
+
+/// Draws every wallpaper preset small, off the UI thread.
+fn spawn_thumbnails(ctx: &egui::Context) -> Receiver<Vec<(&'static str, ColorImage)>> {
+    let (send, receive) = mpsc::channel();
+    let ctx = ctx.clone();
+    thread::spawn(move || {
+        let images = wallpaper::PRESETS
+            .iter()
+            .map(|preset| {
+                let raster = wallpaper::render(preset, 240, 150);
+                let size = [raster.width as usize, raster.height as usize];
+                (preset.id, ColorImage::from_rgb(size, &raster.rgb))
+            })
+            .collect();
+        let _ = send.send(images);
+        ctx.request_repaint();
+    });
+    receive
 }
 
 fn spawn_wallpaper(ctx: &egui::Context) -> Receiver<Option<ColorImage>> {
@@ -161,6 +189,11 @@ impl Settings {
             update_rx: None,
             reset_armed: None,
             banner_dismissed: false,
+            wall_thumbs: Vec::new(),
+            wall_thumbs_rx: None,
+            wall_apply_rx: None,
+            wall_busy: None,
+            wall_failed: false,
         };
         settings.animations_on = system::animations_enabled();
         settings.recheck_updates(ctx);
@@ -314,6 +347,7 @@ impl eframe::App for Settings {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll(&ctx);
+        self.poll_wallpapers(&ctx);
         let t = Rc::clone(&self.texts);
         let palette = Palette::of(ui);
 
@@ -347,6 +381,7 @@ impl eframe::App for Settings {
                         self.banner(ui, &t, palette);
                         match self.page {
                             Page::Dock => self.dock_page(ui, &t),
+                            Page::Personalize => self.personalize_page(ui, &t),
                             Page::Windows => self.windows_page(ui, &t),
                             Page::MenuBar => self.menu_bar_page(ui, &t),
                             Page::System => self.system_page(ui, &t, &ctx),
@@ -367,6 +402,7 @@ impl Settings {
     fn page_title<'a>(&self, t: &'a Texts) -> &'a str {
         match self.page {
             Page::Dock => t.get("dock"),
+            Page::Personalize => t.get("personalize"),
             Page::Windows => t.get("windows"),
             Page::MenuBar => t.get("menuBar"),
             Page::System => t.get("system"),
@@ -395,6 +431,7 @@ impl Settings {
         ui.add_space(22.0);
         let pages = [
             (Page::Dock, t.get("dock")),
+            (Page::Personalize, t.get("personalize")),
             (Page::Windows, t.get("windows")),
             (Page::MenuBar, t.get("menuBar")),
             (Page::System, t.get("system")),
@@ -605,6 +642,215 @@ impl Settings {
         if pick {
             let ctx = ui.ctx().clone();
             self.choose_folder(&ctx);
+        }
+    }
+
+    fn poll_wallpapers(&mut self, ctx: &egui::Context) {
+        if let Some(receive) = &self.wall_thumbs_rx
+            && let Ok(images) = receive.try_recv()
+        {
+            self.wall_thumbs = images
+                .into_iter()
+                .map(|(id, image)| {
+                    let texture =
+                        ctx.load_texture(format!("wallpaper-{id}"), image, TextureOptions::LINEAR);
+                    (id, texture)
+                })
+                .collect();
+            self.wall_thumbs_rx = None;
+        }
+        if let Some(receive) = &self.wall_apply_rx
+            && let Ok((id, applied)) = receive.try_recv()
+        {
+            self.wall_apply_rx = None;
+            self.wall_busy = None;
+            if applied {
+                self.config.wallpaper = Some(id);
+            } else {
+                self.wall_failed = true;
+            }
+        }
+    }
+
+    fn apply_wallpaper(&mut self, id: &'static str, ctx: &egui::Context) {
+        if self.wall_busy.is_some() {
+            return;
+        }
+        self.wall_busy = Some(id);
+        self.wall_failed = false;
+        let (send, receive) = mpsc::channel();
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let applied = whirlpool_shell::wallpaper::apply(id).is_ok();
+            let _ = send.send((id.to_owned(), applied));
+            ctx.request_repaint();
+        });
+        self.wall_apply_rx = Some(receive);
+    }
+
+    fn personalize_page(&mut self, ui: &mut Ui, t: &Texts) {
+        let ctx = ui.ctx().clone();
+        if self.wall_thumbs.is_empty() && self.wall_thumbs_rx.is_none() {
+            self.wall_thumbs_rx = Some(spawn_thumbnails(&ctx));
+        }
+        let config = &mut self.config;
+        ui::card(ui, Some(t.get("groupAnimations")), |ui| {
+            ui::row(
+                ui,
+                t.get("animationStyle"),
+                Some(t.get("animationStyleHint")),
+                300.0,
+                |ui| {
+                    ui.selectable_value(
+                        &mut config.animation_style,
+                        AnimationStyle::Relaxed,
+                        t.get("styleRelaxed"),
+                    );
+                    ui.selectable_value(
+                        &mut config.animation_style,
+                        AnimationStyle::Smooth,
+                        t.get("styleSmooth"),
+                    );
+                    ui.selectable_value(
+                        &mut config.animation_style,
+                        AnimationStyle::Snappy,
+                        t.get("styleSnappy"),
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("startupAnimation"),
+                Some(t.get("startupAnimationHint")),
+                340.0,
+                |ui| {
+                    ui.selectable_value(
+                        &mut config.startup_animation,
+                        StartupAnimation::Off,
+                        t.get("startupOff"),
+                    );
+                    ui.selectable_value(
+                        &mut config.startup_animation,
+                        StartupAnimation::Glide,
+                        t.get("startupGlide"),
+                    );
+                    ui.selectable_value(
+                        &mut config.startup_animation,
+                        StartupAnimation::Rise,
+                        t.get("startupRise"),
+                    );
+                    ui.selectable_value(
+                        &mut config.startup_animation,
+                        StartupAnimation::Swift,
+                        t.get("startupSwift"),
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("chargingAnimation"),
+                Some(t.get("chargingAnimationHint")),
+                &mut config.charging_animation,
+            );
+        });
+        ui::card(ui, Some(t.get("groupMenuBarLook")), |ui| {
+            ui::row(ui, t.get("menuBarOpacity"), None, 280.0, |ui| {
+                ui.add(
+                    egui::Slider::new(
+                        &mut config.menu_bar_opacity,
+                        whirlpool_config::MENU_BAR_OPACITY_RANGE.0
+                            ..=whirlpool_config::MENU_BAR_OPACITY_RANGE.1,
+                    )
+                    .suffix(" %"),
+                );
+            });
+            ui::divider(ui);
+            ui::toggle_row(ui, t.get("menuBarDate"), None, &mut config.menu_bar_date);
+            ui::divider(ui);
+            ui::row(ui, t.get("menuBarClock"), None, 280.0, |ui| {
+                ui.selectable_value(&mut config.menu_bar_24h, None, t.get("clockAuto"));
+                ui.selectable_value(&mut config.menu_bar_24h, Some(true), t.get("clock24"));
+                ui.selectable_value(&mut config.menu_bar_24h, Some(false), t.get("clock12"));
+            });
+        });
+
+        let mut chosen: Option<&'static str> = None;
+        let mut shuffle = false;
+        let busy = self.wall_busy;
+        let current = config.wallpaper.clone();
+        let thumbs = &self.wall_thumbs;
+        let failed = self.wall_failed;
+        ui::card(ui, Some(t.get("groupWallpapers")), |ui| {
+            let hint = if failed {
+                t.get("wallpaperFailed")
+            } else if busy.is_some() {
+                t.get("wallpaperApplying")
+            } else {
+                t.get("wallpapersHint")
+            };
+            ui::row(ui, t.get("wallpaperShuffle"), Some(hint), 140.0, |ui| {
+                if ui::push(ui, t.get("shuffle"), None).clicked() {
+                    shuffle = true;
+                }
+            });
+            ui::divider(ui);
+            ui.add_space(6.0);
+            if thumbs.is_empty() {
+                ui.label(t.get("wallpapersLoading"));
+            }
+            let columns = 3usize;
+            let gap = 12.0;
+            let width = ((ui.available_width() - gap * (columns as f32 - 1.0)) / columns as f32)
+                .floor()
+                .max(80.0);
+            let height = (width * 0.625).round();
+            egui::Grid::new("wallpapers")
+                .spacing([gap, gap])
+                .show(ui, |ui| {
+                    for (index, (id, texture)) in thumbs.iter().enumerate() {
+                        let selected = current.as_deref() == Some(*id);
+                        ui.vertical(|ui| {
+                            let (rect, response) =
+                                ui.allocate_exact_size(vec2(width, height), Sense::click());
+                            ui.painter().image(
+                                texture.id(),
+                                rect,
+                                egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                                egui::Color32::WHITE,
+                            );
+                            if selected || response.hovered() {
+                                ui.painter().rect_stroke(
+                                    rect,
+                                    egui::CornerRadius::same(4),
+                                    egui::Stroke::new(
+                                        if selected { 3.0 } else { 1.5 },
+                                        if selected { ui::ACCENT } else { ui::FOAM },
+                                    ),
+                                    egui::StrokeKind::Inside,
+                                );
+                            }
+                            let name = wallpaper::find(id).map_or(*id, |preset| preset.name);
+                            ui.label(RichText::new(name).size(12.5));
+                            if response.clicked() && busy.is_none() {
+                                chosen = Some(*id);
+                            }
+                        });
+                        if (index + 1) % columns == 0 {
+                            ui.end_row();
+                        }
+                    }
+                });
+        });
+        if shuffle {
+            let entropy = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(7, |elapsed| elapsed.as_nanos() as u64);
+            chosen = Some(wallpaper::shuffle(self.config.wallpaper.as_deref(), entropy).id);
+        }
+        if let Some(id) = chosen {
+            self.apply_wallpaper(id, &ctx);
         }
     }
 
