@@ -1,59 +1,101 @@
-<p align="center"><img src="assets/brand/whirlpool-1024.png" width="112" alt="Whirlpool"></p>
+<p align="center">
+  <img src="assets/brand/whirlpool-1024.png" width="132" alt="Whirlpool logo: a luminous three-arm vortex on a glass tile">
+</p>
 
 <h1 align="center">Whirlpool</h1>
 
-<p align="center">A dock and menu bar for Windows 10 and 11, written entirely in Rust.<br>
-Two plain executables. No web view, no runtime, no telemetry.</p>
+<p align="center">
+  <b>A dock that moves like water.</b><br>
+  A magnifying dock and a customizable menu bar for Windows 10 and 11.<br>
+  Two small native Rust programs. No web view. No runtime. It sleeps when you do.
+</p>
 
-<p align="center"><a href="https://github.com/prashantchataut/whirlpool/releases/latest"><b>Download</b></a> · <a href="https://prashantchataut.github.io/whirlpool/">Website</a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="CHANGELOG.md">Changelog</a></p>
+<p align="center">
+  <a href="https://github.com/prashantchataut/whirlpool/releases/latest"><b>Download</b></a> ·
+  <a href="https://prashantchataut.github.io/whirlpool/">Website</a> ·
+  <a href="docs/TRUST.md">Trust &amp; verification</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-![The Whirlpool dock with a magnified icon and window previews](site/assets/screens/dock.png)
+<p align="center">
+  <img src="docs/previews/site-hero.png" alt="Whirlpool website hero: a dithered vortex behind a desktop with the Whirlpool dock and menu bar">
+</p>
 
-> **About the pictures.** The screens in this README and on the website are design renders drawn from the app's own palette, labels and layout (see [`site/renders`](site/renders)). They are not captures of a running Windows session. The dock itself needs Windows to run.
+> **About the images.** Everything under `docs/previews/` is a **design render** drawn from the app's own palette, labels and
+> layout (the website builds them from the same components as its live demo). They are not captures of a running Windows
+> session. Please run the release and compare.
 
-## What it is
+## What you get
 
-Whirlpool is a fork of [Muelle Native](https://github.com/prashantchataut/muelle-native), itself a fork of [crafter-station/Muelle](https://github.com/crafter-station/Muelle) (MIT). The dock was already native Direct2D/DirectComposition Rust. Whirlpool keeps every feature and adds an ocean identity, a rebuilt settings window and clearer docs.
-
-| Program | What it is |
+| | |
 | --- | --- |
-| `whirlpool.exe` | The dock and optional top menu bar (Win32, DirectComposition, Direct2D, DirectWrite) |
-| `whirlpool-settings.exe` | Native settings window (egui). Edits the same `config.json` and tells the dock to reload |
+| **Glass dock** | Spring magnification, pins, groups, recents, live window previews, Genie minimize, drag and drop, auto-hide on any edge. |
+| **Menu bar** | Clock, network, volume, battery, input language, tray, now playing and an AI plan-usage island. Tint strength, date and 12/24-hour clock are yours to set. |
+| **Wallpapers** | 24 procedural wallpapers (vortex, mesh, horizon) drawn at the exact resolution of your screen, plus Shuffle. Nothing is downloaded. |
+| **Motion** | Animation style (Relaxed, Smooth, Snappy), a startup animation (Off, Glide, Rise, Swift), a dock that sinks away when you quit, and a charging animation you can turn off on its own. |
+| **Your taskbar, hidden for real** | The Windows taskbar is auto-hidden, made transparent and click-through, given an empty window region, and re-checked every few seconds. `whirlpool.exe --restore` always brings it back. |
+| **Settings that fit** | A native window that sizes itself to your monitor and scale, in English, Español and Français, light and dark. |
 
-## What changed from Muelle Native
+<p align="center">
+  <img src="docs/previews/site-customize.png" alt="The customization playground: sliders and segmented controls next to a live dock and the config.json it writes" width="860">
+</p>
 
-- **New name and theme.** Abyss (dark) and Foam (light) palettes, a tide-teal accent, a vortex mark and a regenerated icon. The dock glass, labels, menus, group glow and active-app indicator are tinted to match.
-- **Rebuilt settings window.** Inter typeface embedded, semibold weights, a sidebar with a leading tide mark, themed controls (sliders, combo boxes, buttons) instead of egui defaults, and cards with more breathing room.
-- **Nothing lost on upgrade.** On first run Whirlpool moves your `%APPDATA%\Muelle` (or older `WinDock`) folder to `%APPDATA%\Whirlpool`, keeping pins, groups and preferences.
-- **Docs.** [Architecture](docs/ARCHITECTURE.md), [contributing](CONTRIBUTING.md), a regenerable [icon script](scripts/make_icon.py), and a website that deploys from [`site/`](site).
-- **Pipelines.** Release builds both programs on Windows, publishes `.exe`, `.zip`, `install.ps1`, `SHA256SUMS.txt` and the changelog section as release notes. The website deploys to GitHub Pages.
+### Wallpapers
 
-## Features
+<p align="center">
+  <img src="docs/previews/wallpapers.png" alt="Contact sheet of all 24 Whirlpool wallpapers" width="860">
+</p>
 
-- Glass dock with cursor-based magnification, pinning, grouping, reordering and recent apps.
-- Live window previews, Genie minimize effect (three speeds), minimized-window thumbnails.
-- Menu bar with clock, network, volume, battery, input language, tray icons, now-playing and an AI plan-usage island.
-- Drag and drop onto apps, Downloads and the Recycle Bin; shortcuts folder menu; optional auto-hide.
-- Settings in English, Spanish and French, light and dark, with previews drawn over your wallpaper.
-- A watchdog restores the Windows taskbar if the dock exits unexpectedly.
+### Screens
 
-| Menu bar, island and quick settings | Settings, dark (Abyss) | Settings, light (Foam) |
-| --- | --- | --- |
-| ![](site/assets/screens/menubar.png) | ![](site/assets/screens/settings-dark.png) | ![](site/assets/screens/settings-light.png) |
+<p align="center">
+  <img src="docs/previews/site-screens.png" alt="Design renders: dock over a desktop, the Personalize settings page, charging and startup states" width="860">
+</p>
 
 ## Install
 
 Windows 10 (1903+) or Windows 11, 64-bit.
 
-**One line (no admin, per-user):**
+**One line, per user, no admin.** The script verifies the SHA-256 of every file before it installs anything:
 
 ```powershell
 irm https://raw.githubusercontent.com/prashantchataut/whirlpool/main/scripts/install.ps1 | iex
 ```
 
-**Or manually:** download `whirlpool.exe` and `whirlpool-settings.exe` from [Releases](https://github.com/prashantchataut/whirlpool/releases/latest), keep them in the same folder and run `whirlpool.exe`. The binaries are unsigned, so SmartScreen may ask you to choose **More info, then Run anyway**. Checksums are in `SHA256SUMS.txt`.
+**Or manually:** download `whirlpool.exe` and `whirlpool-settings.exe` from [Releases](https://github.com/prashantchataut/whirlpool/releases/latest),
+keep them in one folder and run `whirlpool.exe`.
 
-If the dock ever misbehaves, `whirlpool.exe --restore` brings the Windows taskbar back.
+### Windows warns me. Is it safe?
+
+A brand-new open-source app has no signature and no download reputation yet, so SmartScreen says *unknown publisher*.
+That means unknown, not malicious. Here is how to check, and what we do about it ([full notes](docs/TRUST.md)):
+
+```powershell
+Get-FileHash .\whirlpool.exe -Algorithm SHA256                          # compare with SHA256SUMS.txt
+gh attestation verify .\whirlpool.exe --repo prashantchataut/whirlpool  # proves which workflow and commit built it
+```
+
+- Releases are built by GitHub Actions from a tagged commit, with a signed build-provenance attestation and `SHA256SUMS.txt`.
+- Both executables carry full version information and ask for **no administrator rights**.
+- No telemetry. If the dock exits, a watchdog gives you the taskbar back.
+- Code signing is wired into the release workflow and turns on when a certificate is added.
+
+## Customize
+
+Everything is in the Settings window (`whirlpool-settings.exe`, or *Whirlpool Settings* in the Start menu), which writes
+`%APPDATA%\Whirlpool\config.json` and tells the dock to reload. New in 1.0:
+
+| Key | Values |
+| --- | --- |
+| `animationStyle` | `relaxed`, `smooth`, `snappy` |
+| `startupAnimation` | `off`, `glide`, `rise`, `swift` |
+| `chargingAnimation` | `true` / `false` |
+| `menuBarOpacity` | `10` to `100` |
+| `menuBarDate` | `true` / `false` |
+| `menuBar24h` | `null` (Windows), `true`, `false` |
+| `wallpaper` | id of the last applied wallpaper, e.g. `"abyss"` |
+
+Older config files keep working; missing keys take their defaults.
 
 ## Build from source
 
@@ -62,29 +104,35 @@ Requires Rust (MSVC toolchain) and the Visual Studio C++ build tools.
 ```powershell
 cargo build --release -p whirlpool -p whirlpool-settings
 # target\release\whirlpool.exe and target\release\whirlpool-settings.exe
-
 cargo fmt --all -- --check
 cargo test --workspace
+python scripts/make_icon.py      # regenerates the logo (needs numpy and pillow)
 ```
-
-Cross-compiling from Linux works for checking and for a GNU-target build: `rustup target add x86_64-pc-windows-gnu`, install `gcc-mingw-w64-x86-64`, then `cargo build --release --target x86_64-pc-windows-gnu -p whirlpool -p whirlpool-settings`. Release builds for the MSVC target come from CI.
 
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
-| `apps/dock` | Native Windows dock and menu bar |
-| `apps/settings` | Native settings window (egui) |
-| `crates/whirlpool-core` | Platform-independent layout and animation logic |
+| `apps/dock` | The dock and menu bar (Win32, DirectComposition, Direct2D) |
+| `apps/settings` | The settings window (egui) |
+| `crates/whirlpool-core` | Platform-independent layout, springs, genie and the wallpaper engine, tested anywhere |
 | `crates/whirlpool-shell` | Windows shell integration |
-| `crates/whirlpool-config` | Shared settings and persistence |
-| `site` | The website and the HTML sources of the renders |
-| `scripts` | Installer, icon generator, measurement helpers |
+| `crates/whirlpool-config` | Settings schema and persistence |
+| `site/` | The website (Vite, React, Tailwind), deployed to GitHub Pages |
+| `.agents/skills/` | The design skills this project works by (see below) |
 
 ## Privacy
 
-No telemetry. Optional network use: the settings window asks GitHub for the latest release when you open it (turn off with *Check for updates automatically*), and the dock's AI-usage island asks the provider you are already signed in to for plan limits (turn off in Menu bar settings).
+No telemetry. Optional network use: the settings window asks GitHub for the latest release when it opens
+(turn off with *Check for updates automatically*), and the AI-usage island asks the provider you are already signed in to
+for plan limits (turn off in Menu bar settings).
+
+## Contributing
+
+Read [`AGENTS.md`](AGENTS.md) and [`continuity.md`](continuity.md) first. UI and UX come first here: design work follows the
+skills vendored in [`.agents/skills`](.agents/skills) (frontend-design, design-taste-frontend, ui-ux-pro-max,
+web-design-guidelines, accessibility, impeccable, prototype), and `continuity.md` tracks what is verified and what is next.
 
 ## License
 
-MIT. Original work © Muelle contributors; changes in this fork are released under the same license. The Inter typeface in the settings window is under the SIL Open Font License ([`apps/settings/assets/fonts/Inter-OFL.txt`](apps/settings/assets/fonts/Inter-OFL.txt)).
+MIT. See [`LICENSE`](LICENSE).

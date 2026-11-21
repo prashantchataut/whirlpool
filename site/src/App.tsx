@@ -42,7 +42,7 @@ function Hero() {
   const [replay, setReplay] = useState(0)
   return (
     <section id="top" className="relative isolate overflow-hidden">
-      <div className="absolute inset-0 -z-10 opacity-90"><DitherField cell={5} center={[0.74, 0.5]} /></div>
+      <div className="absolute inset-0 -z-10 opacity-90" style={{ maskImage: 'linear-gradient(90deg, rgba(0,0,0,.14) 0%, rgba(0,0,0,.2) 38%, #000 68%)', WebkitMaskImage: 'linear-gradient(90deg, rgba(0,0,0,.14) 0%, rgba(0,0,0,.2) 38%, #000 68%)' }}><DitherField cell={5} center={[0.74, 0.5]} /></div>
       <div className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-[#031620] to-transparent" />
       <div className="mx-auto grid min-h-[100svh] max-w-[1240px] items-center gap-12 px-5 pt-28 pb-16 sm:px-8 lg:grid-cols-[1fr_1.12fr]">
         <div>
