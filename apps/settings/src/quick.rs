@@ -485,7 +485,7 @@ impl eframe::App for Quick {
 
 /// Opens the panel with its right edge at `right` and hanging from (or, for
 /// a bar on the bottom edge, standing on) `anchor_y`; both in screen pixels.
-pub fn run(right: i32, anchor_y: i32, bottom: bool) -> eframe::Result {
+pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Result {
     whirlpool_config::migrate_legacy_folder();
     let (scale, left_limit, top_limit, bottom_limit) =
         system::primary_monitor().map_or((1.0, 0.0, 0.0, 2000.0), |m| {
@@ -517,7 +517,11 @@ pub fn run(right: i32, anchor_y: i32, bottom: bool) -> eframe::Result {
             .with_taskbar(false)
             .with_inner_size([WIDTH, HEIGHT])
             .with_position([x, y]),
-        renderer: eframe::Renderer::Glow,
+        renderer: if compat {
+            eframe::Renderer::Wgpu
+        } else {
+            eframe::Renderer::Glow
+        },
         ..Default::default()
     };
     eframe::run_native(

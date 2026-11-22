@@ -20,8 +20,8 @@ pub fn run() -> eframe::Result {
 }
 
 /// Opens the quick settings panel; see [`quick`].
-pub fn run_quick(right: i32, anchor_y: i32, bottom: bool) -> eframe::Result {
-    quick::run(right, anchor_y, bottom)
+pub fn run_quick(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Result {
+    quick::run(right, anchor_y, bottom, compat)
 }
 
 /// The same window drawn with DirectX instead of OpenGL, for machines whose

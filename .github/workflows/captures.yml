@@ -23,6 +23,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function KillAll { Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2 }
           function Shot($name) {
             $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
@@ -38,6 +39,7 @@ jobs:
           # Settings, every page.
           foreach ($page in 'dock','menubar','personalize','windows','system','about') {
             $env:WHIRLPOOL_PAGE = $page
+            KillAll
             $p = Start-Process $exe -ArgumentList '--settings' -PassThru
             Start-Sleep 9
             Shot "settings-$page"
@@ -47,11 +49,13 @@ jobs:
           Remove-Item Env:WHIRLPOOL_PAGE
 
           # Quick settings, opened from a top bar and from a bottom bar.
+          KillAll
           $p = Start-Process $exe -ArgumentList '--quick-settings', '1000', '30', 'top' -PassThru
-          Start-Sleep 8; Shot "quick-top"
+          Start-Sleep 12; Shot "quick-top"
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          KillAll
           $p = Start-Process $exe -ArgumentList '--quick-settings', '1000', '700', 'bottom' -PassThru
-          Start-Sleep 8; Shot "quick-bottom"
+          Start-Sleep 12; Shot "quick-bottom"
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
 
           # The shell itself: bar on top, then floating on the bottom above the dock.
@@ -59,6 +63,7 @@ jobs:
             @{ name = 'shell-top'; json = '{"menuBar":true,"menuBarPosition":"top"}' },
             @{ name = 'shell-bottom-floating'; json = '{"menuBar":true,"menuBarPosition":"bottom","menuBarStyle":"floating"}' })) {
             Set-Content -Path (Join-Path $dir 'config.json') -Value $case.json
+            KillAll
             $p = Start-Process $exe -PassThru
             Start-Sleep 14
             Shot $case.name

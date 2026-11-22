@@ -582,12 +582,12 @@ impl eframe::App for Settings {
                     }),
             )
             .show(ui, |ui| {
-                ui.set_max_width(COLUMN_MAX);
+                ui.set_max_width(ui.available_width().min(COLUMN_MAX));
                 self.header(ui, &t, palette);
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.set_max_width(COLUMN_MAX);
+                        ui.set_max_width(ui.available_width().min(COLUMN_MAX));
                         self.banner(ui, &t, palette);
                         if self.search.trim().is_empty() {
                             match self.page {
