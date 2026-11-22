@@ -15,8 +15,8 @@ use eframe::egui::{
 };
 use serde_json::{Map, Value};
 use whirlpool_config::{
-    AnimationStyle, BarSize, BarStyle, ChargingStyle, Config, DockPosition, GenieSpeed,
-    IslandStyle, Language, StartupAnimation,
+    AnimationStyle, BarAlign, BarSize, BarStyle, BarTint, ChargingStyle, Config, DockPosition,
+    GenieSpeed, IslandStyle, Language, StartupAnimation,
 };
 use whirlpool_core::wallpaper;
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
@@ -714,20 +714,17 @@ impl Settings {
                 Some(t.get("animationStyleHint")),
                 300.0,
                 |ui| {
-                    ui.selectable_value(
+                    ui::choose(
+                        ui,
+                        "animation-style",
                         &mut config.animation_style,
-                        AnimationStyle::Relaxed,
-                        t.get("styleRelaxed"),
-                    );
-                    ui.selectable_value(
-                        &mut config.animation_style,
-                        AnimationStyle::Smooth,
-                        t.get("styleSmooth"),
-                    );
-                    ui.selectable_value(
-                        &mut config.animation_style,
-                        AnimationStyle::Snappy,
-                        t.get("styleSnappy"),
+                        &[
+                            (AnimationStyle::Relaxed, t.get("styleRelaxed")),
+                            (AnimationStyle::Fluid, t.get("styleFluid")),
+                            (AnimationStyle::Smooth, t.get("styleSmooth")),
+                            (AnimationStyle::Brisk, t.get("styleBrisk")),
+                            (AnimationStyle::Snappy, t.get("styleSnappy")),
+                        ],
                     );
                 },
             );
@@ -738,25 +735,18 @@ impl Settings {
                 Some(t.get("startupAnimationHint")),
                 340.0,
                 |ui| {
-                    ui.selectable_value(
+                    ui::choose(
+                        ui,
+                        "startup-animation",
                         &mut config.startup_animation,
-                        StartupAnimation::Off,
-                        t.get("startupOff"),
-                    );
-                    ui.selectable_value(
-                        &mut config.startup_animation,
-                        StartupAnimation::Glide,
-                        t.get("startupGlide"),
-                    );
-                    ui.selectable_value(
-                        &mut config.startup_animation,
-                        StartupAnimation::Rise,
-                        t.get("startupRise"),
-                    );
-                    ui.selectable_value(
-                        &mut config.startup_animation,
-                        StartupAnimation::Swift,
-                        t.get("startupSwift"),
+                        &[
+                            (StartupAnimation::Off, t.get("startupOff")),
+                            (StartupAnimation::Drift, t.get("startupDrift")),
+                            (StartupAnimation::Glide, t.get("startupGlide")),
+                            (StartupAnimation::Rise, t.get("startupRise")),
+                            (StartupAnimation::Swift, t.get("startupSwift")),
+                            (StartupAnimation::Dart, t.get("startupDart")),
+                        ],
                     );
                 },
             );
@@ -775,15 +765,16 @@ impl Settings {
                     Some(t.get("chargingStyleHint")),
                     200.0,
                     |ui| {
-                        ui.selectable_value(
+                        ui::choose(
+                            ui,
+                            "charging-style",
                             &mut config.charging_style,
-                            ChargingStyle::Surge,
-                            t.get("chargeSurge"),
-                        );
-                        ui.selectable_value(
-                            &mut config.charging_style,
-                            ChargingStyle::Halo,
-                            t.get("chargeHalo"),
+                            &[
+                                (ChargingStyle::Surge, t.get("chargeSurge")),
+                                (ChargingStyle::Halo, t.get("chargeHalo")),
+                                (ChargingStyle::Edge, t.get("chargeEdge")),
+                                (ChargingStyle::Tide, t.get("chargeTide")),
+                            ],
                         );
                     },
                 );
@@ -800,6 +791,36 @@ impl Settings {
                     .suffix(" %"),
                 );
             });
+            ui::divider(ui);
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("barTint"),
+                Some(t.get("barTintHint")),
+                200.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "bar-tint",
+                        &mut config.menu_bar_tint,
+                        &[
+                            (BarTint::Ocean, t.get("tintOcean")),
+                            (BarTint::Graphite, t.get("tintGraphite")),
+                            (BarTint::Midnight, t.get("tintMidnight")),
+                            (BarTint::Forest, t.get("tintForest")),
+                            (BarTint::Amber, t.get("tintAmber")),
+                            (BarTint::Rose, t.get("tintRose")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("barBorder"),
+                Some(t.get("barBorderHint")),
+                &mut config.menu_bar_border,
+            );
             ui::divider(ui);
             ui::toggle_row(ui, t.get("menuBarDate"), None, &mut config.menu_bar_date);
             ui::divider(ui);
@@ -1117,6 +1138,34 @@ impl Settings {
                             egui::Slider::new(&mut config.menu_bar_radius, 0..=24).suffix(" px"),
                         );
                     });
+                    ui::divider(ui);
+                    ui::row(
+                        ui,
+                        t.get("barWidth"),
+                        Some(t.get("barWidthHint")),
+                        230.0,
+                        |ui| {
+                            ui.add(
+                                egui::Slider::new(&mut config.menu_bar_width, 40..=100)
+                                    .suffix(" %"),
+                            );
+                        },
+                    );
+                    if config.menu_bar_width < 100 {
+                        ui::divider(ui);
+                        ui::row(ui, t.get("barAlign"), None, 230.0, |ui| {
+                            ui::choose(
+                                ui,
+                                "bar-align",
+                                &mut config.menu_bar_align,
+                                &[
+                                    (BarAlign::Left, t.get("alignLeft")),
+                                    (BarAlign::Center, t.get("alignCenter")),
+                                    (BarAlign::Right, t.get("alignRight")),
+                                ],
+                            );
+                        });
+                    }
                 }
             });
             ui::card(ui, Some(t.get("menuBarItems")), |ui| {

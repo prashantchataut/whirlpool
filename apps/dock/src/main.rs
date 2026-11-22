@@ -51,10 +51,13 @@ use windows::{
         },
         UI::{
             HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
-            WindowsAndMessaging::{FindWindowW, SW_RESTORE, SetForegroundWindow, ShowWindow},
+            WindowsAndMessaging::{
+                FindWindowW, MB_ICONERROR, MB_OK, MessageBoxW, SW_RESTORE, SetForegroundWindow,
+                ShowWindow,
+            },
         },
     },
-    core::{Owned, w},
+    core::{HSTRING, Owned, w},
 };
 
 fn main() -> Result<()> {
@@ -120,7 +123,28 @@ fn open_settings() -> Result<()> {
         }
         return Ok(());
     }
-    whirlpool_settings::run().map_err(|error| anyhow::anyhow!("settings: {error}"))
+    whirlpool_settings::run().map_err(|error| {
+        // The program has no console, so a failure to open the window would
+        // be silent. Say what happened and where the details are.
+        whirlpool_shell::log::line(&format!("settings: {error}"));
+        whirlpool_shell::log::flush();
+        let text = format!(
+            "Whirlpool Settings could not open its window.\n\n{error}\n\n\
+             This usually means the graphics driver does not offer OpenGL 2.0 or newer \
+             (a remote desktop session or a virtual machine, for example). \
+             Details: %LOCALAPPDATA%\\Whirlpool\\whirlpool.log"
+        );
+        // SAFETY: A plain message box owned by no window; the strings outlive the call.
+        unsafe {
+            MessageBoxW(
+                None,
+                &HSTRING::from(text),
+                w!("Whirlpool"),
+                MB_OK | MB_ICONERROR,
+            );
+        }
+        anyhow::anyhow!("settings: {error}")
+    })
 }
 
 fn run_dock(recovered: bool) -> Result<()> {

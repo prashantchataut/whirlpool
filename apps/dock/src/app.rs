@@ -2501,8 +2501,7 @@ impl App {
             return;
         }
         let percent = whirlpool_shell::system::battery().map_or(100, |battery| battery.percent);
-        let ripples = self.config.charging_style == whirlpool_config::ChargingStyle::Surge;
-        self.charge = charge::Charge::play(&self.gfx, percent, ripples);
+        self.charge = charge::Charge::play(&self.gfx, percent, self.config.charging_style);
         if self.charge.is_some() {
             self.charging_shown = Some(Instant::now());
             // SAFETY: A timer on our own window; `mascot_tick` ends it with the animation.
@@ -4242,6 +4241,10 @@ impl App {
             inset: self.config.menu_bar_inset,
             gap: self.config.menu_bar_gap,
             radius: self.config.menu_bar_radius,
+            align: self.config.menu_bar_align,
+            width: self.config.menu_bar_width,
+            tint: self.config.menu_bar_tint,
+            border: self.config.menu_bar_border,
             date: self.config.menu_bar_date,
             hour24: self.config.menu_bar_24h,
         };

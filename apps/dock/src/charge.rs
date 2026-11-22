@@ -1,6 +1,15 @@
-//! The charging animation: a glass medallion that drops in under the menu
-//! bar with the battery ring, a bolt and the level, while rings of water
-//! spread from it. It plays when the charger is plugged in, never at startup.
+//! The charging animations. Four styles, one quiet default:
+//!
+//! - **Surge**: a small glass medallion drops in under the menu bar with the
+//!   battery ring, a bolt and the level, while two thin rings of water spread.
+//! - **Halo**: a slim glass capsule with a bolt, the level and a thin meter.
+//! - **Edge**: the edges of the screen glow like liquid glass, green when the
+//!   battery is healthy, yellow in the middle and orange when it is low.
+//! - **Tide**: a line of light sweeps along the top edge up to the level.
+//!
+//! They play when the charger is plugged in, never at startup. The glows are
+//! drawn at a quarter of the resolution and stretched by the compositor: they
+//! are blurry on purpose, and a 4K screen costs a few hundred kilobytes.
 //!
 //! Cost: nothing while it is away. Three bitmaps are drawn once, the
 //! compositor runs every keyframe, and the click-through window is destroyed
@@ -36,20 +45,20 @@ use windows_numerics::{Vector2, Vector3};
 
 use crate::gfx::Gfx;
 
-/// Seconds from the first frame to the window's destruction.
-const TOTAL: f32 = 3.6;
+use whirlpool_config::ChargingStyle;
 
 pub struct Charge {
     hwnd: HWND,
     _target: DesktopWindowTarget,
     started: Instant,
+    /// Seconds from the first frame to the window's destruction.
+    total: f32,
 }
 
 impl Charge {
-    /// Plays the animation for a battery at `percent`. `ripples` adds the
-    /// rings of water (the Surge style); without them it is a calm halo.
-    pub fn play(gfx: &Gfx, percent: u8, ripples: bool) -> Option<Self> {
-        match Self::build(gfx, percent, ripples) {
+    /// Plays the animation of `style` for a battery at `percent`.
+    pub fn play(gfx: &Gfx, percent: u8, style: ChargingStyle) -> Option<Self> {
+        match Self::build(gfx, percent, style) {
             Ok(charge) => Some(charge),
             Err(error) => {
                 whirlpool_shell::log::line(&format!("carga: {error:#}"));
@@ -59,25 +68,55 @@ impl Charge {
     }
 
     pub fn finished(&self) -> bool {
-        self.started.elapsed() >= Duration::from_secs_f32(TOTAL)
+        self.started.elapsed() >= Duration::from_secs_f32(self.total)
     }
 
-    fn build(gfx: &Gfx, percent: u8, ripples: bool) -> Result<Self> {
+    fn build(gfx: &Gfx, percent: u8, style: ChargingStyle) -> Result<Self> {
         let monitor = whirlpool_shell::system::primary_monitor().context("sin monitor")?;
         let scale = monitor.scale.max(1.0);
-        let medal_px = (150.0 * scale).round() as u32;
-        let ring_px = (medal_px as f32 * 2.4).round() as u32;
-        let side = (medal_px as f32 * 2.6).round() as i32;
         let centre_x = (monitor.work_left + monitor.work_right) / 2;
-        let centre_y = monitor.work_top + (medal_px as f32 * 0.5 + 30.0 * scale) as i32;
-        let left = centre_x - side / 2;
-        let top = centre_y - side / 2;
-        let rect = RECT {
-            left,
-            top,
-            right: left + side,
-            bottom: top + side,
+        let medal_px = (112.0 * scale).round() as u32;
+        let ring_px = (medal_px as f32 * 2.3).round() as u32;
+        let (rect, total) = match style {
+            ChargingStyle::Edge => (monitor.screen, 3.6),
+            ChargingStyle::Tide => (
+                RECT {
+                    bottom: monitor.screen.top + (64.0 * scale) as i32,
+                    ..monitor.screen
+                },
+                3.4,
+            ),
+            ChargingStyle::Halo => {
+                let (width, height) = ((260.0 * scale) as i32, (110.0 * scale) as i32);
+                let top = monitor.work_top + (4.0 * scale) as i32;
+                (
+                    RECT {
+                        left: centre_x - width / 2,
+                        top,
+                        right: centre_x + width / 2,
+                        bottom: top + height,
+                    },
+                    3.4,
+                )
+            }
+            ChargingStyle::Surge => {
+                let side = (medal_px as f32 * 2.5).round() as i32;
+                let centre_y = monitor.work_top + (medal_px as f32 * 0.5 + 24.0 * scale) as i32;
+                (
+                    RECT {
+                        left: centre_x - side / 2,
+                        top: centre_y - side / 2,
+                        right: centre_x + side / 2,
+                        bottom: centre_y + side / 2,
+                    },
+                    3.6,
+                )
+            }
         };
+        let (width, height) = (
+            (rect.right - rect.left) as f32,
+            (rect.bottom - rect.top) as f32,
+        );
 
         let hwnd = create_window(rect)?;
         let built = || -> Result<DesktopWindowTarget> {
@@ -87,7 +126,12 @@ impl Charge {
                     .cast::<ICompositorDesktopInterop>()?
                     .CreateDesktopWindowTarget(hwnd, true)?
             };
-            let root = choreograph(gfx, side as f32, medal_px, ring_px, percent, ripples, scale)?;
+            let root = match style {
+                ChargingStyle::Surge => choreograph(gfx, width, medal_px, ring_px, percent, scale)?,
+                ChargingStyle::Halo => capsule_scene(gfx, width, height, percent, scale)?,
+                ChargingStyle::Edge => edge_scene(gfx, width, height, percent, scale)?,
+                ChargingStyle::Tide => tide_scene(gfx, width, height, percent, scale)?,
+            };
             target.SetRoot(&root)?;
             Ok(target)
         };
@@ -109,6 +153,7 @@ impl Charge {
             hwnd,
             _target: target,
             started: Instant::now(),
+            total,
         })
     }
 }
@@ -183,7 +228,6 @@ fn choreograph(
     medal_px: u32,
     ring_px: u32,
     percent: u8,
-    ripples: bool,
     scale: f32,
 ) -> Result<ContainerVisual> {
     let c = &gfx.compositor;
@@ -196,7 +240,7 @@ fn choreograph(
     let mid = side / 2.0;
 
     // The glow behind everything.
-    let glow_px = (medal_px as f32 * 2.0).round() as u32;
+    let glow_px = (medal_px as f32 * 1.7).round() as u32;
     let glow = sprite(gfx, &glow_image(glow_px))?;
     glow.SetOffset(Vector3::new(
         mid - glow_px as f32 / 2.0,
@@ -213,7 +257,7 @@ fn choreograph(
         h!("Opacity"),
         &scalar(
             c,
-            &[(0.0, 0.0), (0.5, 0.9), (2.4, 0.55), (3.5, 0.0)],
+            &[(0.0, 0.0), (0.5, 0.55), (2.4, 0.32), (3.5, 0.0)],
             0.0,
             &linear,
         )?,
@@ -233,24 +277,24 @@ fn choreograph(
     )?;
     root.Children()?.InsertAtTop(&glow)?;
 
-    // Rings of water: three, one after another.
-    if ripples {
+    // Rings of water: two thin ones, one after another.
+    {
         let image = ring_image(ring_px);
-        for index in 0..3 {
+        for index in 0..2 {
             let ring = sprite(gfx, &image)?;
             let half = ring_px as f32 / 2.0;
             ring.SetOffset(Vector3::new(mid - half, mid - half, 0.0))?;
             ring.SetCenterPoint(Vector3::new(half, half, 0.0))?;
             ring.SetOpacity(0.0)?;
             ring.SetScale(uniform(0.42))?;
-            let delay = 0.25 + index as f32 * 0.42;
+            let delay = 0.3 + index as f32 * 0.55;
             ring.StartAnimation(
                 h!("Scale"),
                 &vector(c, &[(0.0, uniform(0.42)), (1.9, uniform(1.0))], delay, &out)?,
             )?;
             ring.StartAnimation(
                 h!("Opacity"),
-                &scalar(c, &[(0.0, 0.0), (0.12, 0.75), (1.9, 0.0)], delay, &linear)?,
+                &scalar(c, &[(0.0, 0.0), (0.12, 0.42), (1.9, 0.0)], delay, &linear)?,
             )?;
             root.Children()?.InsertAtTop(&ring)?;
         }
@@ -488,6 +532,458 @@ fn glow_image(px: u32) -> IconImage {
     })
 }
 
+/* -------------------------------------------------- Battery colours */
+
+/// Green when the battery is healthy, yellow in the middle, orange when low.
+fn level_color(percent: u8) -> [f32; 3] {
+    match percent {
+        0..=20 => [1.0, 0.50, 0.12],
+        21..=59 => [1.0, 0.80, 0.18],
+        _ => [0.28, 0.90, 0.48],
+    }
+}
+
+/// A sprite of `image` stretched to `width` x `height` (for soft bitmaps
+/// drawn at a fraction of their size).
+fn stretched(gfx: &Gfx, image: &IconImage, width: f32, height: f32) -> Result<SpriteVisual> {
+    let c = &gfx.compositor;
+    let brush = c.CreateSurfaceBrushWithSurface(&gfx.image_surface(image)?)?;
+    brush.SetStretch(CompositionStretch::Fill)?;
+    brush.SetBitmapInterpolationMode(CompositionBitmapInterpolationMode::Linear)?;
+    let sprite = c.CreateSpriteVisual()?;
+    sprite.SetBrush(&brush)?;
+    sprite.SetSize(Vector2::new(width, height))?;
+    Ok(sprite)
+}
+
+fn ease_out(c: &Compositor) -> Result<CompositionEasingFunction> {
+    Ok(
+        c.CreateCubicBezierEasingFunction(Vector2::new(0.2, 0.9), Vector2::new(0.3, 1.0))?
+            .cast()?,
+    )
+}
+
+/* ------------------------------------------------------------ Capsule */
+
+fn capsule_scene(
+    gfx: &Gfx,
+    width: f32,
+    height: f32,
+    percent: u8,
+    scale: f32,
+) -> Result<ContainerVisual> {
+    let c = &gfx.compositor;
+    let linear: CompositionEasingFunction = c.CreateLinearEasingFunction()?.cast()?;
+    let out = ease_out(c)?;
+    let root = c.CreateContainerVisual()?;
+    root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
+
+    let pill_w = (200.0 * scale).round() as u32;
+    let pill_h = (52.0 * scale).round() as u32;
+    let pill = sprite(gfx, &capsule_image(pill_w, pill_h, percent))?;
+    let rest = Vector3::new(
+        (width - pill_w as f32) / 2.0,
+        (height - pill_h as f32) / 2.0,
+        0.0,
+    );
+    let above = Vector3::new(rest.X, rest.Y - 22.0 * scale, 0.0);
+    pill.SetOffset(above)?;
+    pill.SetCenterPoint(Vector3::new(pill_w as f32 / 2.0, pill_h as f32 / 2.0, 0.0))?;
+    pill.SetOpacity(0.0)?;
+    pill.StartAnimation(
+        h!("Offset"),
+        &vector(
+            c,
+            &[(0.0, above), (0.7, rest), (2.7, rest), (3.3, above)],
+            0.0,
+            &out,
+        )?,
+    )?;
+    pill.StartAnimation(
+        h!("Scale"),
+        &vector(
+            c,
+            &[
+                (0.0, uniform(0.9)),
+                (0.7, uniform(1.0)),
+                (2.7, uniform(1.0)),
+                (3.3, uniform(0.96)),
+            ],
+            0.0,
+            &out,
+        )?,
+    )?;
+    pill.StartAnimation(
+        h!("Opacity"),
+        &scalar(
+            c,
+            &[(0.0, 0.0), (0.4, 1.0), (2.7, 1.0), (3.3, 0.0)],
+            0.0,
+            &linear,
+        )?,
+    )?;
+    root.Children()?.InsertAtTop(&pill)?;
+    Ok(root)
+}
+
+/// The capsule at (`x`, `y`) pixels: premultiplied colour.
+fn capsule_at(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    fraction: f32,
+    text: &[char],
+    color: [f32; 3],
+) -> Rgba {
+    let mut out = [0.0f32; 4];
+    let mut paint = |c: [f32; 3], alpha: f32| {
+        for channel in 0..3 {
+            out[channel] = c[channel] * alpha + out[channel] * (1.0 - alpha);
+        }
+        out[3] = alpha + out[3] * (1.0 - alpha);
+    };
+    // Signed distance to the pill: negative inside.
+    let radius = h / 2.0;
+    let (px, py) = ((x - w / 2.0).abs() - (w / 2.0 - radius), y - h / 2.0);
+    let sd = if px > 0.0 {
+        (px * px + py * py).sqrt() - radius
+    } else {
+        py.abs() - radius
+    };
+    let edge = 0.75;
+    let inside = smooth(edge, -edge, sd);
+    if inside <= 0.0 {
+        return out;
+    }
+    let sheen = (1.0 - (y / h)).clamp(0.0, 1.0);
+    let body = mix3([0.03, 0.07, 0.10], [0.08, 0.16, 0.20], sheen * 0.7);
+    paint(body, 0.90 * inside);
+    // A hairline just inside the edge.
+    let rim = smooth(2.2, 0.6, -sd) * smooth(-0.2, 0.9, -sd);
+    paint([1.0, 1.0, 1.0], 0.20 * rim * inside.max(0.4));
+
+    // The bolt, on the left.
+    let big = h * 0.46;
+    let (bu, bv) = ((x - h * 0.52) / big, (y - h * 0.5) / big);
+    if inside_bolt(bu, bv) {
+        paint(mix3(color, [1.0, 1.0, 1.0], 0.35), 1.0);
+    }
+    // The level, in the middle.
+    let cell = h * 0.058;
+    let columns = text.len() as f32 * 4.0 - 1.0;
+    let (x0, y0) = (h * 0.98, h * 0.5 - 2.5 * cell);
+    let (gx, gy) = (((x - x0) / cell).floor(), ((y - y0) / cell).floor());
+    if (0.0..columns).contains(&gx) && (0.0..5.0).contains(&gy) {
+        let (index, column) = ((gx as usize) / 4, (gx as usize) % 4);
+        if column < 3
+            && let Some(&character) = text.get(index)
+            && glyph(character)[gy as usize].as_bytes()[column] == b'#'
+        {
+            paint([0.95, 0.99, 0.98], 1.0);
+        }
+    }
+    // A thin meter on the right.
+    let (m0, m1) = (w * 0.60, w - h * 0.50);
+    let thick = (h * 0.075).max(2.0);
+    let dy = (y - h / 2.0).abs();
+    if x >= m0 - thick && x <= m1 + thick {
+        let along = ((x - m0).clamp(0.0, m1 - m0)) / (m1 - m0);
+        let capx = if x < m0 {
+            m0 - x
+        } else if x > m1 {
+            x - m1
+        } else {
+            0.0
+        };
+        let d = (dy * dy + capx * capx).sqrt();
+        let a = smooth(thick / 2.0 + 0.7, thick / 2.0 - 0.7, d);
+        if a > 0.0 {
+            paint([1.0, 1.0, 1.0], 0.16 * a);
+            if along <= fraction {
+                paint(color, a);
+            }
+        }
+    }
+    out
+}
+
+fn capsule_image(w: u32, h: u32, percent: u8) -> IconImage {
+    let fraction = f32::from(percent.min(100)) / 100.0;
+    let text: Vec<char> = format!("{}%", percent.min(100)).chars().collect();
+    let color = level_color(percent);
+    const SAMPLES: u32 = 3;
+    to_image(w, h, |x, y| {
+        let mut sum = [0.0f32; 4];
+        for sy in 0..SAMPLES {
+            for sx in 0..SAMPLES {
+                let px = x as f32 + (sx as f32 + 0.5) / SAMPLES as f32;
+                let py = y as f32 + (sy as f32 + 0.5) / SAMPLES as f32;
+                let sample = capsule_at(px, py, w as f32, h as f32, fraction, &text, color);
+                for (total, value) in sum.iter_mut().zip(sample) {
+                    *total += value;
+                }
+            }
+        }
+        let n = (SAMPLES * SAMPLES) as f32;
+        [sum[0] / n, sum[1] / n, sum[2] / n, sum[3] / n]
+    })
+}
+
+/* --------------------------------------------------------------- Edge */
+
+#[derive(Clone, Copy)]
+enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+/// A band of liquid light along one edge, `long` x `depth` pixels (swapped
+/// for the sides). The inner boundary wobbles like the surface of water, a
+/// second faint band sits inside it like a refraction, and a soft bright rim
+/// runs along the very edge.
+fn edge_pixel(side: Side, along: f32, depth: f32, color: [f32; 3], seed: f32) -> Rgba {
+    let wobble = 0.10 * (along * TAU * 2.0 + seed).sin()
+        + 0.06 * (along * TAU * 5.0 + seed * 1.7).sin()
+        + 0.03 * (along * TAU * 11.0 + seed * 0.4).sin();
+    let _ = side;
+    let d = (depth + wobble * 0.55).max(0.0);
+    let body = (1.0 - smooth(0.0, 1.0, d)).powi(2) * 0.50;
+    let rim = (-depth / 0.035).exp() * 0.85;
+    let band = 0.16 * (-((d - 0.38) / 0.07).powi(2)).exp();
+    let alpha = (body + rim + band).clamp(0.0, 1.0);
+    let white = (rim * 0.55 + band * 0.4).min(0.75);
+    let rgb = mix3(color, [1.0, 1.0, 1.0], white);
+    [rgb[0] * alpha, rgb[1] * alpha, rgb[2] * alpha, alpha]
+}
+
+fn edge_image(side: Side, long: u32, depth: u32, color: [f32; 3], seed: f32) -> IconImage {
+    let (w, h) = match side {
+        Side::Top | Side::Bottom => (long, depth),
+        Side::Left | Side::Right => (depth, long),
+    };
+    to_image(w, h, |x, y| {
+        let (along, d) = match side {
+            Side::Top => (x as f32 / w as f32, (y as f32 + 0.5) / h as f32),
+            Side::Bottom => (x as f32 / w as f32, 1.0 - (y as f32 + 0.5) / h as f32),
+            Side::Left => (y as f32 / h as f32, (x as f32 + 0.5) / w as f32),
+            Side::Right => (y as f32 / h as f32, 1.0 - (x as f32 + 0.5) / w as f32),
+        };
+        edge_pixel(side, along, d, color, seed)
+    })
+}
+
+fn edge_scene(
+    gfx: &Gfx,
+    width: f32,
+    height: f32,
+    percent: u8,
+    scale: f32,
+) -> Result<ContainerVisual> {
+    let c = &gfx.compositor;
+    let linear: CompositionEasingFunction = c.CreateLinearEasingFunction()?.cast()?;
+    let out = ease_out(c)?;
+    let root = c.CreateContainerVisual()?;
+    root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
+    let color = level_color(percent);
+    let depth = (170.0 * scale).min(width.min(height) * 0.3).round();
+    // Quarter resolution: the glow is soft, the compositor does the blur.
+    let quarter = |value: f32| ((value / 4.0).ceil() as u32).max(4);
+    let sides = [
+        (Side::Top, 0.3f32),
+        (Side::Bottom, 2.1),
+        (Side::Left, 4.0),
+        (Side::Right, 5.4),
+    ];
+    for (index, &(side, seed)) in sides.iter().enumerate() {
+        let (long, w, h, rest, away) = match side {
+            Side::Top => (
+                width,
+                width,
+                depth,
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(0.0, -depth * 0.55, 0.0),
+            ),
+            Side::Bottom => (
+                width,
+                width,
+                depth,
+                Vector3::new(0.0, height - depth, 0.0),
+                Vector3::new(0.0, height - depth * 0.45, 0.0),
+            ),
+            Side::Left => (
+                height,
+                depth,
+                height,
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(-depth * 0.55, 0.0, 0.0),
+            ),
+            Side::Right => (
+                height,
+                depth,
+                height,
+                Vector3::new(width - depth, 0.0, 0.0),
+                Vector3::new(width - depth * 0.45, 0.0, 0.0),
+            ),
+        };
+        let image = edge_image(side, quarter(long), quarter(depth), color, seed);
+        let strip = stretched(gfx, &image, w, h)?;
+        strip.SetOffset(away)?;
+        strip.SetOpacity(0.0)?;
+        let delay = index as f32 * 0.06;
+        strip.StartAnimation(
+            h!("Offset"),
+            &vector(c, &[(0.0, away), (1.0, rest)], delay, &out)?,
+        )?;
+        // Fade in, breathe, fade away.
+        strip.StartAnimation(
+            h!("Opacity"),
+            &scalar(
+                c,
+                &[
+                    (0.0, 0.0),
+                    (0.8, 1.0),
+                    (1.6, 0.72),
+                    (2.4, 1.0),
+                    (3.5 - delay, 0.0),
+                ],
+                delay,
+                &linear,
+            )?,
+        )?;
+        root.Children()?.InsertAtTop(&strip)?;
+    }
+    Ok(root)
+}
+
+/* --------------------------------------------------------------- Tide */
+
+fn tide_image(w: u32, h: u32, color: [f32; 3]) -> IconImage {
+    to_image(w, h, |x, y| {
+        let along = (x as f32 + 0.5) / w as f32;
+        let down = y as f32 / h as f32;
+        // A comet: faint tail, bright head. A hot core line, soft bloom below.
+        let tail = smooth(0.0, 1.0, along).powf(1.6);
+        let core = (-(down / 0.05).powi(2)).exp();
+        let bloom = (-down / 0.30).exp() * 0.40;
+        let alpha = ((core * 0.95 + bloom) * (0.15 + 0.85 * tail)).clamp(0.0, 1.0);
+        let white = (core * 0.6 * tail).min(0.8);
+        let rgb = mix3(color, [1.0, 1.0, 1.0], white);
+        [rgb[0] * alpha, rgb[1] * alpha, rgb[2] * alpha, alpha]
+    })
+}
+
+fn dot_image(px: u32, color: [f32; 3]) -> IconImage {
+    to_image(px, px, |x, y| {
+        let u = (x as f32 + 0.5) / px as f32 * 2.0 - 1.0;
+        let v = (y as f32 + 0.5) / px as f32 * 2.0 - 1.0;
+        let r2 = u * u + v * v;
+        let a = if r2 < 1.0 {
+            (-r2 / 0.07).exp() * (1.0 - r2)
+        } else {
+            0.0
+        };
+        let rgb = mix3(color, [1.0, 1.0, 1.0], 0.5);
+        [rgb[0] * a, rgb[1] * a, rgb[2] * a, a]
+    })
+}
+
+fn tide_scene(
+    gfx: &Gfx,
+    width: f32,
+    height: f32,
+    percent: u8,
+    scale: f32,
+) -> Result<ContainerVisual> {
+    let c = &gfx.compositor;
+    let linear: CompositionEasingFunction = c.CreateLinearEasingFunction()?.cast()?;
+    let out = ease_out(c)?;
+    let root = c.CreateContainerVisual()?;
+    root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
+    let color = level_color(percent);
+    let fraction = (f32::from(percent.min(100)) / 100.0).max(0.04);
+    let bar_w = (width * fraction).round();
+    let bar_h = height.min((46.0 * scale).round());
+
+    // The faint track: where the line will go.
+    let track = stretched(gfx, &tide_image(64, 16, color), width, bar_h)?;
+    track.SetOpacity(0.0)?;
+    track.StartAnimation(
+        h!("Opacity"),
+        &scalar(
+            c,
+            &[(0.0, 0.0), (0.4, 0.14), (2.4, 0.14), (3.2, 0.0)],
+            0.0,
+            &linear,
+        )?,
+    )?;
+    root.Children()?.InsertAtTop(&track)?;
+
+    // The line itself grows from the left up to the level.
+    let line = stretched(
+        gfx,
+        &tide_image(((bar_w / 4.0).ceil() as u32).clamp(16, 1024), 16, color),
+        bar_w,
+        bar_h,
+    )?;
+    line.SetCenterPoint(Vector3::new(0.0, 0.0, 0.0))?;
+    line.SetOpacity(0.0)?;
+    line.SetScale(Vector3::new(0.0, 1.0, 1.0))?;
+    line.StartAnimation(
+        h!("Scale"),
+        &vector(
+            c,
+            &[
+                (0.0, Vector3::new(0.0, 1.0, 1.0)),
+                (1.5, Vector3::new(1.0, 1.0, 1.0)),
+            ],
+            0.15,
+            &out,
+        )?,
+    )?;
+    line.StartAnimation(
+        h!("Opacity"),
+        &scalar(
+            c,
+            &[(0.0, 0.0), (0.3, 1.0), (2.6, 1.0), (3.3, 0.0)],
+            0.0,
+            &linear,
+        )?,
+    )?;
+    root.Children()?.InsertAtTop(&line)?;
+
+    // The head: a soft light riding the end of the line.
+    let head_px = (56.0 * scale).round() as u32;
+    let head = stretched(
+        gfx,
+        &dot_image(head_px / 2, color),
+        head_px as f32,
+        head_px as f32,
+    )?;
+    let half = head_px as f32 / 2.0;
+    let start = Vector3::new(-half, -half + 3.0 * scale, 0.0);
+    let end = Vector3::new(bar_w - half, start.Y, 0.0);
+    head.SetOffset(start)?;
+    head.SetOpacity(0.0)?;
+    head.StartAnimation(
+        h!("Offset"),
+        &vector(c, &[(0.0, start), (1.5, end)], 0.15, &out)?,
+    )?;
+    head.StartAnimation(
+        h!("Opacity"),
+        &scalar(
+            c,
+            &[(0.0, 0.0), (0.3, 0.95), (2.0, 0.7), (3.2, 0.0)],
+            0.0,
+            &linear,
+        )?,
+    )?;
+    root.Children()?.InsertAtTop(&head)?;
+    Ok(root)
+}
+
 fn create_window(rect: RECT) -> Result<HWND> {
     static CLASS: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     let class = w!("WhirlpoolCharge");
@@ -542,6 +1038,26 @@ mod tests {
         let alpha = |x: usize, y: usize| image.bgra[(y * 96 + x) * 4 + 3];
         assert_eq!(alpha(0, 0), 0);
         assert!(alpha(48, 70) > 200, "the digits sit inside the disc");
+    }
+
+    #[test]
+    fn the_capsule_and_the_edges_are_soft_and_premultiplied() {
+        let capsule = capsule_image(200, 52, 64);
+        assert_eq!(capsule.bgra.len(), 200 * 52 * 4);
+        assert_eq!(capsule.bgra[3], 0, "the corner is clear");
+        let edge = edge_image(Side::Top, 64, 16, level_color(15), 0.3);
+        // The rim is brighter than the inside edge of the glow.
+        assert!(edge.bgra[3] > edge.bgra[(15 * 64) * 4 + 3]);
+        for pixel in edge.bgra.chunks_exact(4) {
+            assert!(pixel[0] <= pixel[3] && pixel[1] <= pixel[3] && pixel[2] <= pixel[3]);
+        }
+    }
+
+    #[test]
+    fn the_colour_follows_the_level() {
+        assert!(level_color(10)[0] > level_color(10)[1]);
+        assert!(level_color(40)[0] > 0.9 && level_color(40)[1] > 0.7);
+        assert!(level_color(90)[1] > level_color(90)[0]);
     }
 
     #[test]

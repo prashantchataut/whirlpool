@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "apps/dock", "apps/settings", "spikes"]
 
 [workspace.package]
-version = "2.0.0"
+version = "3.0.0"
 edition = "2024"
 license = "MIT"
 
@@ -27,5 +27,7 @@ expect_used = "warn"
 lto = true
 codegen-units = 1
 strip = true
+# Smaller code means fewer pages touched and less memory held while idle.
+opt-level = "s"
 # Un fallo cierra el proceso sin más: el guardián devuelve la barra de tareas.
 panic = "abort"

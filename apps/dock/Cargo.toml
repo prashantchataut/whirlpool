@@ -21,7 +21,7 @@ whirlpool-core.workspace = true
 whirlpool-shell.workspace = true
 whirlpool-settings = { path = "../settings" }
 png = "0.18"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls", "system-proxy"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "system-proxy"] }
 serde.workspace = true
 serde_json = "1"
 windows-core.workspace = true

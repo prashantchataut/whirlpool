@@ -97,7 +97,9 @@ pub struct Config {
     /// Icons bounce while the app they open is starting.
     pub bounce_on_open: bool,
     /// The crab comes out for moments worth it (an AI plan resetting or
-    /// running out, the charger, energy saver).
+    /// running out, energy saver). Off by default; stored under its own key
+    /// so earlier files that switched it on do not bring it back.
+    #[serde(rename = "crab")]
     pub mascot: bool,
     /// Settings asks GitHub Releases for a newer version when it opens. The
     /// only network access in Whirlpool, so it can be turned off.
@@ -137,6 +139,14 @@ pub struct Config {
     /// Corner radius of a floating bar.
     pub menu_bar_radius: u32,
     pub charging_style: ChargingStyle,
+    /// Where a floating menu bar sits along the top edge.
+    pub menu_bar_align: BarAlign,
+    /// Width of a floating menu bar as a percentage of the screen.
+    pub menu_bar_width: u32,
+    /// The colour the menu bar is tinted with.
+    pub menu_bar_tint: BarTint,
+    /// A hairline highlight along the edge of the menu bar.
+    pub menu_bar_border: bool,
 }
 
 /// The feel of every spring in the dock. Springs never overshoot; the style
@@ -146,6 +156,10 @@ pub struct Config {
 pub enum AnimationStyle {
     /// Slow and floaty.
     Relaxed,
+    /// A little slower than the default, with long, silky settles.
+    Fluid,
+    /// A little quicker than the default.
+    Brisk,
     /// Quick and crisp.
     Snappy,
     /// The original feel. Also what an unknown value reads as.
@@ -160,7 +174,9 @@ impl AnimationStyle {
     pub fn speed(self) -> f32 {
         match self {
             Self::Relaxed => 0.7,
+            Self::Fluid => 0.85,
             Self::Smooth => 1.0,
+            Self::Brisk => 1.3,
             Self::Snappy => 1.6,
         }
     }
@@ -172,10 +188,14 @@ impl AnimationStyle {
 pub enum StartupAnimation {
     /// The dock simply appears.
     Off,
+    /// The slowest, softest arrival: the dock drifts in.
+    Drift,
     /// A long, soft glide up from the edge.
     Glide,
     /// A quick slide.
     Swift,
+    /// Nearly instant, with a hint of motion.
+    Dart,
     /// A confident rise: the default. Also what an unknown value reads as.
     #[default]
     #[serde(other)]
@@ -188,9 +208,11 @@ impl StartupAnimation {
     pub fn omega(self) -> Option<f32> {
         match self {
             Self::Off => None,
+            Self::Drift => Some(3.6),
             Self::Glide => Some(5.5),
             Self::Rise => Some(9.0),
             Self::Swift => Some(16.0),
+            Self::Dart => Some(26.0),
         }
     }
 }
@@ -231,12 +253,77 @@ impl BarSize {
     }
 }
 
+/// Where a floating menu bar sits along the top edge.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BarAlign {
+    Left,
+    Right,
+    /// The default. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Center,
+}
+
+/// The colour the menu bar is tinted with.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BarTint {
+    /// Neutral dark grey.
+    Graphite,
+    /// Deep blue.
+    Midnight,
+    /// Green.
+    Forest,
+    /// Warm amber.
+    Amber,
+    /// Soft rose.
+    Rose,
+    /// The default deep teal. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Ocean,
+}
+
+impl BarTint {
+    /// The dark-mode tint as `[r, g, b]`.
+    #[must_use]
+    pub fn dark(self) -> [u8; 3] {
+        match self {
+            Self::Ocean => [6, 28, 36],
+            Self::Graphite => [22, 23, 26],
+            Self::Midnight => [10, 14, 38],
+            Self::Forest => [8, 30, 20],
+            Self::Amber => [42, 26, 8],
+            Self::Rose => [40, 12, 24],
+        }
+    }
+
+    /// The light-mode tint as `[r, g, b]`.
+    #[must_use]
+    pub fn light(self) -> [u8; 3] {
+        match self {
+            Self::Ocean => [244, 252, 250],
+            Self::Graphite => [246, 246, 247],
+            Self::Midnight => [240, 243, 255],
+            Self::Forest => [242, 252, 246],
+            Self::Amber => [255, 249, 238],
+            Self::Rose => [255, 242, 246],
+        }
+    }
+}
+
 /// The animation that plays when the charger is plugged in.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ChargingStyle {
-    /// A calm glow, no rings.
+    /// A small glass capsule under the menu bar. Quiet.
     Halo,
+    /// The edges of the screen glow like liquid glass: green when the
+    /// battery is healthy, yellow in the middle, orange when it is low.
+    Edge,
+    /// A thin line of light sweeps along the top edge up to the battery level.
+    Tide,
     /// Rings of water spread from the medallion. The default. Also what an unknown value reads as.
     #[default]
     #[serde(other)]
@@ -337,6 +424,7 @@ impl Config {
         self.menu_bar_inset = self.menu_bar_inset.min(160);
         self.menu_bar_gap = self.menu_bar_gap.min(32);
         self.menu_bar_radius = self.menu_bar_radius.min(24);
+        self.menu_bar_width = self.menu_bar_width.clamp(40, 100);
         self.wallpaper = self
             .wallpaper
             .map(|id| id.trim().to_owned())
@@ -389,7 +477,7 @@ impl Default for Config {
             show_indicators: true,
             show_recents: true,
             bounce_on_open: true,
-            mascot: true,
+            mascot: false,
             check_updates: true,
             auto_update: true,
             language: Language::Auto,
@@ -407,6 +495,10 @@ impl Default for Config {
             menu_bar_gap: 8,
             menu_bar_radius: 14,
             charging_style: ChargingStyle::Surge,
+            menu_bar_align: BarAlign::Center,
+            menu_bar_width: 100,
+            menu_bar_tint: BarTint::Ocean,
+            menu_bar_border: true,
         }
     }
 }
@@ -553,6 +645,29 @@ mod tests {
         let folder = env::temp_dir().join(format!("whirlpool-test-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&folder);
         folder.join("config.json")
+    }
+
+    #[test]
+    fn new_look_options_round_trip_and_unknown_values_fall_back() {
+        let config: Config = serde_json::from_str(
+            r#"{"menuBarTint":"rose","menuBarAlign":"left","menuBarWidth":10,"chargingStyle":"edge","animationStyle":"fluid","startupAnimation":"drift","crab":true}"#,
+        )
+        .unwrap();
+        let config = config.sanitized();
+        assert_eq!(config.menu_bar_tint, BarTint::Rose);
+        assert_eq!(config.menu_bar_align, BarAlign::Left);
+        assert_eq!(config.menu_bar_width, 40);
+        assert_eq!(config.charging_style, ChargingStyle::Edge);
+        assert_eq!(config.animation_style, AnimationStyle::Fluid);
+        assert_eq!(config.startup_animation, StartupAnimation::Drift);
+        assert!(config.mascot);
+        let odd: Config =
+            serde_json::from_str(r#"{"menuBarTint":"plaid","chargingStyle":"future"}"#).unwrap();
+        assert_eq!(odd.menu_bar_tint, BarTint::Ocean);
+        assert_eq!(odd.charging_style, ChargingStyle::Surge);
+        // The old key no longer switches the crab on.
+        let old: Config = serde_json::from_str(r#"{"mascot":true}"#).unwrap();
+        assert!(!old.mascot);
     }
 
     #[test]

@@ -30,6 +30,16 @@ pub enum Style {
     Grid,
     /// The house vortex in four dithered tones: dark to bright (fifth unused).
     Dither,
+    /// Layered waves under a pale sky, in four dithered tones (fifth unused).
+    Tidal,
+    /// A glowing sphere made of halftone dots: background, then three dot
+    /// tones from dim to bright (fifth unused).
+    Halftone,
+    /// Soft rings spreading from a point below the screen: sky top, sky
+    /// bottom, ring, ring highlight, glow.
+    Ripple,
+    /// Warped, silky bands that run through all five colours in order.
+    Silk,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -408,6 +418,90 @@ pub const PRESETS: &[Preset] = &[
         [0x0a0618, 0x2e1a6a, 0x8a6bff, 0xf0e6ff, 0x000000],
         56,
     ),
+    preset(
+        "tidal-noon",
+        "Tidal Noon",
+        Style::Tidal,
+        [0x04141c, 0x0b5d73, 0x4fc7d6, 0xf4fdff, 0x000000],
+        61,
+    ),
+    preset(
+        "tidal-dusk",
+        "Tidal Dusk",
+        Style::Tidal,
+        [0x12081c, 0x5a1f6e, 0xe0568a, 0xffe9d2, 0x000000],
+        62,
+    ),
+    preset(
+        "tidal-moss",
+        "Tidal Moss",
+        Style::Tidal,
+        [0x06120a, 0x1d5a35, 0x8fd16a, 0xf6ffe8, 0x000000],
+        63,
+    ),
+    preset(
+        "halftone-ember",
+        "Halftone Ember",
+        Style::Halftone,
+        [0x0d0806, 0x5a2410, 0xd9622b, 0xffe0b8, 0x000000],
+        64,
+    ),
+    preset(
+        "halftone-glacier",
+        "Halftone Glacier",
+        Style::Halftone,
+        [0x060a10, 0x1e3a5c, 0x6aa8e0, 0xeaf6ff, 0x000000],
+        65,
+    ),
+    preset(
+        "halftone-mono",
+        "Halftone Mono",
+        Style::Halftone,
+        [0x080808, 0x3a3a3a, 0x9a9a9a, 0xf4f4f4, 0x000000],
+        66,
+    ),
+    preset(
+        "ripple-lagoon",
+        "Ripple Lagoon",
+        Style::Ripple,
+        [0x03222e, 0x0b6f7e, 0x56d6d0, 0xeafffb, 0x2ad0c0],
+        67,
+    ),
+    preset(
+        "ripple-sunrise",
+        "Ripple Sunrise",
+        Style::Ripple,
+        [0x2a1038, 0xf0805a, 0xffc48a, 0xfff4e0, 0xff9a6a],
+        68,
+    ),
+    preset(
+        "ripple-ink",
+        "Ripple Ink",
+        Style::Ripple,
+        [0x08080c, 0x1a1c28, 0x5a6080, 0xdfe4ff, 0x6a78ff],
+        69,
+    ),
+    preset(
+        "silk-citrus",
+        "Silk Citrus",
+        Style::Silk,
+        [0x1b2a05, 0x5a8a0a, 0xd8d82a, 0xffb02a, 0xff6a1a],
+        70,
+    ),
+    preset(
+        "silk-orchid",
+        "Silk Orchid",
+        Style::Silk,
+        [0x120622, 0x4a1a8a, 0xa04ad8, 0xff7ac8, 0xffd0e8],
+        71,
+    ),
+    preset(
+        "silk-graphite",
+        "Silk Graphite",
+        Style::Silk,
+        [0x08090b, 0x1c1f26, 0x3a404c, 0x7a8496, 0xdfe6f2],
+        72,
+    ),
 ];
 
 #[must_use]
@@ -665,6 +759,106 @@ fn dither(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
     [c0, c1, c2, c3][tone]
 }
 
+fn tone4(p: &Preset, level: f32, ix: i32, iy: i32) -> Rgb {
+    let [c0, c1, c2, c3, _] = p.colors.map(color);
+    let tone = (level.clamp(0.0, 1.0) * 3.0 + bayer4(ix, iy) - 0.5)
+        .round()
+        .clamp(0.0, 3.0) as usize;
+    [c0, c1, c2, c3][tone]
+}
+
+/// Waves in front of a sky, dithered on a coarse grid.
+fn tidal(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
+    let cells = 220.0;
+    let (ix, iy) = ((x * cells).floor() as i32, (y * cells).floor() as i32);
+    let (cx, cy) = ((ix as f32 + 0.5) / cells, (iy as f32 + 0.5) / cells);
+    let s = p.seed as f32;
+    // Sky: bright near the horizon, darker above.
+    let mut level = 0.62 * (1.0 - smoothstep(0.0, 0.62, cy)) + 0.12;
+    // A low sun.
+    let (dx, dy) = (cx - aspect * 0.62, cy - 0.34);
+    level += 0.55 * (-(dx * dx + dy * dy) / 0.012).exp();
+    // Five rows of waves, each in front of the last and a little darker or
+    // lighter, so the tones step the way a sea does.
+    for k in 0..5u32 {
+        let kf = k as f32;
+        let base = 0.48 + 0.11 * kf;
+        let wave = base
+            + 0.022 * (cx * (6.0 + 2.5 * kf) + s * 0.7 + kf * 1.9).sin()
+            + 0.03 * (fbm(cx * 3.0 + kf * 7.0, kf * 2.0, p.seed + k, 3) - 0.5);
+        if cy > wave {
+            let depth = (cy - wave) / 0.3;
+            level = 0.18 + 0.1 * kf + 0.3 * (-depth * 3.0).exp() - 0.06 * (1.0 - kf / 4.0);
+        }
+    }
+    tone4(p, level, ix, iy)
+}
+
+/// A glowing sphere of halftone dots.
+fn halftone(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
+    let [bg, c1, c2, c3, _] = p.colors.map(color);
+    let cells = 72.0;
+    let (gx, gy) = (x * cells, y * cells);
+    let (ix, iy) = (gx.floor(), gy.floor());
+    let (fx, fy) = (gx - ix - 0.5, gy - iy - 0.5);
+    let (cx, cy) = ((ix + 0.5) / cells, (iy + 0.5) / cells);
+    let (dx, dy) = (cx - aspect * 0.5, cy - 0.5);
+    let r = (dx * dx + dy * dy).sqrt();
+    let radius = 0.30;
+    // Light on a ball from the upper left, plus a faint halo outside it.
+    let lit = if r < radius {
+        let nz = (1.0 - (r / radius).powi(2)).sqrt();
+        let light = (-(dx / radius) * 0.45 - (dy / radius) * 0.55 + nz * 0.7).clamp(0.0, 1.0);
+        0.30 + 0.70 * light
+    } else {
+        0.07 * (-(r - radius) * 6.0).exp() + 0.02 * fbm(cx * 4.0, cy * 4.0, p.seed, 2)
+    };
+    let dot = lit.clamp(0.0, 1.0).sqrt() * 0.66;
+    let d = (fx * fx + fy * fy).sqrt();
+    let ink = 1.0 - smoothstep(dot - 0.05, dot + 0.05, d);
+    let dot_color = if lit > 0.72 {
+        c3
+    } else if lit > 0.45 {
+        c2
+    } else {
+        c1
+    };
+    mix(bg, dot_color, ink)
+}
+
+/// Rings spreading from a point under the screen.
+fn ripple(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
+    let [top, low, ring, hi, glow] = p.colors.map(color);
+    let mut col = mix(top, low, smoothstep(0.0, 1.0, y));
+    let (dx, dy) = (x - aspect * 0.5, (y - 1.15) * 1.6);
+    let d = (dx * dx + dy * dy).sqrt();
+    col = add(col, glow, 0.35 * (-d * d / 0.14).exp());
+    let wobble = 0.012 * (fbm(x * 4.0, y * 4.0, p.seed, 3) - 0.5);
+    let f = (d + wobble) * 11.0;
+    let frac = f - f.floor();
+    let line = smoothstep(0.0, 0.5, frac) * (1.0 - smoothstep(0.5, 1.0, frac));
+    let fade = (-d * 1.1).exp();
+    col = mix(col, ring, 0.55 * line * line * fade);
+    mix(col, hi, 0.5 * (line.powi(8)) * fade)
+}
+
+/// Warped silky bands through all five colours.
+fn silk(p: &Preset, x: f32, y: f32, _aspect: f32) -> Rgb {
+    let q = fbm(x * 1.6, y * 1.6, p.seed, 3);
+    let r = fbm(
+        x * 1.6 + 5.2 + 3.0 * q,
+        y * 1.6 + 1.3 - 2.0 * q,
+        p.seed + 7,
+        3,
+    );
+    let t = (0.5 + 0.5 * (7.0 * r + 2.2 * x + 1.4 * y).sin()).clamp(0.0, 1.0);
+    let t = t * 0.9 + 0.1 * smoothstep(0.0, 1.0, y);
+    let ramp = p.colors.map(color);
+    let scaled = t * 4.0;
+    let i = (scaled.floor() as usize).min(3);
+    mix(ramp[i], ramp[i + 1], scaled - i as f32)
+}
+
 fn pixel(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
     let mut col = match p.style {
         Style::Mesh => mesh(p, x, y, aspect),
@@ -674,6 +868,10 @@ fn pixel(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
         Style::Topo => topo(p, x, y, aspect),
         Style::Grid => grid(p, x, y, aspect),
         Style::Dither => return dither(p, x, y, aspect),
+        Style::Tidal => return tidal(p, x, y, aspect),
+        Style::Halftone => return halftone(p, x, y, aspect),
+        Style::Ripple => ripple(p, x, y, aspect),
+        Style::Silk => silk(p, x, y, aspect),
     };
     // Gentle vignette.
     let (vx, vy) = (x / aspect - 0.5, y - 0.5);
@@ -779,6 +977,10 @@ mod tests {
             Style::Topo,
             Style::Grid,
             Style::Dither,
+            Style::Tidal,
+            Style::Halftone,
+            Style::Ripple,
+            Style::Silk,
         ] {
             assert!(PRESETS.iter().any(|preset| preset.style == style));
         }
