@@ -202,6 +202,18 @@ impl Settings {
             search_open: false,
             fitted: false,
         };
+        // `WHIRLPOOL_PAGE` opens a given page (used by the capture workflow
+        // and handy when testing a single page).
+        if let Ok(name) = env::var("WHIRLPOOL_PAGE") {
+            settings.page = match name.as_str() {
+                "menubar" => Page::MenuBar,
+                "personalize" => Page::Personalize,
+                "windows" => Page::Windows,
+                "system" => Page::System,
+                "about" => Page::About,
+                _ => Page::Dock,
+            };
+        }
         settings.animations_on = system::animations_enabled();
         settings.recheck_updates(ctx);
         settings
