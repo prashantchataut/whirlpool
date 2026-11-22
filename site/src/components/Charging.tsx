@@ -1,89 +1,121 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from "react";
+import { Desktop, DEFAULT_BAR, DEFAULT_DOCK } from "./Desktop";
+import { CHARGE_STYLES, WALLS, levelColor, type ChargeStyle } from "../lib/theme";
+import { Play } from "./Icons";
 
-type Style = 'surge' | 'halo' | 'edge' | 'tide'
+export function Charging() {
+  const [style, setStyle] = useState<ChargeStyle>("edge");
+  const [percent, setPercent] = useState(64);
+  const [key, setKey] = useState(0);
+  const frame = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
 
-const STYLES: { id: Style; name: string; note: string }[] = [
-  { id: 'surge', name: 'Surge', note: 'A small medallion drops in under the menu bar. Two thin rings spread out.' },
-  { id: 'halo', name: 'Halo', note: 'A slim glass capsule with a bolt, the level and a thin meter.' },
-  { id: 'edge', name: 'Edge glow', note: 'The edges of the screen glow like liquid glass, coloured by the level.' },
-  { id: 'tide', name: 'Tide', note: 'A line of light runs along the top edge up to the battery level.' },
-]
+  useEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
-function tone(p: number) {
-  return p <= 20 ? '255,128,30' : p < 60 ? '255,204,46' : '72,230,122'
-}
+  // Replay on a calm loop while the preview is on screen.
+  useEffect(() => {
+    if (!inView) return;
+    const id = window.setInterval(() => setKey((k) => k + 1), 6200);
+    return () => window.clearInterval(id);
+  }, [inView]);
 
-function Stage({ style, percent, run }: { style: Style; percent: number; run: number }) {
-  const c = tone(percent)
+  const color = levelColor(percent);
+  const current = CHARGE_STYLES.find((c) => c.id === style) ?? CHARGE_STYLES[0];
+
   return (
-    <div key={run} className="wp-stage relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/15 bg-[#041a24]">
-      <div className="absolute inset-x-0 top-0 h-5 bg-white/5" />
-      {style === 'surge' && (
-        <>
-          {[0, 1].map((i) => (
-            <span key={i} className="wp-ring absolute top-[8%] left-1/2 h-24 w-24 -translate-x-1/2 rounded-full border border-[#8ff5ee]/60" style={{ animationDelay: `${0.3 + i * 0.55}s` }} />
+    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+      <div>
+        <ul className="grid gap-1.5" aria-label="Charging animations">
+          {CHARGE_STYLES.map((c, i) => (
+            <li key={c.id}>
+              <button
+                onClick={() => {
+                  setStyle(c.id);
+                  setKey((k) => k + 1);
+                }}
+                aria-pressed={style === c.id}
+                className={`group flex w-full items-baseline gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
+                  style === c.id
+                    ? "glass border-teal/40"
+                    : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
+                }`}
+              >
+                <span className="font-mono text-[11px] text-faint">{String(i + 1).padStart(2, "0")}</span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+                    {c.name}
+                    {c.isNew && (
+                      <span className="rounded bg-teal px-1.5 py-px font-mono text-[9px] font-medium tracking-wider text-ink">
+                        NEW
+                      </span>
+                    )}
+                  </span>
+                  {style === c.id && <span className="mt-1 block text-[13.5px] leading-relaxed text-mute">{c.blurb}</span>}
+                </span>
+              </button>
+            </li>
           ))}
-          <div className="wp-drop absolute top-[9%] left-1/2 flex h-16 w-16 -translate-x-1/2 flex-col items-center justify-center rounded-full border border-white/20 bg-[#0a2a35] text-[#bffbf5] shadow-[0_0_30px_rgba(95,240,230,.3)]">
-            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
-            <span className="font-mono text-[10px]">{percent}%</span>
-          </div>
-        </>
-      )}
-      {style === 'halo' && (
-        <div className="wp-drop absolute top-[10%] left-1/2 flex h-10 w-40 -translate-x-1/2 items-center gap-3 rounded-full border border-white/20 bg-[#0a2430]/90 px-3 text-white">
-          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" style={{ fill: `rgb(${c})` }}><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
-          <span className="font-mono text-[12px]">{percent}%</span>
-          <span className="relative ml-auto h-1 w-14 rounded-full bg-white/15"><span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${percent}%`, background: `rgb(${c})` }} /></span>
-        </div>
-      )}
-      {style === 'edge' && (
-        <div className="wp-edge absolute inset-0" style={{ boxShadow: `inset 0 0 70px 6px rgba(${c},.55), inset 0 0 14px 1px rgba(${c},.9), inset 0 0 0 1px rgba(255,255,255,.35)`, borderRadius: 16 }} />
-      )}
-      {style === 'tide' && (
-        <div className="absolute inset-x-0 top-0">
-          <span className="wp-tide absolute top-0 left-0 block h-[3px] origin-left" style={{ width: `${percent}%`, background: `linear-gradient(90deg, rgba(${c},0), rgba(${c},1) 70%, #fff)`, boxShadow: `0 4px 18px 1px rgba(${c},.7)` }} />
-        </div>
-      )}
-      <style>{`
-        @keyframes wp-drop { 0%{opacity:0;transform:translate(-50%,-16px) scale(.9)} 20%,80%{opacity:1;transform:translate(-50%,0) scale(1)} 100%{opacity:0;transform:translate(-50%,-14px) scale(.96)} }
-        @keyframes wp-ring { 0%{opacity:0;transform:translateX(-50%) scale(.6)} 10%{opacity:.5} 100%{opacity:0;transform:translateX(-50%) scale(2.6)} }
-        @keyframes wp-edge { 0%{opacity:0} 22%{opacity:1} 45%{opacity:.7} 70%{opacity:1} 100%{opacity:0} }
-        @keyframes wp-tide { 0%{transform:scaleX(0);opacity:0} 10%{opacity:1} 45%{transform:scaleX(1)} 85%{opacity:1} 100%{transform:scaleX(1);opacity:0} }
-        .wp-drop{animation:wp-drop 3.4s cubic-bezier(.2,.9,.3,1) both}
-        .wp-ring{animation:wp-ring 2s cubic-bezier(.2,.9,.3,1) both;opacity:0}
-        .wp-edge{animation:wp-edge 3.6s ease-in-out both}
-        .wp-tide{animation:wp-tide 3.4s cubic-bezier(.2,.9,.3,1) both}
-        @media (prefers-reduced-motion: reduce){.wp-drop,.wp-ring,.wp-edge,.wp-tide{animation-duration:.01s}}
-      `}</style>
-    </div>
-  )
-}
+        </ul>
 
-export default function Charging() {
-  const [style, setStyle] = useState<Style>('edge')
-  const [percent, setPercent] = useState(72)
-  const [run, setRun] = useState(0)
-  const current = STYLES.find((s) => s.id === style)!
-  return (
-    <section id="charging" className="mx-auto mt-28 max-w-[1240px] px-5 sm:px-8">
-      <h2 className="font-display text-[clamp(2rem,4.4vw,3.4rem)] leading-[1.02] font-semibold tracking-tight text-white">Plug in. The screen answers.</h2>
-      <p className="mt-4 max-w-[560px] text-[17px] leading-relaxed text-white/70">Four charging animations, or none. Green above 60%, yellow in the middle, orange at 20% and below. They draw once and are gone in about three seconds.</p>
-      <div className="glass mt-9 grid gap-8 rounded-[28px] p-5 sm:p-8 lg:grid-cols-[1.4fr_1fr]">
-        <Stage style={style} percent={percent} run={run} />
-        <div className="flex flex-col justify-between gap-6">
-          <div role="radiogroup" aria-label="Charging animation" className="grid grid-cols-2 gap-2">
-            {STYLES.map((s) => (
-              <button key={s.id} role="radio" aria-checked={style === s.id} onClick={() => { setStyle(s.id); setRun((r) => r + 1) }} className={`min-h-11 rounded-xl border px-3 text-[14px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[#5ff0e6] ${style === s.id ? 'border-[#5ff0e6] bg-[#5ff0e6]/15 text-white' : 'border-white/15 text-white/70 hover:bg-white/10'}`}>{s.name}</button>
-            ))}
+        <div className="glass mt-5 rounded-xl p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <label htmlFor="battery" className="text-[13px] font-medium">
+              Battery level
+            </label>
+            <span className="flex items-center gap-2 font-mono text-[12px] tabular-nums">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
+              {percent}%
+            </span>
           </div>
-          <p className="text-[15px] leading-relaxed text-white/70">{current.note}</p>
-          <label className="block text-[13px] text-white/60">Battery level <span className="font-mono text-white">{percent}%</span>
-            <input type="range" min={5} max={100} value={percent} onChange={(e) => { setPercent(+e.target.value) }} onPointerUp={() => setRun((r) => r + 1)} onKeyUp={() => setRun((r) => r + 1)} className="mt-2 block w-full accent-[#5ff0e6]" />
-          </label>
-          <button onClick={() => setRun((r) => r + 1)} className="btn-ghost !min-h-10 self-start !text-[14px]">Play again</button>
+          <input
+            id="battery"
+            type="range"
+            min={5}
+            max={100}
+            value={percent}
+            onChange={(e) => {
+              setPercent(Number(e.target.value));
+              setKey((k) => k + 1);
+            }}
+            className="wp-range w-full"
+            style={{ ["--fill" as string]: `${((percent - 5) / 95) * 100}%` }}
+          />
+          <div className="mt-2 flex justify-between font-mono text-[10.5px] text-faint">
+            <span>orange ≤ 20</span>
+            <span>yellow 21–59</span>
+            <span>green ≥ 60</span>
+          </div>
+          <button
+            onClick={() => setKey((k) => k + 1)}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-[13px] font-medium transition-colors hover:bg-white/15"
+          >
+            <Play className="h-3.5 w-3.5" /> Replay
+          </button>
         </div>
       </div>
-      <p className="mt-3 text-[12.5px] text-white/45">A web preview of the motion. The real animations are drawn by Windows' compositor.</p>
-    </section>
-  )
+
+      <div ref={frame}>
+        <Desktop
+          wall={WALLS[1]}
+          bar={{ ...DEFAULT_BAR, tint: "graphite", opacity: 60 }}
+          dock={DEFAULT_DOCK}
+          percent={percent}
+          charging
+          fx={style}
+          fxKey={key}
+          className="shadow-[0_50px_100px_-40px_rgba(0,0,0,0.95)]"
+        />
+        <p className="mt-3 font-mono text-[11px] leading-relaxed text-faint">
+          {current.name}: motion preview drawn by this page with the app's timings and colour thresholds. In the app the same
+          scene is drawn by the Windows compositor.
+        </p>
+      </div>
+    </div>
+  );
 }

@@ -13,6 +13,36 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Version 4.0.0: what changed
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Charging | `halo` redrawn as a minimal pill; new `bloom` (bottom glow) and `aurora` (top ribbons). Both are CPU-drawn soft bitmaps animated by compositor keyframes, like the other styles. | `apps/dock/src/charge.rs` |
+| Motion | `AnimationStyle::{Dreamy, Rapid}`, `StartupAnimation::Float`. | `crates/whirlpool-config` |
+| Menu bar | `BarTint::{Violet, Mint, Sunset, Slate, Sand}`. | `crates/whirlpool-config`, Settings |
+| Settings | eframe has both `glow` and `wgpu` (DX12 only). `whirlpool.exe --settings` tries OpenGL; on error or panic it starts `--settings-compat` (DirectX). | `apps/dock/src/main.rs`, `apps/settings/src/lib.rs` |
+| Site | New site: live desktop/dock/menu bar renders, a working Settings lab, six charging previews, trust section. Source in `site/`. | `site/` |
+| Docs | README rewritten with renders (`docs/renders/`, generated from the site, **not** captures of Windows). | README |
+
+### 4.0 verification notes
+
+- Verified here (Linux): `whirlpool-config` tests (29 pass). The dock and settings crates were **not** compiled on this machine (the `windows` crate needs more RAM than the sandbox has); CI on `windows-latest` is the compiler.
+- **Not verified on a real desktop:** Bloom, Aurora, the new Halo, the DirectX fallback. They are written against the same helpers as Edge and Tide.
+- The site's charging previews are CSS, not captures.
+
+### Bottom-edge menu bar: the plan (not started in code)
+
+The bar window is one `visual_height` tall: bar at `y = 0`, popup panel at `y = bar_height + PANEL_GAP` (`popup_surface`, `IslandGeometry::top`). For a bottom bar:
+1. Put the bar visuals and the popup in two sibling containers; offset the bar by `visual_height - bar_height`, the popup above it.
+2. Map pointer `y` in `hover`/`click` (`island_hits`, lines using `bounds.bottom`) through one `to_layout_y`.
+3. Mirror `BAR_TOP/BAR_BOTTOM/PANEL_BOTTOM` for bottom, `Edge::Bottom` in `place()`, and the edge watcher's reveal strip.
+4. Config key `menuBarPosition: top|bottom`; Settings row under *Menu bar*.
+It touches ~15 sites and needs a real desktop to verify, hence it was not guessed at.
+
+### Next (ranked)
+
+1. Bottom-edge bar (above). 2. FPS / system-info overlay (one popup, 1 s timer only while visible). 3. Charging preview button (settings -> dock IPC). 4. Wallpaper rotation. 5. Launchpad-style start grid.
+
 ## Version 3.0.0: what changed
 
 | Area | Change | Where |

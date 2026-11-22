@@ -6,6 +6,22 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## [4.0.0]
+
+### Added
+- Charging: two new animations, **Bloom** (a soft glow rises behind the dock) and **Aurora** (slow ribbons of colour across the top). Six styles in total.
+- Motion: **Dreamy** and **Rapid** animation speeds, and a **Float** start-up.
+- Menu bar: five new tints (Violet, Mint, Sunset, Slate, Sand).
+- Settings: if OpenGL cannot start, Settings retries with DirectX (`--settings-compat`) so the window always opens.
+- Site: rebuilt around live renders of the real Settings window and the six charging scenes; README renders in `docs/renders/`.
+
+### Changed
+- **Halo** is now one small glass pill: a breathing dot in the battery colour and the level. No bolt, no meter.
+- Notices: `LICENSE` is Whirlpool's own MIT licence; third-party credits live in `NOTICE`.
+
+### Not done (see continuity.md)
+- Menu bar on the bottom edge, FPS / system info overlay.
+
 ## [Unreleased]
 
 ## [3.0.0]

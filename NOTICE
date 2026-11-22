@@ -1,10 +1,10 @@
 Whirlpool
 Copyright (c) 2025-2026 Prashant Chataut. Released under the MIT License (see LICENSE).
 
-Parts of this program derive from earlier work released under the same MIT
-terms: Copyright (c) Muelle contributors. That notice is kept here, as the
-license asks.
-
-Bundled components
+Third-party notices
+- Parts of this program derive from software released under the MIT License,
+  Copyright (c) Muelle contributors. The MIT License requires this notice to stay
+  with those parts.
 - Inter typeface, SIL Open Font License 1.1 (apps/settings/assets/fonts/Inter-OFL.txt)
 - Rust crates under their own permissive licenses; run `cargo tree` to list them.
+- Site photographs: Pexels licence (Nala Berting, Mete Kaan Ozdilek, Quang Nguyen Vinh).

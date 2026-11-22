@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "whirlpool"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3080,7 +3080,7 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-config"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3089,11 +3089,11 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-core"
-version = "3.0.0"
+version = "4.0.0"
 
 [[package]]
 name = "whirlpool-settings"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "eframe",
  "png",
@@ -3109,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "whirlpool-shell"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
