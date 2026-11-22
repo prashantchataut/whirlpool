@@ -19,6 +19,7 @@ import {
 } from "./Icons";
 
 export type BarCfg = {
+  position: "top" | "bottom";
   style: "docked" | "floating";
   size: "compact" | "regular" | "large";
   tint: Tint;
@@ -34,6 +35,7 @@ export type DockCfg = {
 };
 
 export const DEFAULT_BAR: BarCfg = {
+  position: "top",
   style: "docked",
   size: "regular",
   tint: "ocean",
@@ -99,7 +101,7 @@ export function Desktop({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
       <MenuBar cfg={bar} percent={percent} charging={charging} />
-      {showDock && <Dock cfg={dock} barBottom={bar.style === "floating"} />}
+      {showDock && <Dock cfg={dock} barBottom={bar.style === "floating"} barPos={bar.position} barH={BAR_H[bar.size] + (bar.style === "floating" ? 8 : 0)} />}
       {children}
       {fx && <ChargeFx key={`${fx}-${fxKey}-${percent}`} style={fx} percent={percent} />}
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
@@ -115,8 +117,9 @@ function MenuBar({ cfg, percent, charging }: { cfg: BarCfg; percent: number; cha
   const inset = floating ? 24 : 0;
   const gap = floating ? 8 : 0;
   const width = floating ? cfg.width : 100;
+  const atBottom = cfg.position === "bottom";
   const base: React.CSSProperties = {
-    top: cq(gap),
+    ...(atBottom ? { bottom: cq(gap) } : { top: cq(gap) }),
     height: cq(h),
     fontSize: cq(h * 0.46),
     background: rgba(TINTS[cfg.tint].rgb, cfg.opacity / 100),
@@ -125,9 +128,11 @@ function MenuBar({ cfg, percent, charging }: { cfg: BarCfg; percent: number; cha
     borderRadius: floating ? cq(14) : 0,
     boxShadow: floating
       ? "inset 0 0 0 1px rgba(255,255,255,0.12), 0 10px 30px -12px rgba(0,0,0,0.6)"
-      : "inset 0 -1px 0 rgba(255,255,255,0.1)",
+      : atBottom
+        ? "inset 0 1px 0 rgba(255,255,255,0.1)"
+        : "inset 0 -1px 0 rgba(255,255,255,0.1)",
     transition:
-      "top .35s cubic-bezier(.2,.9,.3,1), height .35s cubic-bezier(.2,.9,.3,1), width .35s cubic-bezier(.2,.9,.3,1), left .35s cubic-bezier(.2,.9,.3,1), border-radius .35s, background .3s",
+      "top .35s cubic-bezier(.2,.9,.3,1), bottom .35s cubic-bezier(.2,.9,.3,1), height .35s cubic-bezier(.2,.9,.3,1), width .35s cubic-bezier(.2,.9,.3,1), left .35s cubic-bezier(.2,.9,.3,1), border-radius .35s, background .3s",
     width: `calc(${width}% - ${cq(inset * 2 * (width / 100))})`,
     left:
       cfg.align === "left"
@@ -173,7 +178,7 @@ function MenuBar({ cfg, percent, charging }: { cfg: BarCfg; percent: number; cha
 
 /* --------------------------------------------------------------- Dock */
 
-function Dock({ cfg, barBottom }: { cfg: DockCfg; barBottom: boolean }) {
+function Dock({ cfg, barBottom, barPos, barH }: { cfg: DockCfg; barBottom: boolean; barPos: "top" | "bottom"; barH: number }) {
   const list = useRef<HTMLDivElement>(null);
   const [pointer, setPointer] = useState<number | null>(null);
   const vertical = cfg.position === "left" || cfg.position === "right";
@@ -196,9 +201,9 @@ function Dock({ cfg, barBottom }: { cfg: DockCfg; barBottom: boolean }) {
 
   const place: React.CSSProperties =
     cfg.position === "bottom"
-      ? { bottom: cq(10), left: "50%", transform: "translateX(-50%)" }
+      ? { bottom: cq(10 + (barPos === "bottom" ? barH : 0)), left: "50%", transform: "translateX(-50%)" }
       : cfg.position === "top"
-        ? { top: cq((barBottom ? 44 : 38) + 4), left: "50%", transform: "translateX(-50%)" }
+        ? { top: cq(barPos === "top" ? (barBottom ? 44 : 38) + 4 : 14), left: "50%", transform: "translateX(-50%)" }
         : cfg.position === "left"
           ? { left: cq(10), top: "52%", transform: "translateY(-50%)" }
           : { right: cq(10), top: "52%", transform: "translateY(-50%)" };

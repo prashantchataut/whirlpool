@@ -2,9 +2,13 @@ import ocean from "../assets/wall-ocean.jpg";
 import dusk from "../assets/wall-dusk.jpg";
 import lake from "../assets/wall-lake.jpg";
 import ridge from "../assets/wall-ridge.jpg";
+import aurora from "../assets/wall-aurora.jpg";
+import peaks from "../assets/wall-peaks.jpg";
+import dunes from "../assets/wall-dunes.jpg";
+import sunset from "../assets/wall-sunset.jpg";
 
 export const REPO = "https://github.com/prashantchataut/whirlpool";
-export const VERSION = "4.0.0";
+export const VERSION = "4.1.0";
 export const SETUP_URL = `${REPO}/releases/latest/download/Whirlpool-Setup.exe`;
 export const ZIP_URL = `${REPO}/releases/latest/download/Whirlpool-x64.zip`;
 export const RELEASES_URL = `${REPO}/releases/latest`;
@@ -44,6 +48,10 @@ export const WALLS: Wall[] = [
   { id: "dusk", label: "Dusk swell", css: `url(${dusk})`, credit: "Mete Kaan Özdilek / Pexels" },
   { id: "lake", label: "First light", css: `url(${lake})`, credit: "Quang Nguyen Vinh / Pexels" },
   { id: "ridge", label: "Fog ridge", css: `url(${ridge})`, credit: "Quang Nguyen Vinh / Pexels" },
+  { id: "aurora", label: "Northern light", css: `url(${aurora})`, credit: "Francesco Ungaro / Pexels" },
+  { id: "peaks", label: "High rock", css: `url(${peaks})`, credit: "Tobias Bjørkli / Pexels" },
+  { id: "dunes", label: "Morning dunes", css: `url(${dunes})`, credit: "Francesco Ungaro / Pexels" },
+  { id: "sunset", label: "Long shadow", css: `url(${sunset})`, credit: "Denys Gromov / Pexels" },
 ];
 
 export type ChargeStyle = "surge" | "halo" | "edge" | "tide" | "bloom" | "aurora";

@@ -214,9 +214,9 @@ export function Wallpapers() {
               className="aspect-[4/5] bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
               style={{ backgroundImage: w.css }}
             />
-            <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-4">
-              <span className="font-display text-lg font-bold">{w.label}</span>
-              <span className="font-mono text-[10px] text-white/55">{w.credit}</span>
+            <figcaption className="absolute inset-x-0 bottom-0 flex flex-col items-start gap-0.5 bg-gradient-to-t from-black/75 via-black/30 to-transparent p-4 pt-12">
+              <span className="font-display text-lg font-bold leading-tight">{w.label}</span>
+              <span className="font-mono text-[10px] text-white/60">{w.credit}</span>
             </figcaption>
           </figure>
         ))}
@@ -400,15 +400,16 @@ export function Install() {
 
 export function WhatsNew() {
   const rows: [string, string][] = [
-    ["Charging, redone", "Halo is now one quiet pill. Bloom and Aurora are new. Edge, Tide and Surge keep their motion."],
-    ["Settings that open", "If OpenGL cannot start (virtual machines, remote desktop, some older drivers) Settings now retries with DirectX on its own."],
-    ["More ways to move", "Dreamy and Rapid motion speeds, a Float start-up, and five new menu bar tints."],
-    ["A licence of its own", "The MIT licence now names Prashant Chataut as the author, as it should."],
-    ["This site", "Rebuilt around live renders of the real settings and the real charging scenes."],
+    ["The bar goes to the bottom", "Put the menu bar on either edge. Its island opens upward as a bubble, it hides toward its own edge, and click-away and pointer reveal follow it."],
+    ["Settings you can find", "A Screen edge choice sits at the top of the menu bar page, with alignment and width beside it."],
+    ["Four more photographs", "Northern light, high rock, morning dunes and a long shadow join the wallpapers, free to use and credited."],
+    ["Charging, from 4.0", "Halo is one quiet pill. Bloom and Aurora are new. Edge, Tide and Surge keep their motion."],
+    ["Settings that open", "If OpenGL cannot start, Settings retries with DirectX by itself and writes what happened to the log."],
   ];
   const next = [
-    "Menu bar on the bottom edge (panels need to open upward; the work is mapped in continuity.md)",
     "FPS and system info overlay",
+    "A full dynamic island with presets",
+    "Motion for windows you drag",
     "Wallpaper rotation, per-monitor wallpapers",
     "Launchpad-style start grid",
   ];

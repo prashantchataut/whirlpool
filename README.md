@@ -16,7 +16,7 @@ No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and th
 ## What you get
 
 - **Dock** on any edge (bottom, top, left, right) with magnification, genie minimize, live thumbnails, Downloads stack and Recycle Bin.
-- **Menu bar**: docked or floating, three heights, opacity, eleven tints, alignment and width, clock and date options, now-playing and AI plan usage in the island.
+- **Menu bar** on the top or the bottom edge: docked or floating, three heights, opacity, eleven tints, alignment and width, clock and date options, now-playing and AI plan usage in the island.
 - **Six charging animations**: Surge, Halo, Edge, Tide, Bloom, Aurora. Green when healthy, yellow in the middle, orange when low.
 - **Motion**: seven speeds from Dreamy to Rapid, and five start-up animations.
 - **66 procedural wallpapers**, drawn at your exact resolution.
@@ -24,8 +24,14 @@ No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and th
 
 ### Settings
 
+![Menu bar on the bottom edge](docs/renders/settings-bar-bottom.jpg)
+
 ![Menu bar settings](docs/renders/settings-menubar.jpg)
 ![Dock settings](docs/renders/settings-dock.jpg)
+
+### Wallpapers
+
+![Photographs and procedural wallpapers](docs/renders/wallpapers.jpg)
 
 ### Charging
 
@@ -57,7 +63,7 @@ Needs Rust (MSVC) and the Visual Studio C++ build tools. The site is in `site/` 
 
 ## Status
 
-See [continuity.md](continuity.md) for what is verified, what is not, and what is next. The bar on the bottom edge and an FPS overlay are planned, not shipped.
+See [continuity.md](continuity.md) for what is verified, what is not, and what is next. The bar on the bottom edge ships in 4.1 (built by CI; not yet checked on a real desktop, so please report anything odd). An FPS and system-info overlay, a full dynamic island with presets and motion for dragged windows are planned, not shipped.
 
 ## License
 

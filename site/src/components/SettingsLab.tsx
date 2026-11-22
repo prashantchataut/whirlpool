@@ -171,6 +171,17 @@ export function SettingsLab() {
             {page === "menubar" && (
               <>
                 <Card title="Look">
+                  <Row label="Screen edge" hint="Top or bottom. On the bottom the island opens upward.">
+                    <Seg
+                      label="Bar edge"
+                      value={bar.position}
+                      onChange={(v) => b("position", v)}
+                      options={[
+                        { v: "top", l: "Top" },
+                        { v: "bottom", l: "Bottom" },
+                      ]}
+                    />
+                  </Row>
                   <Row label="Style" hint="Docked touches the edges. Floating is a rounded bar with a gap.">
                     <Seg
                       label="Bar style"
