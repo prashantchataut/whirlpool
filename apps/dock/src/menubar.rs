@@ -87,6 +87,36 @@ use crate::{
 static BAR_HEIGHT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(28);
 static BAR_GAP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
+/// Pixels the bottom edge is already taken by the dock. A bottom bar sits
+/// above them instead of underneath the dock.
+static DOCK_LIFT: AtomicI32 = AtomicI32::new(0);
+
+/// Tells the bar how much of the bottom edge the dock covers. Returns true
+/// when the value changed and the bar must be laid out again.
+pub fn set_dock_lift(pixels: i32) -> bool {
+    DOCK_LIFT.swap(pixels.max(0), Ordering::Relaxed) != pixels.max(0)
+}
+
+fn dock_lift() -> i32 {
+    DOCK_LIFT.load(Ordering::Relaxed)
+}
+
+/// Starts the quick settings panel (a short-lived `whirlpool.exe`) next to
+/// the bar. If it cannot start, Windows' own panel opens instead.
+fn open_quick_panel(right: i32, anchor_y: i32, bottom: bool) {
+    let started = std::env::current_exe().and_then(|exe| {
+        std::process::Command::new(exe)
+            .arg("--quick-settings")
+            .arg(right.to_string())
+            .arg(anchor_y.to_string())
+            .arg(if bottom { "bottom" } else { "top" })
+            .spawn()
+    });
+    if started.is_err() {
+        launcher::open_quick_settings();
+    }
+}
+
 fn bar_height() -> f32 {
     BAR_HEIGHT.load(Ordering::Relaxed) as f32
 }
@@ -137,7 +167,7 @@ fn inset_screen(screen: RECT, widgets: &MenuBarWidgets, scale: f32) -> RECT {
             left,
             right,
             top: screen.top,
-            bottom: screen.bottom - gap,
+            bottom: screen.bottom - gap - dock_lift(),
         };
     }
     RECT {
@@ -1663,7 +1693,7 @@ impl MenuBar {
                     Edge::Bottom,
                     RECT {
                         top: bounds.top,
-                        bottom: bounds.bottom + gap,
+                        bottom: bounds.bottom + gap + dock_lift(),
                         ..monitor
                     },
                     strip,
@@ -1713,6 +1743,11 @@ impl MenuBar {
             }
         }
         edge_watch::set_menu_bar_bottom(self.at_bottom());
+        let reach = self
+            .look
+            .as_ref()
+            .map_or(0, |look| float_px(&look.widgets, look.scale).1);
+        edge_watch::set_menu_bar_reach(reach);
         edge_watch::set_menu_bar((self.visible && hidden).then_some(bounds));
         self.sync_outside_click_hook()
     }
@@ -1911,7 +1946,9 @@ impl MenuBar {
         });
         match hit.map(|(_, _, action)| *action) {
             Some(Action::AccessoryIndicator) => {}
-            Some(Action::QuickSettings) => launcher::open_quick_settings(),
+            Some(Action::QuickSettings) => {
+                open_quick_panel(self.bounds.right, self.anchor_y(), self.at_bottom());
+            }
             Some(Action::Notifications) => launcher::open_notifications(),
             Some(Action::Sound) => launcher::open_sound(),
             Some(Action::Search) => launcher::open_search(),

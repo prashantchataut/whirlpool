@@ -6,6 +6,21 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## [4.2.0]
+
+### Fixed
+- A floating menu bar set to auto-hide can be revealed again: the reveal strip now reaches the screen edge across the float gap.
+- A menu bar on the bottom edge stands above a bottom dock instead of underneath it.
+- Settings sizes itself from the monitor winit reports, so it no longer opens larger than the screen.
+
+### Changed
+- Settings redesigned: grouped sidebar with icons, search, a live preview column on wide windows, an icon-only sidebar on narrow ones, About page with the license text, new palette.
+- Wallpapers are fourteen Pexels photographs stored in the program (set as Fill); the generated wallpapers are no longer offered.
+
+### Added
+- Quick settings panel from the bar's network/volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, shortcuts to Cast, Night light and Battery saver.
+- ARM64 build job; `WHIRLPOOL_PAGE` opens a Settings page; capture workflow; PRIVACY, SIGNING, AUDIT, ASSETS_LICENSES.
+
 ## [4.1.0]
 
 ### Added

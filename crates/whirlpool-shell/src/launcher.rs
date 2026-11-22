@@ -15,8 +15,8 @@ use windows::{
         UI::{
             Input::KeyboardAndMouse::{
                 INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP,
-                SendInput, VIRTUAL_KEY, VK_A, VK_B, VK_D, VK_ESCAPE, VK_LCONTROL, VK_LWIN, VK_N,
-                VK_RETURN, VK_S, VK_TAB, VK_V, VK_W,
+                SendInput, VIRTUAL_KEY, VK_A, VK_B, VK_D, VK_ESCAPE, VK_K, VK_LCONTROL, VK_LWIN,
+                VK_N, VK_RETURN, VK_S, VK_TAB, VK_V, VK_W,
             },
             Shell::{SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, ShellExecuteExW},
             WindowsAndMessaging::{
@@ -179,6 +179,11 @@ fn tap(keys: &[VIRTUAL_KEY]) {
 /// Opens the Windows Start menu, exactly as the Windows key does.
 pub fn open_start_menu() {
     tap(&[VK_LWIN]);
+}
+
+/// The Cast flyout (Win+K): wireless displays near the computer.
+pub fn open_cast() {
+    tap(&[VK_LWIN, VK_K]);
 }
 
 /// Opens the Windows 11 quick settings panel (network, volume, battery): Win+A.

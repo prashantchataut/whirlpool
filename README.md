@@ -10,8 +10,17 @@ No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and th
 
 ![The desktop](docs/renders/desktop.jpg)
 
-> The images in this README are **design renders** made from the app's own palette and layout (generated from the site in `site/`).
-> They are not screenshots of a running Windows session.
+> The images under *Captured from the real build* are photographs of `whirlpool.exe` running on a GitHub-hosted Windows
+> runner (`.github/workflows/captures.yml`, 1024x768, 100% scale, no GPU). The renders further down are design renders
+> made from the app's palette and layout, not captures.
+
+## Captured from the real build
+
+![Settings, Personalize page](docs/captures/settings-personalize.jpg)
+![Quick settings opened from the top bar](docs/captures/quick-top.jpg)
+![Menu bar floating on the bottom edge, standing above the dock](docs/captures/shell-bottom-floating.jpg)
+
+The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. More captures are in `docs/captures/`.
 
 ## What you get
 
@@ -19,7 +28,9 @@ No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and th
 - **Menu bar** on the top or the bottom edge: docked or floating, three heights, opacity, eleven tints, alignment and width, clock and date options, now-playing and AI plan usage in the island.
 - **Six charging animations**: Surge, Halo, Edge, Tide, Bloom, Aurora. Green when healthy, yellow in the middle, orange when low.
 - **Motion**: seven speeds from Dreamy to Rapid, and five start-up animations.
-- **66 procedural wallpapers**, drawn at your exact resolution.
+- **Fourteen wallpaper photographs** from Pexels, stored in the program (credits in [ASSETS_LICENSES.md](ASSETS_LICENSES.md)).
+- **Quick settings** from the bar's network and volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, Cast, Night light, Battery saver.
+- **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing**: not signed yet, see [SIGNING.md](SIGNING.md); SmartScreen reputation builds over time with signed, widely downloaded releases.
 - **Settings are built in**: `whirlpool.exe --settings`, or launch Whirlpool again while it runs. If OpenGL cannot start, it retries with DirectX.
 
 ### Settings
@@ -63,8 +74,8 @@ Needs Rust (MSVC) and the Visual Studio C++ build tools. The site is in `site/` 
 
 ## Status
 
-See [continuity.md](continuity.md) for what is verified, what is not, and what is next. The bar on the bottom edge ships in 4.1 (built by CI; not yet checked on a real desktop, so please report anything odd). An FPS and system-info overlay, a full dynamic island with presets and motion for dragged windows are planned, not shipped.
+See [continuity.md](continuity.md) for what is verified, what is not, and what is next. The bottom bar standing above the dock is confirmed in a runner capture; popups on a bottom bar and multi-monitor are still untested. An FPS and system-info overlay, a full dynamic island with presets and motion for dragged windows are planned, not shipped.
 
 ## License
 
-MIT, (c) 2025-2026 Prashant Chataut. Third-party notices are in [NOTICE](NOTICE).
+MIT, (c) 2025-2026 Prashant Chataut ([LICENSE](LICENSE)). Third-party notices are in [NOTICE](NOTICE) and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

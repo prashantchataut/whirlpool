@@ -1,0 +1,10 @@
+settings-dock : 1024x768
+settings-menubar : 1024x768
+settings-personalize : 1024x768
+settings-windows : 1024x768
+settings-system : 1024x768
+settings-about : 1024x768
+quick-top : 1024x768
+quick-bottom : 1024x768
+shell-top : 1024x768
+shell-bottom-floating : 1024x768

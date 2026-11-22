@@ -21,3 +21,14 @@ jobs:
         run: cargo test --workspace
       - name: Build release binaries
         run: cargo build --release -p whirlpool
+
+  arm64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - name: Build for Windows on ARM
+        run: cargo build --release --target aarch64-pc-windows-msvc -p whirlpool

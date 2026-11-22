@@ -50,6 +50,10 @@ struct Edges {
     top: Option<RECT>,
     /// The menu bar's strip is along the bottom edge of `top`, not the top.
     bar_at_bottom: bool,
+    /// How far the hidden bar sits from its screen edge (a floating bar's
+    /// gap, in pixels). The reveal strip reaches across it to the edge, or
+    /// a pointer pressed against the screen edge never lands on the bar.
+    reach: i32,
     /// The displays a hidden dock can be revealed on, and the edge it sits on.
     screens: Vec<RECT>,
     dock_edge: DockEdge,
@@ -62,6 +66,7 @@ static EDGES: Mutex<Edges> = Mutex::new(Edges {
     window: 0,
     top: None,
     bar_at_bottom: false,
+    reach: 0,
     screens: Vec::new(),
     dock_edge: DockEdge::Bottom,
     pointer_screen: None,
@@ -74,9 +79,9 @@ impl Edges {
         if self.top.is_some_and(|top| {
             (top.left..top.right).contains(&point.x)
                 && if self.bar_at_bottom {
-                    (top.bottom - EDGE_DEPTH..top.bottom).contains(&point.y)
+                    (top.bottom - EDGE_DEPTH..top.bottom + self.reach).contains(&point.y)
                 } else {
-                    (top.top..top.top + EDGE_DEPTH).contains(&point.y)
+                    (top.top - self.reach..top.top + EDGE_DEPTH).contains(&point.y)
                 }
         }) {
             return Some(Target::MenuBar);
@@ -110,6 +115,17 @@ impl Edges {
     fn set_bar_at_bottom(&mut self, bottom: bool) {
         if bottom != self.bar_at_bottom {
             self.bar_at_bottom = bottom;
+            if self.target == Some(Target::MenuBar) {
+                self.target = None;
+                self.entered = None;
+            }
+        }
+    }
+
+    fn set_reach(&mut self, reach: i32) {
+        let reach = reach.max(0);
+        if reach != self.reach {
+            self.reach = reach;
             if self.target == Some(Target::MenuBar) {
                 self.target = None;
                 self.entered = None;
@@ -160,6 +176,11 @@ fn lock() -> MutexGuard<'static, Edges> {
 /// Which edge the menu bar's reveal strip is on. Call before `set_menu_bar`.
 pub fn set_menu_bar_bottom(bottom: bool) {
     lock().set_bar_at_bottom(bottom);
+}
+
+/// The gap between a floating bar and its screen edge. Call before `set_menu_bar`.
+pub fn set_menu_bar_reach(reach: i32) {
+    lock().set_reach(reach);
 }
 
 pub fn set_menu_bar(top: Option<RECT>) {
@@ -487,5 +508,46 @@ mod tests {
             edges.dwell(POINT { x: 800, y: 0 }, start + DWELL),
             Reveal::Idle
         ));
+    }
+
+    #[test]
+    fn a_floating_bar_is_revealed_from_the_screen_edge() {
+        let mut edges = Edges::default();
+        // A bar floating 12 px below the top edge of a 1920 px wide screen.
+        edges.set_top(Some(RECT {
+            left: 100,
+            top: 12,
+            right: 1820,
+            bottom: 52,
+        }));
+        edges.set_reach(12);
+        let start = Instant::now();
+        let at_edge = POINT { x: 900, y: 0 };
+        assert!(edges.observe(at_edge, start));
+        assert!(matches!(
+            edges.dwell(at_edge, start + MENU_DWELL),
+            Reveal::Ready(Target::MenuBar)
+        ));
+    }
+
+    #[test]
+    fn a_floating_bottom_bar_is_revealed_from_the_screen_edge() {
+        let mut edges = Edges::default();
+        edges.set_bar_at_bottom(true);
+        edges.set_top(Some(RECT {
+            left: 100,
+            top: 1016,
+            right: 1820,
+            bottom: 1056,
+        }));
+        edges.set_reach(24);
+        let start = Instant::now();
+        let at_edge = POINT { x: 900, y: 1079 };
+        assert!(edges.observe(at_edge, start));
+        assert!(matches!(
+            edges.dwell(at_edge, start + MENU_DWELL),
+            Reveal::Ready(Target::MenuBar)
+        ));
+        assert!(!edges.observe(POINT { x: 900, y: 1000 }, start) || edges.target.is_none());
     }
 }

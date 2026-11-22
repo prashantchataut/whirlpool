@@ -15,7 +15,8 @@ whirlpool-core.workspace = true
 serde.workspace = true
 serde_json = "1"
 png = "0.18"
-windows = { workspace = true, features = ["Foundation", "Web_Http", "Web_Http_Headers"] }
+jpeg-decoder = { version = "0.3", default-features = false }
+windows = { workspace = true, features = ["Foundation", "Foundation_Collections", "Devices_Radios", "Web_Http", "Web_Http_Headers", "Win32_System_Com"] }
 windows-future = "0.3"
 eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "wgpu_no_default_features"] }
 wgpu = { version = "30", default-features = false, features = ["dx12", "wgsl", "parking_lot"] }

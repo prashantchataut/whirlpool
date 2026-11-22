@@ -97,8 +97,48 @@ fn main() -> Result<()> {
         [shell_work::FLAG] => shell_work::worker_main(),
         ["--settings"] => open_settings(false),
         ["--settings-compat"] => open_settings(true),
+        ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
+        ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
     }
+}
+
+/// The quick settings panel the menu bar opens. One at a time; a second
+/// request while it is open does nothing, since the panel closes itself when
+/// it loses focus.
+fn open_quick_settings(right: &str, y: &str, edge: &str, compat: bool) -> Result<()> {
+    // SAFETY: The static name is valid; the handle is released when the process exits.
+    let _single = unsafe {
+        Owned::new(CreateMutexW(
+            None,
+            false,
+            w!("Local\\Whirlpool.QuickSettings"),
+        )?)
+    };
+    // SAFETY: Reads the thread's last error immediately after the call.
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let (right, y) = (
+        right.parse().context("invalid x")?,
+        y.parse().context("invalid y")?,
+    );
+    whirlpool_settings::run_quick(right, y, edge == "bottom", compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("quick settings (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            // No OpenGL (virtual machine, remote desktop): same panel on DirectX.
+            let _ = std::process::Command::new(exe)
+                .args([
+                    "--quick-settings-compat",
+                    &right.to_string(),
+                    &y.to_string(),
+                    edge,
+                ])
+                .spawn();
+        }
+        anyhow::anyhow!("quick settings: {error}")
+    })
 }
 
 /// Starts this program again as the settings window.

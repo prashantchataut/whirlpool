@@ -108,5 +108,7 @@
   "barEdgeHint": "Coloca la barra arriba o abajo. Abajo, su isla se abre hacia arriba como una burbuja.",
   "barEdgeTop": "Arriba",
   "barEdgeBottom": "Abajo",
-  "barAlign": "Alineación"
+  "barAlign": "Alineación",
+  "wallpapersHint": "Fotografías de Pexels incluidas en la app. Haz clic en una para usarla.",
+  "chargingAnimationHint": "Reproduce una animación al conectar el cargador."
 }

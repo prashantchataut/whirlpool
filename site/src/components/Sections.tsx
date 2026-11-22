@@ -11,8 +11,7 @@ import {
 } from "./Icons";
 import { RELEASES_URL, REPO, SETUP_URL, VERSION, WALLS, ZIP_URL } from "../lib/theme";
 import logo from "../assets/logo.png";
-import sheetNew from "../assets/sheet-new.jpg";
-import sheetOld from "../assets/sheet-3.jpg";
+import { PACK } from "../lib/pack";
 
 
 /* ------------------------------------------------------------------ Nav */
@@ -205,35 +204,38 @@ export function DockDemo() {
 /* ------------------------------------------------------------ Wallpapers */
 
 export function Wallpapers() {
+  const base = import.meta.env.BASE_URL;
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {WALLS.map((w) => (
-          <figure key={w.id} className="group relative overflow-hidden rounded-2xl">
-            <div
-              className="aspect-[4/5] bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-              style={{ backgroundImage: w.css }}
-            />
-            <figcaption className="absolute inset-x-0 bottom-0 flex flex-col items-start gap-0.5 bg-gradient-to-t from-black/75 via-black/30 to-transparent p-4 pt-12">
-              <span className="font-display text-lg font-bold leading-tight">{w.label}</span>
-              <span className="font-mono text-[10px] text-white/60">{w.credit}</span>
-            </figcaption>
-          </figure>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {PACK.map((w) => (
+          <li key={w.id}>
+            <figure className="group relative overflow-hidden rounded-2xl">
+              <img
+                src={`${base}pack/${w.id}.webp`}
+                alt={`${w.title}, photograph by ${w.author}`}
+                width={720}
+                height={405}
+                loading="lazy"
+                decoding="async"
+                className="aspect-[16/9] w-full object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 flex flex-col items-start gap-0.5 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3 pt-10">
+                <span className="font-display text-[15px] font-bold leading-tight">{w.title}</span>
+                <a
+                  href={`https://www.pexels.com/photo/${w.pexels}/`}
+                  className="font-mono text-[10.5px] text-white/75 underline-offset-2 hover:underline focus-visible:underline"
+                >
+                  {w.author} · Pexels
+                </a>
+              </figcaption>
+            </figure>
+          </li>
         ))}
-      </div>
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <div className="glass overflow-hidden rounded-2xl p-2">
-          <img src={sheetNew} alt="Contact sheet of procedural wallpapers: tidal, halftone, ripple and silk" loading="lazy" className="w-full rounded-xl" />
-          <p className="px-3 pb-2 pt-3 font-mono text-[11px] text-faint">Procedural: Tidal, Halftone, Ripple, Silk</p>
-        </div>
-        <div className="glass overflow-hidden rounded-2xl p-2">
-          <img src={sheetOld} alt="Contact sheet of procedural wallpapers: aurora, topo, grid and dither" loading="lazy" className="w-full rounded-xl" />
-          <p className="px-3 pb-2 pt-3 font-mono text-[11px] text-faint">Procedural: Aurora, Topo, Grid, Dither</p>
-        </div>
-      </div>
-      <p className="mt-5 max-w-[680px] text-[14px] leading-relaxed text-mute">
-        66 procedural wallpapers are drawn by the app at your exact screen resolution, so there is nothing to download and
-        nothing to scale. The photos above are free to use (Pexels licence) and credited.
+      </ul>
+      <p className="mt-4 max-w-[640px] text-[14px] leading-relaxed text-mute">
+        The pack is stored inside whirlpool.exe, so choosing one needs no download. It adds about 5.7&nbsp;MB to the
+        program. Photographs are used under the Pexels License; every photographer and link is in ASSETS_LICENSES.md.
       </p>
     </div>
   );
@@ -400,11 +402,12 @@ export function Install() {
 
 export function WhatsNew() {
   const rows: [string, string][] = [
-    ["The bar goes to the bottom", "Put the menu bar on either edge. Its island opens upward as a bubble, it hides toward its own edge, and click-away and pointer reveal follow it."],
-    ["Settings you can find", "A Screen edge choice sits at the top of the menu bar page, with alignment and width beside it."],
-    ["Four more photographs", "Northern light, high rock, morning dunes and a long shadow join the wallpapers, free to use and credited."],
-    ["Charging, from 4.0", "Halo is one quiet pill. Bloom and Aurora are new. Edge, Tide and Surge keep their motion."],
-    ["Settings that open", "If OpenGL cannot start, Settings retries with DirectX by itself and writes what happened to the log."],
+    ["A Settings window that fits", "The window sizes itself from the monitor Windows reports, so it no longer opens larger than the screen. Wide windows get a live preview column; narrow ones fold the sidebar to icons."],
+    ["Search and an About page", "Search finds a setting from any page. About shows the version, the author and the MIT license text."],
+    ["Fourteen wallpaper photographs", "The generated wallpapers are gone from Settings. The pack is real photographs from Pexels, stored in the program and set as Fill."],
+    ["A floating bar that auto-hide can reach", "The reveal strip used to sit where the floating gap is, so a pointer pressed against the screen edge never touched it. It now spans the gap."],
+    ["A bottom bar above the dock", "With the dock on the bottom edge the bar now stands above it instead of underneath."],
+    ["Quick settings panel", "The network and volume area opens a panel with real Wi-Fi and Bluetooth switches, Airplane mode, a volume slider, and shortcuts to Cast, Night light and Battery saver."],
   ];
   const next = [
     "FPS and system info overlay",
@@ -412,6 +415,8 @@ export function WhatsNew() {
     "Motion for windows you drag",
     "Wallpaper rotation, per-monitor wallpapers",
     "Launchpad-style start grid",
+    "Code signing (needs a certificate; see SIGNING.md)",
+    "An ARM64 build",
   ];
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
