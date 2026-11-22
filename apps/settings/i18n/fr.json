@@ -103,5 +103,10 @@
   "groupAppearance": "Apparence",
   "githubTitle": "Whirlpool sur GitHub",
   "githubStar": "Soutenir avec une étoile",
-  "githubError": "Impossible d'ouvrir GitHub. Réessayez."
+  "githubError": "Impossible d'ouvrir GitHub. Réessayez.",
+  "barEdge": "Bord de l'écran",
+  "barEdgeHint": "Place la barre en haut ou en bas. En bas, son îlot s'ouvre vers le haut comme une bulle.",
+  "barEdgeTop": "Haut",
+  "barEdgeBottom": "Bas",
+  "barAlign": "Alignement"
 }

@@ -139,7 +139,9 @@ pub struct Config {
     /// Corner radius of a floating bar.
     pub menu_bar_radius: u32,
     pub charging_style: ChargingStyle,
-    /// Where a floating menu bar sits along the top edge.
+    /// The screen edge the menu bar sits on.
+    pub menu_bar_position: BarPosition,
+    /// Where a floating menu bar sits along its edge.
     pub menu_bar_align: BarAlign,
     /// Width of a floating menu bar as a percentage of the screen.
     pub menu_bar_width: u32,
@@ -272,6 +274,17 @@ pub enum BarAlign {
     #[default]
     #[serde(other)]
     Center,
+}
+
+/// Which screen edge the menu bar sits on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BarPosition {
+    Bottom,
+    /// The default. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Top,
 }
 
 /// The colour the menu bar is tinted with.
@@ -528,6 +541,7 @@ impl Default for Config {
             menu_bar_gap: 8,
             menu_bar_radius: 14,
             charging_style: ChargingStyle::Surge,
+            menu_bar_position: BarPosition::Top,
             menu_bar_align: BarAlign::Center,
             menu_bar_width: 100,
             menu_bar_tint: BarTint::Ocean,
@@ -1029,5 +1043,14 @@ mod tests {
         fs::write(&path, r#"{"version":1,"pinned":["a"],"auto_hide":true}"#).ok();
         let loaded = load(&path).ok().flatten();
         assert_eq!(loaded.map(|config| config.auto_hide), Some(true));
+    }
+
+    #[test]
+    fn menu_bar_position_reads_bottom_and_defaults_to_top() {
+        let bottom: Config = serde_json::from_str(r#"{"menuBarPosition":"bottom"}"#).unwrap();
+        assert_eq!(bottom.menu_bar_position, BarPosition::Bottom);
+        let odd: Config = serde_json::from_str(r#"{"menuBarPosition":"sideways"}"#).unwrap();
+        assert_eq!(odd.menu_bar_position, BarPosition::Top);
+        assert_eq!(Config::default().menu_bar_position, BarPosition::Top);
     }
 }

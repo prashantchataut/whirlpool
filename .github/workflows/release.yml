@@ -58,7 +58,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target/release/whirlpool.exe dist/
           Copy-Item scripts/install.ps1 dist/
-          Compress-Archive -Path dist/whirlpool.exe, LICENSE, NOTICE -DestinationPath dist/Whirlpool-x64.zip
+          Compress-Archive -Path dist/whirlpool.exe, LICENSE, NOTICE, THIRD_PARTY_LICENSES.md -DestinationPath dist/Whirlpool-x64.zip
           Push-Location dist
           Get-FileHash whirlpool.exe, Whirlpool-Setup.exe, Whirlpool-x64.zip -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS.txt

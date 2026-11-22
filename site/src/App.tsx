@@ -54,7 +54,7 @@ export default function App() {
         >
           <Trust />
         </Section>
-        <Section id="changes" eyebrow="This release" title="What changed in 4.0.">
+        <Section id="changes" eyebrow="This release" title="What changed in 4.1.">
           <WhatsNew />
         </Section>
         <Install />

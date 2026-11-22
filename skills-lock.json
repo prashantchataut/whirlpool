@@ -13,6 +13,12 @@
       "skillPath": "agent_reach/skill/SKILL.md",
       "computedHash": "9e692ab800eac63863f2b840585452dd3a8e7b46f49e550ffcbf40be11b36cb3"
     },
+    "animation-vocabulary": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/animation-vocabulary/SKILL.md",
+      "computedHash": "26f1367f61573455767f2b2cc1663923f636ad79a0e9e3e5234b80d00861ffbf"
+    },
     "copywriting": {
       "source": "coreyhaines31/marketingskills",
       "sourceType": "github",
@@ -43,6 +49,18 @@
       "skillPath": "skills/prototype/SKILL.md",
       "computedHash": "0a59ba7e30d4c1d778d1fbc6da8bbaef3c106aa4e7f81203088ebfedfb616495"
     },
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/review-animations/SKILL.md",
+      "computedHash": "5ff2799f778472c996f548b240cea5a519980f8fe41ffe9e92e17db655c596b2"
+    },
+    "theme-factory": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/theme-factory/SKILL.md",
+      "computedHash": "598ddfa9784ae2a8c55be5dbb047b98564d875dea6f4669168a87ae1ea1a4ed3"
+    },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",
@@ -60,6 +78,12 @@
       "sourceType": "github",
       "skillPath": "skills/web-design-guidelines/SKILL.md",
       "computedHash": "c0a42a031832ef356aa550855ab608eb36f919d0e6460bbca6958f516b022424"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "ad5b1fc52807e9afa4635e59218a026b164dc58b6c3f41b0f7c644dcd6ccf572"
     }
   }
 }

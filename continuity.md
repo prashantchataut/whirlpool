@@ -13,6 +13,29 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Version 4.1.0: what changed
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Menu bar | `menuBarPosition: top \| bottom` (`BarPosition`). On the bottom the bar and its popup are two sibling containers (`bar_layer`, `popup_layer`) placed in one window; `layout_y` maps window-local pointer y back to the layout the bar is drawn in (bar at 0, popup below), so `island_hits`, zones and the usage viewport are untouched. `window_top`, `anchor_y`, `in_panel_rows` replace the old top-only arithmetic. | `apps/dock/src/menubar.rs` |
+| Menu bar | `NCHITTEST` and the click-away hook use `BAR_AT_BOTTOM`, `PANEL_TOP`; reveal/hide slides toward the bar's own edge (`reveal_lift` is signed); AppBar reserves `Edge::Bottom`; the edge watcher reveals from the bottom (`set_menu_bar_bottom`). | `menubar.rs`, `edge_watch.rs` |
+| Menu bar | Bottom edge forces the island to the Bubble style (a notch is welded to the top edge). | `draw_island` |
+| Settings | "Screen edge" row; "Bar position" (alignment) is now "Alignment". | `apps/settings`, `i18n/*.json` |
+| Notices | `NOTICE` is short; upstream MIT notice (required) moved to `THIRD_PARTY_LICENSES.md`, installed and zipped. | root, installer |
+| Site | Four more Pexels photographs, Screen edge control and bottom-bar preview in the lab, caption fix. | `site/` |
+| Skills | Added `theme-factory`, `webapp-testing`, `animation-vocabulary`, `review-animations`. | `.agents/skills/` |
+
+### 4.1 verification notes
+
+- Verified: `cargo fmt`, `cargo test --workspace` and `cargo build --release -p whirlpool` pass on `windows-latest` CI; the config test for `menuBarPosition` passes. The site was built and rendered in headless Chromium (renders in `docs/renders/`).
+- **Not verified on a real desktop:** every bottom-bar behaviour (hit testing, popup placement, reveal strip, AppBar stacking with a bottom dock, flyout anchors). Treat as untested until someone runs it.
+- Known gap: with the dock also on the bottom edge both reserve the edge; Windows stacks AppBars, but the dock's own placement was not adjusted for a floating bar.
+- Settings not opening: 4.0 added the DirectX retry, but 4.0 was never tagged, so installed users still had 3.0. 4.1 is the first release containing it. Cause on affected machines is unconfirmed; `%LOCALAPPDATA%\Whirlpool\whirlpool.log` now records the failure.
+
+### Next (ranked)
+
+1. FPS and system-info overlay (one popup, 1 s timer only while visible; DWM `cFramesDisplayed` delta for fps). 2. Dynamic island presets (size, position, expansion). 3. Spring animation for dragged and floating windows. 4. Code signing (SignPath Foundation). 5. Wallpaper rotation.
+
 ## Version 4.0.0: what changed
 
 | Area | Change | Where |

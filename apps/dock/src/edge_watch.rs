@@ -48,6 +48,8 @@ pub enum Reveal {
 struct Edges {
     window: isize,
     top: Option<RECT>,
+    /// The menu bar's strip is along the bottom edge of `top`, not the top.
+    bar_at_bottom: bool,
     /// The displays a hidden dock can be revealed on, and the edge it sits on.
     screens: Vec<RECT>,
     dock_edge: DockEdge,
@@ -59,6 +61,7 @@ struct Edges {
 static EDGES: Mutex<Edges> = Mutex::new(Edges {
     window: 0,
     top: None,
+    bar_at_bottom: false,
     screens: Vec::new(),
     dock_edge: DockEdge::Bottom,
     pointer_screen: None,
@@ -70,7 +73,11 @@ impl Edges {
     fn at(&self, point: POINT, screen: Option<RECT>) -> Option<Target> {
         if self.top.is_some_and(|top| {
             (top.left..top.right).contains(&point.x)
-                && (top.top..top.top + EDGE_DEPTH).contains(&point.y)
+                && if self.bar_at_bottom {
+                    (top.bottom - EDGE_DEPTH..top.bottom).contains(&point.y)
+                } else {
+                    (top.top..top.top + EDGE_DEPTH).contains(&point.y)
+                }
         }) {
             return Some(Target::MenuBar);
         }
@@ -98,6 +105,16 @@ impl Edges {
         self.target = target;
         self.entered = target.map(|_| now);
         true
+    }
+
+    fn set_bar_at_bottom(&mut self, bottom: bool) {
+        if bottom != self.bar_at_bottom {
+            self.bar_at_bottom = bottom;
+            if self.target == Some(Target::MenuBar) {
+                self.target = None;
+                self.entered = None;
+            }
+        }
     }
 
     fn set_top(&mut self, top: Option<RECT>) {
@@ -138,6 +155,11 @@ impl Edges {
 
 fn lock() -> MutexGuard<'static, Edges> {
     EDGES.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Which edge the menu bar's reveal strip is on. Call before `set_menu_bar`.
+pub fn set_menu_bar_bottom(bottom: bool) {
+    lock().set_bar_at_bottom(bottom);
 }
 
 pub fn set_menu_bar(top: Option<RECT>) {

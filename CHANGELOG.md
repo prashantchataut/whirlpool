@@ -6,6 +6,27 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## [4.1.0]
+
+### Added
+- **Menu bar on the bottom edge.** Settings > Menu bar > Screen edge. The bar, its island and its popups, the hide and reveal motion, the click-away hook, the pointer reveal strip and the AppBar reservation all follow the chosen edge. On the bottom the island is drawn as a bubble that opens upward.
+- Website: four more free-to-use photographs, a Screen edge control in the live Settings lab, and a bottom-bar desktop preview.
+- `THIRD_PARTY_LICENSES.md`: all third-party notices in one file, shipped with the installer and the zip.
+- Skills: `theme-factory`, `webapp-testing`, `animation-vocabulary`, `review-animations` added under `.agents/skills/`.
+
+### Changed
+- `NOTICE` is short and leads with Whirlpool; the upstream notice that the MIT licence requires moved to `THIRD_PARTY_LICENSES.md`.
+- Menu bar alignment is labelled "Alignment" (it was "Bar position", which now means the edge).
+- A side dock no longer leaves room at the top when the bar is on the bottom.
+
+### Not done (see continuity.md)
+- FPS and system-info overlay, a full dynamic island with presets, motion for dragged windows. These need a real desktop to design and verify.
+
+### Cambios (resumen)
+- **Barra de menús abajo.** Ajustes > Barra de menús > Borde de la pantalla. La isla se abre hacia arriba como una burbuja.
+- Sitio: cuatro fotografías libres más y el control de borde en el laboratorio de Ajustes.
+- `THIRD_PARTY_LICENSES.md` reúne los avisos de terceros.
+
 ## [4.0.0]
 
 ### Added
