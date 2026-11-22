@@ -82,7 +82,46 @@ use crate::{
 };
 
 // Logical pixels.
-const HEIGHT: f32 = 28.0;
+/// Height and top gap chosen in Settings. Geometry code is spread over this
+/// file and the dock, so they are read from here instead of passed around.
+static BAR_HEIGHT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(28);
+static BAR_GAP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn bar_height() -> f32 {
+    BAR_HEIGHT.load(Ordering::Relaxed) as f32
+}
+
+/// Stores the chosen size and gap before anything is laid out.
+fn configure(widgets: &MenuBarWidgets) {
+    BAR_HEIGHT.store(widgets.size.height() as u32, Ordering::Relaxed);
+    BAR_GAP.store(
+        if widgets.floating { widgets.gap } else { 0 },
+        Ordering::Relaxed,
+    );
+}
+
+/// Side inset and top gap of a floating bar, in pixels (zero when docked).
+fn float_px(widgets: &MenuBarWidgets, scale: f32) -> (i32, i32) {
+    if !widgets.floating {
+        return (0, 0);
+    }
+    (
+        (widgets.inset as f32 * scale).round() as i32,
+        (widgets.gap as f32 * scale).round() as i32,
+    )
+}
+
+/// The screen rectangle the bar lays itself out in.
+fn inset_screen(screen: RECT, widgets: &MenuBarWidgets, scale: f32) -> RECT {
+    configure(widgets);
+    let (inset, gap) = float_px(widgets, scale);
+    RECT {
+        left: screen.left + inset,
+        right: screen.right - inset,
+        top: screen.top + gap,
+        bottom: screen.bottom,
+    }
+}
 const SIDE_MARGIN: f32 = 14.0;
 const ITEM_GAP: f32 = 16.0;
 /// Extra clickable room around an item.
@@ -187,6 +226,12 @@ pub struct MenuBarWidgets {
     pub opacity: u32,
     pub date: bool,
     pub hour24: Option<bool>,
+    pub size: whirlpool_config::BarSize,
+    /// A rounded bar inset from the screen edges instead of an edge-to-edge one.
+    pub floating: bool,
+    pub inset: u32,
+    pub gap: u32,
+    pub radius: u32,
 }
 
 impl Default for MenuBarWidgets {
@@ -201,6 +246,11 @@ impl Default for MenuBarWidgets {
             opacity: 50,
             date: true,
             hour24: None,
+            size: whirlpool_config::BarSize::Regular,
+            floating: false,
+            inset: 24,
+            gap: 8,
+            radius: 14,
         }
     }
 }
@@ -275,7 +325,7 @@ impl Look {
         let natural = self.panel_content_height();
         if self.panel == Some(Island::Usage) {
             let available = (self.screen.bottom - self.screen.top) as f32 / self.scale
-                - HEIGHT
+                - bar_height()
                 - PANEL_GAP
                 - PANEL_SHADOW_MARGIN;
             natural.min(available.max(0.0))
@@ -1137,7 +1187,7 @@ impl MenuBar {
     /// How tall the bar is at `scale`: the strip it keeps at the top of the
     /// primary display unless it hides itself. A side dock starts below it.
     pub fn strip_height(scale: f32) -> i32 {
-        (HEIGHT * scale).round() as i32
+        ((bar_height() + BAR_GAP.load(Ordering::Relaxed) as f32) * scale).round() as i32
     }
 
     pub fn set_visible(&mut self, visible: bool) -> Result<()> {
@@ -1493,8 +1543,18 @@ impl MenuBar {
         }
         if let Some(appbar) = &mut self.appbar {
             // An auto-hiding bar leaves the whole screen to the windows.
-            let strip = if self.auto_hide { 0 } else { bar_height };
-            appbar.reserve(Edge::Top, bounds, strip);
+            let (inset, gap) = self
+                .look
+                .as_ref()
+                .map_or((0, 0), |look| float_px(&look.widgets, look.scale));
+            let strip = if self.auto_hide { 0 } else { bar_height + gap };
+            let monitor = RECT {
+                left: bounds.left - inset,
+                right: bounds.right + inset,
+                top: bounds.top - gap,
+                bottom: bounds.bottom,
+            };
+            appbar.reserve(Edge::Top, monitor, strip);
         }
         // Hidden, the bar keeps no window on screen, not even a thin strip:
         // a strip along the top edge took the clicks meant for the close
@@ -1795,7 +1855,7 @@ impl MenuBar {
                 accessory_readings(&monitor.snapshot())
             }),
             language: strings::language(),
-            screen: monitor.screen,
+            screen: inset_screen(monitor.screen, &self.widgets, monitor.scale),
             scale: monitor.scale,
             light: system::uses_light_theme(),
             glass: system::transparency_enabled(),
@@ -1887,7 +1947,7 @@ impl MenuBar {
         let scale = look.scale;
         let px = |logical: f32| (logical * scale).round();
         let screen = look.screen;
-        let (width, height) = ((screen.right - screen.left) as f32, px(HEIGHT));
+        let (width, height) = ((screen.right - screen.left) as f32, px(bar_height()));
         let panel_bottom = height + px(PANEL_GAP) + px(look.panel_height());
         let visual_height = if look.panel.is_some() {
             panel_bottom + px(PANEL_SHADOW_MARGIN)
@@ -1918,6 +1978,25 @@ impl MenuBar {
         };
         let fills: [windows::UI::Composition::CompositionBrush; 1] =
             [c.CreateColorBrushWithColor(tint)?.cast()?];
+        // The bar's material, clipped to rounded corners when it floats.
+        let material = c.CreateContainerVisual()?;
+        material.SetSize(Vector2 {
+            X: width,
+            Y: height,
+        })?;
+        if look.widgets.floating && look.widgets.radius > 0 {
+            let radius = px(look.widgets.radius as f32).min(height / 2.0);
+            let outline = c.CreateRoundedRectangleGeometry()?;
+            outline.SetSize(Vector2 {
+                X: width,
+                Y: height,
+            })?;
+            outline.SetCornerRadius(Vector2 {
+                X: radius,
+                Y: radius,
+            })?;
+            material.SetClip(&c.CreateGeometricClipWithGeometry(&outline)?)?;
+        }
         for brush in backdrop.iter().chain(&fills) {
             let fill = c.CreateSpriteVisual()?;
             fill.SetSize(Vector2 {
@@ -1925,8 +2004,9 @@ impl MenuBar {
                 Y: height,
             })?;
             fill.SetBrush(brush)?;
-            layers.InsertAtTop(&fill)?;
+            material.Children()?.InsertAtTop(&fill)?;
         }
+        layers.InsertAtTop(&material)?;
 
         let place = |layers: &windows::UI::Composition::VisualCollection,
                      item: &LabelBrush,
@@ -3999,8 +4079,9 @@ mod island_tests {
                     let (left, top, right, bottom) = volume.bounds;
                     assert!(left >= bar.panel_span.left && right <= bar.panel_span.right);
                     assert!(
-                        top >= HEIGHT * scale
-                            && bottom <= (HEIGHT + PANEL_GAP + look.panel_height()) * scale + 1.0
+                        top >= bar_height() * scale
+                            && bottom
+                                <= (bar_height() + PANEL_GAP + look.panel_height()) * scale + 1.0
                     );
                     assert!(
                         bar.island_hits
@@ -4669,7 +4750,7 @@ mod island_tests {
             let theme = Theme::for_popup(light, glass);
             let geometry = IslandGeometry {
                 left: 90.0,
-                top: HEIGHT + PANEL_GAP,
+                top: bar_height() + PANEL_GAP,
                 width: 360.0,
                 scale: 1.0,
                 light,

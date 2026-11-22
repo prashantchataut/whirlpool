@@ -15,7 +15,8 @@ use eframe::egui::{
 };
 use serde_json::{Map, Value};
 use whirlpool_config::{
-    AnimationStyle, Config, DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
+    AnimationStyle, BarSize, BarStyle, ChargingStyle, Config, DockPosition, GenieSpeed,
+    IslandStyle, Language, StartupAnimation,
 };
 use whirlpool_core::wallpaper;
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
@@ -69,6 +70,7 @@ pub struct Settings {
     wall_apply_rx: Option<Receiver<(String, bool)>>,
     wall_busy: Option<&'static str>,
     wall_failed: bool,
+    logo: Option<TextureHandle>,
 }
 
 fn dock_exe() -> PathBuf {
@@ -194,6 +196,7 @@ impl Settings {
             wall_apply_rx: None,
             wall_busy: None,
             wall_failed: false,
+            logo: crate::logo_texture(ctx),
         };
         settings.animations_on = system::animations_enabled();
         settings.recheck_updates(ctx);
@@ -413,7 +416,17 @@ impl Settings {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 11.0;
             let (rect, _) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::hover());
-            ui::logo(ui.painter(), rect);
+            match &self.logo {
+                Some(texture) => {
+                    ui.painter().image(
+                        texture.id(),
+                        rect,
+                        egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                        egui::Color32::WHITE,
+                    );
+                }
+                None => ui::logo(ui.painter(), rect),
+            }
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 ui.label(
@@ -754,6 +767,27 @@ impl Settings {
                 Some(t.get("chargingAnimationHint")),
                 &mut config.charging_animation,
             );
+            if config.charging_animation {
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("chargingStyle"),
+                    Some(t.get("chargingStyleHint")),
+                    200.0,
+                    |ui| {
+                        ui.selectable_value(
+                            &mut config.charging_style,
+                            ChargingStyle::Surge,
+                            t.get("chargeSurge"),
+                        );
+                        ui.selectable_value(
+                            &mut config.charging_style,
+                            ChargingStyle::Halo,
+                            t.get("chargeHalo"),
+                        );
+                    },
+                );
+            }
         });
         ui::card(ui, Some(t.get("groupMenuBarLook")), |ui| {
             ui::row(ui, t.get("menuBarOpacity"), None, 280.0, |ui| {
@@ -1008,6 +1042,83 @@ impl Settings {
             }
         });
         if config.menu_bar {
+            ui::card(ui, Some(t.get("menuBarLook")), |ui| {
+                ui::row(
+                    ui,
+                    t.get("barStyle"),
+                    Some(t.get("barStyleHint")),
+                    230.0,
+                    |ui| {
+                        ui.selectable_value(
+                            &mut config.menu_bar_style,
+                            BarStyle::Docked,
+                            t.get("barDocked"),
+                        );
+                        ui.selectable_value(
+                            &mut config.menu_bar_style,
+                            BarStyle::Floating,
+                            t.get("barFloating"),
+                        );
+                    },
+                );
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("barSize"),
+                    Some(t.get("barSizeHint")),
+                    280.0,
+                    |ui| {
+                        ui.selectable_value(
+                            &mut config.menu_bar_size,
+                            BarSize::Compact,
+                            t.get("barCompact"),
+                        );
+                        ui.selectable_value(
+                            &mut config.menu_bar_size,
+                            BarSize::Regular,
+                            t.get("barRegular"),
+                        );
+                        ui.selectable_value(
+                            &mut config.menu_bar_size,
+                            BarSize::Large,
+                            t.get("barLarge"),
+                        );
+                    },
+                );
+                if config.menu_bar_style == BarStyle::Floating {
+                    ui::divider(ui);
+                    ui::row(
+                        ui,
+                        t.get("barInset"),
+                        Some(t.get("barInsetHint")),
+                        230.0,
+                        |ui| {
+                            ui.add(
+                                egui::Slider::new(&mut config.menu_bar_inset, 0..=160)
+                                    .suffix(" px"),
+                            );
+                        },
+                    );
+                    ui::divider(ui);
+                    ui::row(
+                        ui,
+                        t.get("barGap"),
+                        Some(t.get("barGapHint")),
+                        230.0,
+                        |ui| {
+                            ui.add(
+                                egui::Slider::new(&mut config.menu_bar_gap, 0..=32).suffix(" px"),
+                            );
+                        },
+                    );
+                    ui::divider(ui);
+                    ui::row(ui, t.get("barRadius"), None, 230.0, |ui| {
+                        ui.add(
+                            egui::Slider::new(&mut config.menu_bar_radius, 0..=24).suffix(" px"),
+                        );
+                    });
+                }
+            });
             ui::card(ui, Some(t.get("menuBarItems")), |ui| {
                 ui::toggle_row(
                     ui,

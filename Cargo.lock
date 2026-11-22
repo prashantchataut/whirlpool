@@ -2922,6 +2922,7 @@ dependencies = [
  "serde_json",
  "whirlpool-config",
  "whirlpool-core",
+ "whirlpool-settings",
  "whirlpool-shell",
  "windows",
  "windows-collections",
@@ -2949,6 +2950,7 @@ name = "whirlpool-settings"
 version = "1.0.0"
 dependencies = [
  "eframe",
+ "png",
  "serde",
  "serde_json",
  "whirlpool-config",
@@ -2956,7 +2958,6 @@ dependencies = [
  "whirlpool-shell",
  "windows",
  "windows-future",
- "winresource",
 ]
 
 [[package]]

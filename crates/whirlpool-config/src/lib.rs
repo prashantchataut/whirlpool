@@ -127,6 +127,16 @@ pub struct Config {
     pub menu_bar_24h: Option<bool>,
     /// The wallpaper preset Whirlpool last applied (see `whirlpool-shell`).
     pub wallpaper: Option<String>,
+    /// Docked (edge to edge) or floating (a rounded bar inset from the edges).
+    pub menu_bar_style: BarStyle,
+    pub menu_bar_size: BarSize,
+    /// Side margin of a floating bar, in logical pixels.
+    pub menu_bar_inset: u32,
+    /// Gap between the top of the screen and a floating bar.
+    pub menu_bar_gap: u32,
+    /// Corner radius of a floating bar.
+    pub menu_bar_radius: u32,
+    pub charging_style: ChargingStyle,
 }
 
 /// The feel of every spring in the dock. Springs never overshoot; the style
@@ -183,6 +193,54 @@ impl StartupAnimation {
             Self::Swift => Some(16.0),
         }
     }
+}
+
+/// How the menu bar sits on the screen.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BarStyle {
+    /// A rounded bar inset from the screen edges.
+    Floating,
+    /// Edge to edge, flush with the top of the screen. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Docked,
+}
+
+/// How tall the menu bar is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BarSize {
+    Compact,
+    Large,
+    /// The default. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Regular,
+}
+
+impl BarSize {
+    /// Height of the bar in logical pixels.
+    #[must_use]
+    pub fn height(self) -> f32 {
+        match self {
+            Self::Compact => 24.0,
+            Self::Regular => 28.0,
+            Self::Large => 34.0,
+        }
+    }
+}
+
+/// The animation that plays when the charger is plugged in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChargingStyle {
+    /// A calm glow, no rings.
+    Halo,
+    /// Rings of water spread from the medallion. The default. Also what an unknown value reads as.
+    #[default]
+    #[serde(other)]
+    Surge,
 }
 
 /// Bounds of `Config::menu_bar_opacity`.
@@ -276,6 +334,9 @@ impl Config {
         self.menu_bar_opacity = self
             .menu_bar_opacity
             .clamp(MENU_BAR_OPACITY_RANGE.0, MENU_BAR_OPACITY_RANGE.1);
+        self.menu_bar_inset = self.menu_bar_inset.min(160);
+        self.menu_bar_gap = self.menu_bar_gap.min(32);
+        self.menu_bar_radius = self.menu_bar_radius.min(24);
         self.wallpaper = self
             .wallpaper
             .map(|id| id.trim().to_owned())
@@ -340,6 +401,12 @@ impl Default for Config {
             menu_bar_date: true,
             menu_bar_24h: None,
             wallpaper: None,
+            menu_bar_style: BarStyle::Docked,
+            menu_bar_size: BarSize::Regular,
+            menu_bar_inset: 24,
+            menu_bar_gap: 8,
+            menu_bar_radius: 14,
+            charging_style: ChargingStyle::Surge,
         }
     }
 }

@@ -14,6 +14,7 @@
 mod accessories;
 mod app;
 mod assets;
+mod charge;
 mod drop;
 mod edge_watch;
 mod flight;
@@ -48,7 +49,10 @@ use windows::{
                 DispatcherQueueOptions,
             },
         },
-        UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+        UI::{
+            HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+            WindowsAndMessaging::{FindWindowW, SW_RESTORE, SetForegroundWindow, ShowWindow},
+        },
     },
     core::{Owned, w},
 };
@@ -88,8 +92,35 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
-        _ => bail!("uso: whirlpool [--quit | --restore | --autostart on|off]"),
+        ["--settings"] => open_settings(),
+        _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
     }
+}
+
+/// Starts this program again as the settings window.
+fn spawn_settings() -> std::io::Result<std::process::Child> {
+    std::process::Command::new(env::current_exe()?)
+        .arg("--settings")
+        .spawn()
+}
+
+/// The settings window. Only one at a time: a second request raises the first.
+fn open_settings() -> Result<()> {
+    // SAFETY: The static name is valid; the handle is released when the process exits.
+    let _single =
+        unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Settings"))?) };
+    // SAFETY: Reads the thread's last error immediately after the call.
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        // SAFETY: Plain window lookups on the desktop; failures are ignored.
+        unsafe {
+            if let Ok(window) = FindWindowW(None, w!("Whirlpool")) {
+                let _ = ShowWindow(window, SW_RESTORE);
+                let _ = SetForegroundWindow(window);
+            }
+        }
+        return Ok(());
+    }
+    whirlpool_settings::run().map_err(|error| anyhow::anyhow!("settings: {error}"))
 }
 
 fn run_dock(recovered: bool) -> Result<()> {
@@ -98,6 +129,10 @@ fn run_dock(recovered: bool) -> Result<()> {
     // SAFETY: Reads the thread's last error immediately after the call.
     if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         guard::recover_existing()?;
+        // Starting Whirlpool again while it runs opens its settings.
+        if !recovered {
+            let _ = spawn_settings();
+        }
         return Ok(());
     }
 

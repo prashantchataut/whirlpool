@@ -3,7 +3,7 @@ const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?
   <assemblyIdentity
     type="win32"
     name="Whirlpool.Dock"
-    version="1.0.0.0"
+    version="2.0.0.0"
     processorArchitecture="*"
   />
   <dependency>
