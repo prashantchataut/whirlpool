@@ -27,7 +27,7 @@ export default function App() {
           id="customize"
           eyebrow="Settings"
           title="Every edge is adjustable."
-          lead="This is the real Settings window, rebuilt here. Change anything on the left and watch the desktop on the right."
+          lead="An interactive model of the Settings page, built for the web so you can try the options. The window itself is in the screenshots above."
         >
           <SettingsLab />
         </Section>
@@ -42,7 +42,7 @@ export default function App() {
         <Section
           id="wallpapers"
           eyebrow="Wallpapers"
-          title="Photographs, and pictures made of maths."
+          title="Fourteen photographs, stored in the app."
         >
           <Wallpapers />
         </Section>

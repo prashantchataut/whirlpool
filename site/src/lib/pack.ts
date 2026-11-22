@@ -1,0 +1,16 @@
+export const PACK = [
+  { id: "misty-forest", title: "Misty forest", author: "Soubhagya Maharana", pexels: 18359798 },
+  { id: "misty-peaks", title: "Misty peaks", author: "Luca Cavallin", pexels: 39360611 },
+  { id: "valley-fog", title: "Valley fog", author: "Quang Nguyen Vinh", pexels: 14024556 },
+  { id: "aurora-lake", title: "Aurora over a lake", author: "Damir K", pexels: 31284411 },
+  { id: "aurora-iceland", title: "Iceland aurora", author: "Piotr Kowalonek", pexels: 15264067 },
+  { id: "milky-way", title: "Milky Way", author: "S S", pexels: 3083808 },
+  { id: "blue-hour", title: "Blue hour skyline", author: "Mohammed Alim", pexels: 30123502 },
+  { id: "city-lights", title: "City lights", author: "zhou shen", pexels: 18834566 },
+  { id: "turquoise-surf", title: "Turquoise surf", author: "Jess Loiterton", pexels: 9259704 },
+  { id: "sea-foam", title: "Sea foam", author: "Jess Loiterton", pexels: 7502481 },
+  { id: "dune-sunrise", title: "Dune sunrise", author: "Francesco Ungaro", pexels: 998635 },
+  { id: "dune-sky", title: "Dune and sky", author: "Mike Norris", pexels: 30739226 },
+  { id: "dune-ripples", title: "Dune ripples", author: "MART PRODUCTION", pexels: 8869381 },
+  { id: "dune-night", title: "Dune at night", author: "Marjan Taghipour", pexels: 13620627 },
+] as const;

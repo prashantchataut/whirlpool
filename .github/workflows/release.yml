@@ -94,3 +94,41 @@ jobs:
         with:
           name: whirlpool-x64
           path: dist/*
+
+  arm64:
+    # Native Windows on ARM build. The x64 installer also runs on ARM through
+    # Windows' x64 emulation; this zip is the native program.
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --target aarch64-pc-windows-msvc -p whirlpool
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/aarch64-pc-windows-msvc/release/whirlpool.exe dist/whirlpool-arm64.exe
+          Compress-Archive -Path dist/whirlpool-arm64.exe, LICENSE, NOTICE, THIRD_PARTY_LICENSES.md -DestinationPath dist/Whirlpool-arm64.zip
+          Push-Location dist
+          Get-FileHash whirlpool-arm64.exe, Whirlpool-arm64.zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS-arm64.txt
+          Pop-Location
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/whirlpool-arm64.exe
+            dist/Whirlpool-arm64.zip
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Whirlpool-arm64.zip
+            dist/SHA256SUMS-arm64.txt
