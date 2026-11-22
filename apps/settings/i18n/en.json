@@ -28,7 +28,7 @@
   "menuBar": "Menu bar",
   "menuBarHint": "Time, battery, and access to the Windows quick settings and notifications.",
   "menuBarAutoHide": "Automatically hide",
-  "menuBarAutoHideHint": "Rest the pointer at the top edge to reveal it.",
+  "menuBarAutoHideHint": "Rest the pointer at the bar's screen edge to reveal it.",
   "menuBarMusic": "Show what's playing",
   "menuBarMusicHint": "Music and video, with controls. With music and AI off, the island disappears.",
   "aiUsage": "AI usage",
@@ -170,7 +170,7 @@
   "barBorderHint": "A thin line along the bar's edge.",
   "barWidth": "Bar width",
   "barWidthHint": "A narrower floating bar leaves room on the sides.",
-  "barAlign": "Bar position",
+  "barAlign": "Alignment",
   "alignLeft": "Left",
   "alignCenter": "Center",
   "alignRight": "Right",
@@ -183,5 +183,9 @@
   "tintMint": "Mint",
   "tintSunset": "Sunset",
   "tintSlate": "Slate",
-  "tintSand": "Sand"
+  "tintSand": "Sand",
+  "barEdge": "Screen edge",
+  "barEdgeHint": "Put the bar on the top or the bottom of the screen. On the bottom its island opens upward as a bubble.",
+  "barEdgeTop": "Top",
+  "barEdgeBottom": "Bottom"
 }

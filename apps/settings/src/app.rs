@@ -15,8 +15,8 @@ use eframe::egui::{
 };
 use serde_json::{Map, Value};
 use whirlpool_config::{
-    AnimationStyle, BarAlign, BarSize, BarStyle, BarTint, ChargingStyle, Config, DockPosition,
-    GenieSpeed, IslandStyle, Language, StartupAnimation,
+    AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
+    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
 };
 use whirlpool_core::wallpaper;
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
@@ -1074,6 +1074,25 @@ impl Settings {
         });
         if config.menu_bar {
             ui::card(ui, Some(t.get("menuBarLook")), |ui| {
+                ui::row(
+                    ui,
+                    t.get("barEdge"),
+                    Some(t.get("barEdgeHint")),
+                    200.0,
+                    |ui| {
+                        ui.selectable_value(
+                            &mut config.menu_bar_position,
+                            BarPosition::Top,
+                            t.get("barEdgeTop"),
+                        );
+                        ui.selectable_value(
+                            &mut config.menu_bar_position,
+                            BarPosition::Bottom,
+                            t.get("barEdgeBottom"),
+                        );
+                    },
+                );
+                ui::divider(ui);
                 ui::row(
                     ui,
                     t.get("barStyle"),

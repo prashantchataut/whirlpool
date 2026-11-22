@@ -4242,6 +4242,7 @@ impl App {
             gap: self.config.menu_bar_gap,
             radius: self.config.menu_bar_radius,
             align: self.config.menu_bar_align,
+            position: self.config.menu_bar_position,
             width: self.config.menu_bar_width,
             tint: self.config.menu_bar_tint,
             border: self.config.menu_bar_border,
@@ -4296,7 +4297,9 @@ impl App {
     /// when the bar is off or hides itself, and on other displays (the bar
     /// is on the primary one).
     fn menu_bar_inset(&self, screen: RECT, edge: DockEdge) -> i32 {
-        if !edge.is_vertical() {
+        if !edge.is_vertical()
+            || self.config.menu_bar_position == whirlpool_config::BarPosition::Bottom
+        {
             return 0;
         }
         // From the settings, not the live bar: at startup the dock is placed

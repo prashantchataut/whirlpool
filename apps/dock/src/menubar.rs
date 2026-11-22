@@ -93,6 +93,10 @@ fn bar_height() -> f32 {
 
 /// Stores the chosen size and gap before anything is laid out.
 fn configure(widgets: &MenuBarWidgets) {
+    BAR_AT_BOTTOM.store(
+        widgets.position == whirlpool_config::BarPosition::Bottom,
+        Ordering::Relaxed,
+    );
     BAR_HEIGHT.store(widgets.size.height() as u32, Ordering::Relaxed);
     BAR_GAP.store(
         if widgets.floating { widgets.gap } else { 0 },
@@ -127,6 +131,14 @@ fn inset_screen(screen: RECT, widgets: &MenuBarWidgets, scale: f32) -> RECT {
                 right = left + narrow;
             }
         }
+    }
+    if widgets.position == whirlpool_config::BarPosition::Bottom {
+        return RECT {
+            left,
+            right,
+            top: screen.top,
+            bottom: screen.bottom - gap,
+        };
     }
     RECT {
         left,
@@ -191,6 +203,9 @@ static PANEL_RIGHT: AtomicI32 = AtomicI32::new(0);
 static BAR_TOP: AtomicI32 = AtomicI32::new(0);
 static BAR_BOTTOM: AtomicI32 = AtomicI32::new(0);
 static PANEL_BOTTOM: AtomicI32 = AtomicI32::new(0);
+/// Top of the popup strip when the bar sits on the bottom edge.
+static PANEL_TOP: AtomicI32 = AtomicI32::new(0);
+static BAR_AT_BOTTOM: AtomicBool = AtomicBool::new(false);
 /// The hook exists only while the island is expanded.
 static ISLAND_HOOK_WINDOW: AtomicIsize = AtomicIsize::new(0);
 /// Segoe Fluent Icons code points.
@@ -247,6 +262,8 @@ pub struct MenuBarWidgets {
     pub radius: u32,
     /// Where a narrower floating bar sits.
     pub align: whirlpool_config::BarAlign,
+    /// The screen edge the bar sits on.
+    pub position: whirlpool_config::BarPosition,
     /// Width of a floating bar, in percent of the room it has.
     pub width: u32,
     pub tint: whirlpool_config::BarTint,
@@ -272,6 +289,7 @@ impl Default for MenuBarWidgets {
             gap: 8,
             radius: 14,
             align: whirlpool_config::BarAlign::Center,
+            position: whirlpool_config::BarPosition::Top,
             width: 100,
             tint: whirlpool_config::BarTint::Ocean,
             border: true,
@@ -519,6 +537,10 @@ pub struct MenuBar {
     suppress_volume_release: bool,
     panel: Option<Island>,
     visual_height: i32,
+    /// Bottom edge only: where the bar and the popup sit in the window, so
+    /// pointer positions can be mapped back to the layout (see `layout_y`).
+    bar_dy: f32,
+    popup_dy: f32,
     triggers_span: Span,
     panel_span: Span,
     island_hits: Vec<IslandHit>,
@@ -606,11 +628,16 @@ unsafe extern "system" fn bar_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -
         WM_NCHITTEST => {
             let x = (l.0 & 0xFFFF) as i16 as i32;
             let y = (l.0 >> 16) as i16 as i32;
-            if y >= BAR_BOTTOM.load(Ordering::Relaxed)
-                && (y >= PANEL_BOTTOM.load(Ordering::Relaxed)
-                    || x < PANEL_LEFT.load(Ordering::Relaxed)
-                    || x >= PANEL_RIGHT.load(Ordering::Relaxed))
-            {
+            let outside_panel_x =
+                x < PANEL_LEFT.load(Ordering::Relaxed) || x >= PANEL_RIGHT.load(Ordering::Relaxed);
+            let transparent = if BAR_AT_BOTTOM.load(Ordering::Relaxed) {
+                y < BAR_TOP.load(Ordering::Relaxed)
+                    && (y < PANEL_TOP.load(Ordering::Relaxed) || outside_panel_x)
+            } else {
+                y >= BAR_BOTTOM.load(Ordering::Relaxed)
+                    && (y >= PANEL_BOTTOM.load(Ordering::Relaxed) || outside_panel_x)
+            };
+            if transparent {
                 return LRESULT(-1);
             }
             // SAFETY: Default hit testing for the bar and the island.
@@ -665,8 +692,14 @@ unsafe extern "system" fn outside_click_proc(code: i32, w: WPARAM, l: LPARAM) ->
             && point.y < BAR_BOTTOM.load(Ordering::Relaxed)
             && point.x >= TRIGGERS_LEFT.load(Ordering::Relaxed)
             && point.x < TRIGGERS_RIGHT.load(Ordering::Relaxed);
-        let in_panel = point.y >= BAR_BOTTOM.load(Ordering::Relaxed)
-            && point.y < PANEL_BOTTOM.load(Ordering::Relaxed)
+        let in_panel_rows = if BAR_AT_BOTTOM.load(Ordering::Relaxed) {
+            point.y >= PANEL_TOP.load(Ordering::Relaxed)
+                && point.y < BAR_TOP.load(Ordering::Relaxed)
+        } else {
+            point.y >= BAR_BOTTOM.load(Ordering::Relaxed)
+                && point.y < PANEL_BOTTOM.load(Ordering::Relaxed)
+        };
+        let in_panel = in_panel_rows
             && point.x >= PANEL_LEFT.load(Ordering::Relaxed)
             && point.x < PANEL_RIGHT.load(Ordering::Relaxed);
         if !in_triggers && !in_panel {
@@ -1182,6 +1215,8 @@ impl MenuBar {
             suppress_volume_release: false,
             panel: None,
             visual_height: 0,
+            bar_dy: 0.0,
+            popup_dy: 0.0,
             triggers_span: Span::default(),
             panel_span: Span::default(),
             island_hits: Vec::new(),
@@ -1210,6 +1245,49 @@ impl MenuBar {
     /// Hidden while an app is full screen.
     /// How tall the bar is at `scale`: the strip it keeps at the top of the
     /// primary display unless it hides itself. A side dock starts below it.
+    fn at_bottom(&self) -> bool {
+        self.widgets.position == whirlpool_config::BarPosition::Bottom
+    }
+
+    /// Window-local pointer y to the layout the bar is drawn in (bar at 0,
+    /// popup below it). Identity on the top edge.
+    fn layout_y(&self, y: f32) -> f32 {
+        if !self.at_bottom() {
+            y
+        } else if y >= self.bar_dy {
+            y - self.bar_dy
+        } else {
+            y - self.popup_dy
+        }
+    }
+
+    /// Screen y of the window's top edge.
+    fn window_top(&self) -> i32 {
+        if self.at_bottom() {
+            self.bounds.bottom - self.visual_height
+        } else {
+            self.bounds.top
+        }
+    }
+
+    /// Screen y that flyouts opened from the bar hang from.
+    fn anchor_y(&self) -> i32 {
+        if self.at_bottom() {
+            self.bounds.top
+        } else {
+            self.bounds.bottom
+        }
+    }
+
+    /// Is this screen row inside the popup's strip (next to the bar)?
+    fn in_panel_rows(&self, y: i32) -> bool {
+        if self.at_bottom() {
+            y >= PANEL_TOP.load(Ordering::Relaxed) && y < self.bounds.top
+        } else {
+            y >= self.bounds.bottom && y < PANEL_BOTTOM.load(Ordering::Relaxed)
+        }
+    }
+
     pub fn strip_height(scale: f32) -> i32 {
         ((bar_height() + BAR_GAP.load(Ordering::Relaxed) as f32) * scale).round() as i32
     }
@@ -1351,7 +1429,9 @@ impl MenuBar {
     }
 
     fn reveal_lift(&self) -> f32 {
-        (self.bounds.bottom - self.bounds.top) as f32 * 0.3
+        let lift = (self.bounds.bottom - self.bounds.top) as f32 * 0.3;
+        // The bar slides away toward the edge it sits on.
+        if self.at_bottom() { -lift } else { lift }
     }
 
     fn animate_visibility(&mut self, gfx: &Gfx, shown: bool) -> Result<()> {
@@ -1507,8 +1587,7 @@ impl MenuBar {
         let within_panel = self.panel.is_some()
             && x >= self.panel_span.left
             && x < self.panel_span.right
-            && point.y >= self.bounds.bottom
-            && point.y < PANEL_BOTTOM.load(Ordering::Relaxed);
+            && self.in_panel_rows(point.y);
         if (within_bar || within_panel) && self.hide_until.is_some() {
             self.hover(gfx, true)?;
         } else if !within_bar && !within_panel {
@@ -1519,6 +1598,7 @@ impl MenuBar {
 
     /// Leaving the island sideways still stays inside the full-width bar window.
     pub fn pointer_moved(&mut self, gfx: &Gfx, x: f32, y: f32) -> Result<()> {
+        let y = self.layout_y(y);
         if let Some(span) = self.volume_drag {
             self.queue_volume(span, x);
             return self.paint_volume_preview(gfx);
@@ -1578,7 +1658,19 @@ impl MenuBar {
                 top: bounds.top - gap,
                 bottom: bounds.bottom,
             };
-            appbar.reserve(Edge::Top, monitor, strip);
+            if self.widgets.position == whirlpool_config::BarPosition::Bottom {
+                appbar.reserve(
+                    Edge::Bottom,
+                    RECT {
+                        top: bounds.top,
+                        bottom: bounds.bottom + gap,
+                        ..monitor
+                    },
+                    strip,
+                );
+            } else {
+                appbar.reserve(Edge::Top, monitor, strip);
+            }
         }
         // Hidden, the bar keeps no window on screen, not even a thin strip:
         // a strip along the top edge took the clicks meant for the close
@@ -1589,13 +1681,14 @@ impl MenuBar {
         } else {
             SWP_HIDEWINDOW
         };
+        let window_top = self.window_top();
         // SAFETY: Our own live window.
         unsafe {
             SetWindowPos(
                 self.hwnd,
                 Some(HWND_TOPMOST),
                 bounds.left,
-                bounds.top,
+                window_top,
                 bounds.right - bounds.left,
                 self.visual_height,
                 SWP_NOACTIVATE | show,
@@ -1619,6 +1712,7 @@ impl MenuBar {
                 );
             }
         }
+        edge_watch::set_menu_bar_bottom(self.at_bottom());
         edge_watch::set_menu_bar((self.visible && hidden).then_some(bounds));
         self.sync_outside_click_hook()
     }
@@ -1757,6 +1851,7 @@ impl MenuBar {
     }
 
     pub fn click(&mut self, gfx: &Gfx, x: f32, y: f32) -> Result<()> {
+        let y = self.layout_y(y);
         if let Some(hit) = self.island_hits.iter().find(|hit| hit.at(x, y)) {
             match hit.action {
                 IslandAction::Toggle(island) => {
@@ -1811,7 +1906,7 @@ impl MenuBar {
         let anchor = hit.map_or((0, 0), |(left, right, _)| {
             (
                 self.bounds.left + ((left + right) / 2.0) as i32,
-                self.bounds.bottom,
+                self.anchor_y(),
             )
         });
         match hit.map(|(_, _, action)| *action) {
@@ -1838,6 +1933,7 @@ impl MenuBar {
     }
 
     pub fn input_switcher_anchor(&self, x: f32, y: f32) -> Option<POINT> {
+        let y = self.layout_y(y);
         if y < 0.0 || y >= (self.bounds.bottom - self.bounds.top) as f32 {
             return None;
         }
@@ -1848,7 +1944,11 @@ impl MenuBar {
             })
             .map(|(left, right, _)| POINT {
                 x: self.bounds.left + ((left + right) * 0.5) as i32,
-                y: self.bounds.bottom + 6,
+                y: if self.at_bottom() {
+                    self.bounds.top - 6
+                } else {
+                    self.bounds.bottom + 6
+                },
             })
     }
 
@@ -1961,7 +2061,7 @@ impl MenuBar {
             act,
             POINT {
                 x,
-                y: self.bounds.bottom,
+                y: self.anchor_y(),
             },
         ))
     }
@@ -1985,7 +2085,39 @@ impl MenuBar {
             X: width,
             Y: visual_height,
         })?;
-        let layers = root.Children()?;
+        let bottom = look.widgets.position == whirlpool_config::BarPosition::Bottom;
+        let root_layers = root.Children()?;
+        // On the bottom edge the bar sits at the foot of the window and the
+        // popup above it; each is a rigid block, so nothing inside is mirrored.
+        let (layers, popup_layers, bar_dy, popup_dy) = if bottom {
+            let bar_layer = c.CreateContainerVisual()?;
+            bar_layer.SetSize(Vector2 {
+                X: width,
+                Y: height,
+            })?;
+            bar_layer.SetOffset(Vector3::new(0.0, visual_height - height, 0.0))?;
+            let popup_layer = c.CreateContainerVisual()?;
+            popup_layer.SetSize(Vector2 {
+                X: width,
+                Y: visual_height,
+            })?;
+            let dy = if look.panel.is_some() {
+                px(PANEL_SHADOW_MARGIN) - (height + px(PANEL_GAP))
+            } else {
+                0.0
+            };
+            popup_layer.SetOffset(Vector3::new(0.0, dy, 0.0))?;
+            root_layers.InsertAtTop(&bar_layer)?;
+            root_layers.InsertAtTop(&popup_layer)?;
+            (
+                bar_layer.Children()?,
+                popup_layer.Children()?,
+                visual_height - height,
+                dy,
+            )
+        } else {
+            (root_layers.clone(), root_layers, 0.0, 0.0)
+        };
         // Without transparency the bar is solid, as macOS draws it with
         // "Reduce transparency".
         let alpha = (look.widgets.opacity.clamp(10, 100) * 255 / 100) as u8;
@@ -2034,7 +2166,11 @@ impl MenuBar {
             let thin = px(1.0).max(1.0);
             let line = c.CreateSpriteVisual()?;
             line.SetSize(Vector2 { X: width, Y: thin })?;
-            line.SetOffset(Vector3::new(0.0, height - thin, 0.0))?;
+            line.SetOffset(Vector3::new(
+                0.0,
+                if bottom { 0.0 } else { height - thin },
+                0.0,
+            ))?;
             let edge = if look.light {
                 rgba(0, 0, 0, 34)
             } else {
@@ -2205,7 +2341,16 @@ impl MenuBar {
         self.usage_viewport = None;
         self.triggers_span = Span::default();
         self.panel_span = Span::default();
-        self.draw_island(gfx, look, &layers, width, height, left_end, right)?;
+        self.draw_island(
+            gfx,
+            look,
+            &layers,
+            &popup_layers,
+            width,
+            height,
+            left_end,
+            right,
+        )?;
         if let Some(drag) = self.volume_drag {
             let new_span = self.island_hits.iter().find_map(|hit| match hit.action {
                 IslandAction::Volume(span) => Some(span),
@@ -2227,10 +2372,23 @@ impl MenuBar {
         } else {
             height
         } as i32;
-        self.bounds = RECT {
-            bottom: screen.top + height as i32,
-            ..screen
+        self.bounds = if bottom {
+            RECT {
+                top: screen.bottom - height as i32,
+                ..screen
+            }
+        } else {
+            RECT {
+                bottom: screen.top + height as i32,
+                ..screen
+            }
         };
+        self.bar_dy = if self.panel_span.width() > 0.0 {
+            bar_dy
+        } else {
+            0.0
+        };
+        self.popup_dy = popup_dy;
         TRIGGERS_LEFT.store(
             screen.left + self.triggers_span.left as i32,
             Ordering::Relaxed,
@@ -2244,14 +2402,23 @@ impl MenuBar {
             screen.left + self.panel_span.right as i32,
             Ordering::Relaxed,
         );
-        BAR_TOP.store(screen.top, Ordering::Relaxed);
-        BAR_BOTTOM.store(screen.top + height as i32, Ordering::Relaxed);
         let clickable_height = if self.panel_span.width() > 0.0 {
             panel_bottom
         } else {
             height
         };
-        PANEL_BOTTOM.store(screen.top + clickable_height as i32, Ordering::Relaxed);
+        BAR_AT_BOTTOM.store(bottom, Ordering::Relaxed);
+        if bottom {
+            BAR_TOP.store(screen.bottom - height as i32, Ordering::Relaxed);
+            BAR_BOTTOM.store(screen.bottom, Ordering::Relaxed);
+            PANEL_TOP.store(screen.bottom - clickable_height as i32, Ordering::Relaxed);
+            PANEL_BOTTOM.store(screen.bottom, Ordering::Relaxed);
+        } else {
+            BAR_TOP.store(screen.top, Ordering::Relaxed);
+            BAR_BOTTOM.store(screen.top + height as i32, Ordering::Relaxed);
+            PANEL_TOP.store(screen.top, Ordering::Relaxed);
+            PANEL_BOTTOM.store(screen.top + clickable_height as i32, Ordering::Relaxed);
+        }
         self.place()
     }
 
@@ -2264,13 +2431,19 @@ impl MenuBar {
         gfx: &Gfx,
         look: &Look,
         layers: &VisualCollection,
+        popup_layers: &VisualCollection,
         width: f32,
         bar_height: f32,
         left_end: f32,
         right_start: f32,
     ) -> Result<()> {
         let px = |logical: f32| (logical * look.scale).round();
-        let style = look.widgets.island_style;
+        // A notch is welded to the top edge; on the bottom edge the island is a bubble.
+        let style = if look.widgets.position == whirlpool_config::BarPosition::Bottom {
+            IslandStyle::Bubble
+        } else {
+            look.widgets.island_style
+        };
         let cover = if let Some(track) = &look.track {
             let cached =
                 self.cover
@@ -2437,7 +2610,7 @@ impl MenuBar {
             let geometry = IslandGeometry::new(self.panel_span, bar_height + px(PANEL_GAP), look);
             let height = px(look.panel_height());
             let theme = Theme::for_popup(look.light, look.glass);
-            let content = popup_surface(gfx, theme, layers, geometry, height)?;
+            let content = popup_surface(gfx, theme, popup_layers, geometry, height)?;
             match kind {
                 Island::Music => {
                     if let Some(track) = &look.track {
@@ -2879,6 +3052,7 @@ impl MenuBar {
     }
 
     pub fn press_volume(&mut self, gfx: &Gfx, x: f32, y: f32) -> Result<()> {
+        let y = self.layout_y(y);
         self.suppress_volume_release = false;
         let Some(hit) = self
             .island_hits
@@ -2908,7 +3082,7 @@ impl MenuBar {
         };
         let (x, y) = (
             (point.x - self.bounds.left) as f32,
-            (point.y - self.bounds.top) as f32,
+            self.layout_y((point.y - self.window_top()) as f32),
         );
         let (left, top, right, bottom) = viewport.bounds;
         if x < left || x >= right || y < top || y >= bottom {
