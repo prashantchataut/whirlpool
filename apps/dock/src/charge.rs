@@ -691,7 +691,10 @@ fn capsule_at(
     let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
     // Halo of the dot, then the dot.
     paint(color, 0.22 * smooth(h * 0.40, dot * 0.5, d));
-    paint(mix3(color, [1.0, 1.0, 1.0], 0.25), smooth(dot * 0.5 + 0.7, dot * 0.5 - 0.7, d));
+    paint(
+        mix3(color, [1.0, 1.0, 1.0], 0.25),
+        smooth(dot * 0.5 + 0.7, dot * 0.5 - 0.7, d),
+    );
 
     let (x0, y0) = (left + dot + gap, h * 0.5 - 2.5 * cell);
     let (gx, gy) = (((x - x0) / cell).floor(), ((y - y0) / cell).floor());
@@ -1015,7 +1018,8 @@ fn bloom_scene(
     let _ = scale;
 
     // Broad glow, then a tighter and brighter core that follows it.
-    for (fraction, tall, delay, peak) in [(1.0f32, 1.0f32, 0.0f32, 0.80f32), (0.42, 0.62, 0.25, 0.95)]
+    for (fraction, tall, delay, peak) in
+        [(1.0f32, 1.0f32, 0.0f32, 0.80f32), (0.42, 0.62, 0.25, 0.95)]
     {
         let (w, h) = (width * fraction, height * tall);
         let glow = stretched(gfx, &bloom_image(128, 48, color), w, h)?;
