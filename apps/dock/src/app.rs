@@ -104,7 +104,7 @@ use crate::{
     group_view::{DragGhost, GroupItem, GroupView, Placement, Released},
     mascot,
     menu::{self, MenuItem},
-    menubar::{MenuBar, MenuBarWidgets},
+    menubar::{self, MenuBar, MenuBarWidgets},
     multi_window_view::{self, MultiWindowView},
     scene::{Drag, Frame, Scene, SceneInput, SlotContent, Theme},
     shell_work::{self, Action as ShellAction},
@@ -1388,6 +1388,12 @@ impl App {
         } else {
             (dock.height + 2.0 * margin) as i32
         };
+        // A bottom menu bar must sit above a dock that stays on screen.
+        let bar_lift = if edge == DockEdge::Bottom && !self.config.auto_hide {
+            strip
+        } else {
+            0
+        };
         // The resting dock's box on screen: across the edge it is as deep as
         // the layout is tall.
         let (box_width, box_height) = if edge.is_vertical() {
@@ -1600,6 +1606,12 @@ impl App {
                 DockEdge::Right => Edge::Right,
             };
             appbar.reserve(side, reservation, strip);
+        }
+        if menubar::set_dock_lift(bar_lift)
+            && let Some(bar) = &mut self.menubar
+            && let Err(error) = bar.refresh(&self.gfx)
+        {
+            whirlpool_shell::log::line(&format!("menu bar above the dock: {error:#}"));
         }
         Ok(())
     }

@@ -97,8 +97,36 @@ fn main() -> Result<()> {
         [shell_work::FLAG] => shell_work::worker_main(),
         ["--settings"] => open_settings(false),
         ["--settings-compat"] => open_settings(true),
+        ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge),
         _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
     }
+}
+
+/// The quick settings panel the menu bar opens. One at a time; a second
+/// request while it is open does nothing, since the panel closes itself when
+/// it loses focus.
+fn open_quick_settings(right: &str, y: &str, edge: &str) -> Result<()> {
+    // SAFETY: The static name is valid; the handle is released when the process exits.
+    let _single = unsafe {
+        Owned::new(CreateMutexW(
+            None,
+            false,
+            w!("Local\\Whirlpool.QuickSettings"),
+        )?)
+    };
+    // SAFETY: Reads the thread's last error immediately after the call.
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let (right, y) = (
+        right.parse().context("invalid x")?,
+        y.parse().context("invalid y")?,
+    );
+    whirlpool_settings::run_quick(right, y, edge == "bottom").map_err(|error| {
+        whirlpool_shell::log::line(&format!("quick settings: {error}"));
+        whirlpool_shell::log::flush();
+        anyhow::anyhow!("quick settings: {error}")
+    })
 }
 
 /// Starts this program again as the settings window.
