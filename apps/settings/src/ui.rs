@@ -42,27 +42,26 @@ impl Palette {
 
     pub const fn for_mode(dark: bool) -> Self {
         if dark {
-            // Abyss: blue-green blacks, never neutral grey.
+            // Graphite with a hint of sea: neutral enough for photographs.
             Self {
-                window: Color32::from_rgb(0x07, 0x15, 0x1b),
-                sidebar: Color32::from_rgb(0x0a, 0x1d, 0x25),
-                card: Color32::from_rgb(0x0e, 0x27, 0x30),
-                border: Color32::from_rgb(0x1a, 0x3b, 0x46),
-                text: Color32::from_rgb(0xe7, 0xf3, 0xf0),
-                muted: Color32::from_rgb(0x84, 0xa5, 0xab),
-                track: Color32::from_rgb(0x2a, 0x4c, 0x56),
+                window: Color32::from_rgb(0x12, 0x15, 0x18),
+                sidebar: Color32::from_rgb(0x17, 0x1b, 0x1f),
+                card: Color32::from_rgb(0x1c, 0x21, 0x26),
+                border: Color32::from_rgb(0x2b, 0x32, 0x38),
+                text: Color32::from_rgb(0xed, 0xf1, 0xf3),
+                muted: Color32::from_rgb(0x95, 0xa2, 0xa9),
+                track: Color32::from_rgb(0x39, 0x42, 0x49),
                 accent_ink: FOAM,
             }
         } else {
-            // Foam: sea-glass whites.
             Self {
-                window: Color32::from_rgb(0xee, 0xf5, 0xf4),
-                sidebar: Color32::from_rgb(0xe0, 0xec, 0xea),
-                card: Color32::from_rgb(0xfb, 0xfe, 0xfd),
-                border: Color32::from_rgb(0xcb, 0xdd, 0xda),
-                text: Color32::from_rgb(0x0b, 0x1f, 0x26),
-                muted: Color32::from_rgb(0x55, 0x73, 0x7a),
-                track: Color32::from_rgb(0xb4, 0xcb, 0xc9),
+                window: Color32::from_rgb(0xf3, 0xf5, 0xf6),
+                sidebar: Color32::from_rgb(0xe8, 0xec, 0xee),
+                card: Color32::from_rgb(0xff, 0xff, 0xff),
+                border: Color32::from_rgb(0xdb, 0xe1, 0xe4),
+                text: Color32::from_rgb(0x13, 0x19, 0x1d),
+                muted: Color32::from_rgb(0x58, 0x66, 0x6d),
+                track: Color32::from_rgb(0xc3, 0xcc, 0xd0),
                 accent_ink: Color32::from_rgb(0x0a, 0x6e, 0x73),
             }
         }
@@ -194,7 +193,7 @@ pub fn card(ui: &mut Ui, title: Option<&str>, add: impl FnOnce(&mut Ui)) {
     Frame::new()
         .fill(palette.card)
         .stroke(Stroke::new(1.0, palette.border))
-        .corner_radius(CornerRadius::same(14))
+        .corner_radius(CornerRadius::same(12))
         .inner_margin(Margin::symmetric(18, 6))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -222,6 +221,9 @@ pub fn row(
     let palette = Palette::of(ui);
     ui.horizontal(|ui| {
         ui.set_min_height(50.0);
+        // The control never takes more than 55% of the row; on a narrow window
+        // the text keeps the rest instead of being squeezed to nothing.
+        let control_width = control_width.min(ui.available_width() * 0.55);
         let text_width = (ui.available_width() - control_width - 24.0).max(120.0);
         ui.allocate_ui_with_layout(vec2(text_width, 50.0), Layout::top_down(Align::Min), |ui| {
             ui.set_width(text_width);
@@ -412,10 +414,20 @@ pub fn preview_dock(
     backdrop: &Backdrop,
     position: whirlpool_config::DockPosition,
 ) {
-    use whirlpool_config::DockPosition;
     desktop(painter, rect, backdrop);
+    dock_overlay(painter, rect, backdrop.icon_size, position);
+}
+
+/// The dock alone, drawn over whatever is behind it. Returns its rectangle.
+fn dock_overlay(
+    painter: &Painter,
+    rect: Rect,
+    icon_size: u32,
+    position: whirlpool_config::DockPosition,
+) -> Rect {
+    use whirlpool_config::DockPosition;
     let glass = Color32::from_rgba_unmultiplied(255, 255, 255, 70);
-    let icon = 5.0 + (backdrop.icon_size as f32 - 32.0) / 64.0 * 6.0;
+    let icon = 5.0 + (icon_size as f32 - 32.0) / 64.0 * 6.0;
     let gap = 3.0;
     let n = 5.0;
     let span = n * icon + (n - 1.0) * gap + 8.0;
@@ -464,6 +476,7 @@ pub fn preview_dock(
             color,
         );
     }
+    dock
 }
 
 pub fn preview_island(
@@ -545,4 +558,140 @@ pub fn preview_speed(
     let mut filled = track;
     filled.set_right(track.left() + track.width() * fraction);
     painter.rect_filled(filled, CornerRadius::same(4), ACCENT);
+}
+
+/// The whole desktop in miniature, from the live configuration: wallpaper,
+/// menu bar (edge, floating or docked, tint, opacity, size), island and dock.
+/// A bottom bar stands above a bottom dock, as it does on screen.
+pub fn preview_scene(
+    painter: &Painter,
+    rect: Rect,
+    backdrop: &Backdrop,
+    config: &whirlpool_config::Config,
+    window: Color32,
+) {
+    use whirlpool_config::{BarPosition, BarStyle, DockPosition, IslandStyle};
+    desktop(painter, rect, backdrop);
+    let dock = dock_overlay(painter, rect, backdrop.icon_size, config.dock_position);
+    if !config.menu_bar {
+        return;
+    }
+    // One preview pixel is about four screen pixels.
+    let k = rect.width() / 1280.0;
+    let height = (config.menu_bar_size.height() * k * 2.2).round().max(10.0);
+    let floating = config.menu_bar_style == BarStyle::Floating;
+    let (inset, gap) = if floating {
+        (
+            (config.menu_bar_inset as f32 * k * 2.0).min(rect.width() * 0.2),
+            (config.menu_bar_gap as f32 * k * 2.0).min(14.0),
+        )
+    } else {
+        (0.0, 0.0)
+    };
+    let bottom = config.menu_bar_position == BarPosition::Bottom;
+    let lift = if bottom && config.dock_position == DockPosition::Bottom && !config.auto_hide {
+        rect.bottom() - dock.top() + 3.0
+    } else {
+        0.0
+    };
+    let y = if bottom {
+        rect.bottom() - gap - height - lift
+    } else {
+        rect.top() + gap
+    };
+    let (mut left, mut right) = (rect.left() + inset, rect.right() - inset);
+    if floating && config.menu_bar_width < 100 {
+        let room = right - left;
+        let narrow = room * config.menu_bar_width.clamp(40, 100) as f32 / 100.0;
+        match config.menu_bar_align {
+            whirlpool_config::BarAlign::Left => right = left + narrow,
+            whirlpool_config::BarAlign::Right => left = right - narrow,
+            whirlpool_config::BarAlign::Center => {
+                left += (room - narrow) / 2.0;
+                right = left + narrow;
+            }
+        }
+    }
+    let bar = Rect::from_min_max(pos2(left, y), pos2(right, y + height));
+    let dark = window.r() < 0x80;
+    let tint = if dark {
+        config.menu_bar_tint.dark()
+    } else {
+        config.menu_bar_tint.light()
+    };
+    let alpha = (config.menu_bar_opacity.clamp(10, 100) as f32 * 2.55) as u8;
+    let alpha = if config.menu_bar_auto_hide {
+        alpha / 2
+    } else {
+        alpha
+    };
+    let radius = if floating {
+        (config.menu_bar_radius as f32 * k * 2.0).min(height / 2.0) as u8
+    } else {
+        0
+    };
+    painter.rect_filled(
+        bar,
+        CornerRadius::same(radius),
+        Color32::from_rgba_unmultiplied(tint[0], tint[1], tint[2], alpha),
+    );
+    if config.menu_bar_border {
+        painter.rect_stroke(
+            bar,
+            CornerRadius::same(radius),
+            Stroke::new(1.0, Color32::from_white_alpha(46)),
+            StrokeKind::Inside,
+        );
+    }
+    let ink = if dark {
+        Color32::from_white_alpha(215)
+    } else {
+        Color32::from_black_alpha(190)
+    };
+    let mid = bar.center().y;
+    let unit = (height * 0.28).max(2.5);
+    // Left: app name and two items. Right: status glyphs and the clock.
+    let mut x = bar.left() + unit * 2.0;
+    for width in [unit * 4.0, unit * 3.0, unit * 3.0] {
+        painter.rect_filled(
+            Rect::from_min_size(pos2(x, mid - unit / 2.0), vec2(width, unit)),
+            CornerRadius::same(2),
+            ink.gamma_multiply(0.8),
+        );
+        x += width + unit * 1.4;
+    }
+    let mut x = bar.right() - unit * 2.0;
+    for width in [unit * 5.0, unit * 2.0, unit * 2.0, unit * 2.4] {
+        x -= width;
+        painter.rect_filled(
+            Rect::from_min_size(pos2(x, mid - unit / 2.0), vec2(width, unit)),
+            CornerRadius::same(2),
+            ink.gamma_multiply(0.8),
+        );
+        x -= unit * 1.3;
+    }
+    // The island, in the bar's middle.
+    let pill = Rect::from_center_size(
+        pos2(bar.center().x, mid),
+        vec2(unit * 11.0, (height - 4.0).max(unit * 2.5)),
+    );
+    let ink_island = Color32::from_rgb(0x0b, 0x0b, 0x0e);
+    match config.menu_bar_island_style {
+        IslandStyle::Notch => painter.rect_filled(
+            pill,
+            CornerRadius {
+                nw: 0,
+                ne: 0,
+                sw: 6,
+                se: 6,
+            },
+            ink_island,
+        ),
+        _ => painter.rect_filled(pill, CornerRadius::same(7), ink_island),
+    };
+    painter.circle_filled(
+        pos2(pill.left() + unit * 1.6, pill.center().y),
+        unit * 0.55,
+        Color32::from_rgb(0x1d, 0xd1, 0xa1),
+    );
 }

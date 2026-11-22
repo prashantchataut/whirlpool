@@ -10,18 +10,19 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align, ColorImage, Layout, RichText, ScrollArea, Sense, TextureHandle, TextureOptions,
-    Ui, pos2, vec2,
+    self, Align, ColorImage, Layout, Rect, RichText, ScrollArea, Sense, TextureHandle,
+    TextureOptions, Ui, pos2, vec2,
 };
 use serde_json::{Map, Value};
 use whirlpool_config::{
     AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
     DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
 };
-use whirlpool_core::wallpaper;
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
+    icons::{self, Icon},
+    photos,
     text::Texts,
     ui::{self, Backdrop, Choice, DANGER, Palette},
     update::{self, State},
@@ -41,6 +42,7 @@ enum Page {
     Windows,
     MenuBar,
     System,
+    About,
 }
 
 pub struct Settings {
@@ -71,6 +73,9 @@ pub struct Settings {
     wall_busy: Option<&'static str>,
     wall_failed: bool,
     logo: Option<TextureHandle>,
+    search: String,
+    search_open: bool,
+    fitted: bool,
 }
 
 fn dock_exe() -> PathBuf {
@@ -115,18 +120,14 @@ fn spawn_writer() -> (Sender<Map<String, Value>>, Receiver<bool>) {
     (send, done_receive)
 }
 
-/// Draws every wallpaper preset small, off the UI thread.
+/// Decodes the photo pack small, off the UI thread.
 fn spawn_thumbnails(ctx: &egui::Context) -> Receiver<Vec<(&'static str, ColorImage)>> {
     let (send, receive) = mpsc::channel();
     let ctx = ctx.clone();
     thread::spawn(move || {
-        let images = wallpaper::PRESETS
+        let images = photos::PHOTOS
             .iter()
-            .map(|preset| {
-                let raster = wallpaper::render(preset, 240, 150);
-                let size = [raster.width as usize, raster.height as usize];
-                (preset.id, ColorImage::from_rgb(size, &raster.rgb))
-            })
+            .filter_map(|photo| photos::thumbnail(photo.jpeg, 480).map(|image| (photo.id, image)))
             .collect();
         let _ = send.send(images);
         ctx.request_repaint();
@@ -197,6 +198,9 @@ impl Settings {
             wall_busy: None,
             wall_failed: false,
             logo: crate::logo_texture(ctx),
+            search: String::new(),
+            search_open: false,
+            fitted: false,
         };
         settings.animations_on = system::animations_enabled();
         settings.recheck_updates(ctx);
@@ -346,54 +350,250 @@ impl Settings {
     }
 }
 
+/// Below this window width the sidebar shrinks to icons.
+const COMPACT_BELOW: f32 = 900.0;
+/// With this much room beside the sidebar, the live preview gets a column.
+const PREVIEW_FROM: f32 = 1060.0;
+const COLUMN_MAX: f32 = 780.0;
+const PREVIEW_WIDTH: f32 = 364.0;
+
+/// What the sidebar search can find: label, extra words, and the page.
+const SEARCH_INDEX: &[(&str, &str, Page)] = &[
+    ("Dock icon size", "dock icons size big small", Page::Dock),
+    ("Magnification", "dock zoom hover grow", Page::Dock),
+    (
+        "Dock position",
+        "dock edge left right bottom side",
+        Page::Dock,
+    ),
+    ("Auto-hide the dock", "dock hide reveal", Page::Dock),
+    (
+        "Genie minimize",
+        "dock genie minimise effect speed",
+        Page::Dock,
+    ),
+    ("Running indicators", "dock dots running apps", Page::Dock),
+    (
+        "Menu bar on or off",
+        "menu bar enable top bar",
+        Page::MenuBar,
+    ),
+    ("Menu bar position", "top bottom edge screen", Page::MenuBar),
+    (
+        "Floating menu bar",
+        "floating docked inset gap radius",
+        Page::MenuBar,
+    ),
+    (
+        "Menu bar height",
+        "size compact regular large",
+        Page::MenuBar,
+    ),
+    ("Menu bar auto-hide", "hide reveal edge", Page::MenuBar),
+    ("Dynamic island", "island bubble notch music", Page::MenuBar),
+    (
+        "Clock and date",
+        "clock date 24 hour 12 hour time",
+        Page::MenuBar,
+    ),
+    (
+        "Menu bar opacity",
+        "transparency blur glass tint colour",
+        Page::Personalize,
+    ),
+    (
+        "Menu bar tint",
+        "tint colour color theme",
+        Page::Personalize,
+    ),
+    (
+        "Animation style",
+        "motion speed spring fluid snappy",
+        Page::Personalize,
+    ),
+    ("Startup animation", "startup boot intro", Page::Personalize),
+    (
+        "Charging animation",
+        "charging charger plug halo surge edge bloom aurora tide",
+        Page::Personalize,
+    ),
+    (
+        "Wallpapers",
+        "wallpaper background photo picture",
+        Page::Personalize,
+    ),
+    (
+        "Windows behavior",
+        "windows taskbar alt tab minimized",
+        Page::Windows,
+    ),
+    ("Language", "language english spanish french", Page::System),
+    (
+        "Run at startup",
+        "startup autostart sign in login",
+        Page::System,
+    ),
+    ("Updates", "update version check", Page::System),
+    ("Reset settings", "reset default restore", Page::System),
+    ("License", "license mit author about version", Page::About),
+];
+
+fn page_icon(page: Page) -> Icon {
+    match page {
+        Page::Dock => Icon::Dock,
+        Page::Personalize => Icon::Palette,
+        Page::Windows => Icon::Window,
+        Page::MenuBar => Icon::Bar,
+        Page::System => Icon::System,
+        Page::About => Icon::Info,
+    }
+}
+
+impl Settings {
+    /// Fits the window to the monitor it opened on. winit reports the monitor
+    /// in the same logical points the window is sized in, so unlike a guess
+    /// made before the window exists it is right at every DPI scale.
+    fn fit_window(&mut self, ctx: &egui::Context) {
+        if self.fitted {
+            return;
+        }
+        let Some(monitor) = ctx.input(|i| i.viewport().monitor_size) else {
+            return;
+        };
+        self.fitted = true;
+        // Leave room for the taskbar or the dock and for the title bar.
+        let width = (monitor.x * 0.74)
+            .clamp(700.0, 1240.0)
+            .min(monitor.x - 40.0);
+        let height = (monitor.y * 0.84)
+            .clamp(460.0, 860.0)
+            .min(monitor.y - 120.0);
+        let size = vec2(width.max(560.0), height.max(420.0));
+        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(vec2(
+            560.0_f32.min(size.x),
+            420.0_f32.min(size.y),
+        )));
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos2(
+            ((monitor.x - size.x) / 2.0).max(0.0),
+            ((monitor.y - size.y) / 2.0 - 16.0).max(0.0),
+        )));
+    }
+
+    fn page_label<'a>(&self, t: &'a Texts, page: Page) -> &'a str {
+        match page {
+            Page::Dock => t.get("dock"),
+            Page::Personalize => t.get("personalize"),
+            Page::Windows => t.get("windows"),
+            Page::MenuBar => t.get("menuBar"),
+            Page::System => t.get("system"),
+            Page::About => t.get("about"),
+        }
+    }
+
+    fn page_subtitle<'a>(&self, t: &'a Texts) -> &'a str {
+        match self.page {
+            Page::Dock => t.get("subtitleDock"),
+            Page::Personalize => t.get("subtitlePersonalize"),
+            Page::Windows => t.get("subtitleWindows"),
+            Page::MenuBar => t.get("subtitleMenuBar"),
+            Page::System => t.get("subtitleSystem"),
+            Page::About => t.get("subtitleAbout"),
+        }
+    }
+
+    fn photo_backdrop_id(&self) -> Option<&'static str> {
+        let id = self.config.wallpaper.as_deref()?;
+        self.wall_thumbs
+            .iter()
+            .map(|(known, _)| *known)
+            .find(|known| *known == id)
+    }
+}
+
 impl eframe::App for Settings {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll(&ctx);
         self.poll_wallpapers(&ctx);
+        self.fit_window(&ctx);
         let t = Rc::clone(&self.texts);
         let palette = Palette::of(ui);
+        let total = ui.max_rect().width();
+        let compact = total < COMPACT_BELOW && !self.search_open;
+        let nav_width = if compact { 72.0 } else { 252.0 };
+        let preview = total - nav_width >= PREVIEW_FROM && self.search.trim().is_empty();
 
         egui::Panel::left("nav")
-            .exact_size(210.0)
+            .exact_size(nav_width)
             .resizable(false)
             .frame(
                 egui::Frame::new()
                     .fill(palette.sidebar)
-                    .inner_margin(egui::Margin::symmetric(14, 18)),
+                    .stroke(egui::Stroke::new(1.0, palette.border))
+                    .inner_margin(egui::Margin::symmetric(if compact { 10 } else { 14 }, 18)),
             )
-            .show(ui, |ui| self.sidebar(ui, &t, palette));
+            .show(ui, |ui| self.sidebar(ui, &t, palette, compact));
 
+        if preview {
+            egui::Panel::right("preview")
+                .exact_size(PREVIEW_WIDTH + 28.0)
+                .resizable(false)
+                .frame(
+                    egui::Frame::new()
+                        .fill(palette.window)
+                        .inner_margin(egui::Margin {
+                            left: 0,
+                            right: 28,
+                            top: 28,
+                            bottom: 24,
+                        }),
+                )
+                .show(ui, |ui| self.preview_column(ui, &t, palette));
+        }
+
+        let room = ui.available_width();
+        let side = if preview {
+            32.0
+        } else {
+            ((room - COLUMN_MAX) / 2.0).clamp(24.0, 400.0)
+        };
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::new()
                     .fill(palette.window)
-                    .inner_margin(egui::Margin::symmetric(28, 20)),
+                    .inner_margin(egui::Margin {
+                        left: side as i8,
+                        right: if preview { 28 } else { side as i8 },
+                        top: 26,
+                        bottom: 0,
+                    }),
             )
             .show(ui, |ui| {
-                ui.label(
-                    RichText::new(self.page_title(&t))
-                        .font(ui::heading(26.0))
-                        .color(palette.text),
-                );
-                ui.add_space(8.0);
+                ui.set_max_width(COLUMN_MAX);
+                self.header(ui, &t, palette);
                 ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.set_max_width(680.0);
+                        ui.set_max_width(COLUMN_MAX);
                         self.banner(ui, &t, palette);
-                        match self.page {
-                            Page::Dock => self.dock_page(ui, &t),
-                            Page::Personalize => self.personalize_page(ui, &t),
-                            Page::Windows => self.windows_page(ui, &t),
-                            Page::MenuBar => self.menu_bar_page(ui, &t),
-                            Page::System => self.system_page(ui, &t, &ctx),
+                        if self.search.trim().is_empty() {
+                            match self.page {
+                                Page::Dock => self.dock_page(ui, &t),
+                                Page::Personalize => self.personalize_page(ui, &t),
+                                Page::Windows => self.windows_page(ui, &t),
+                                Page::MenuBar => self.menu_bar_page(ui, &t),
+                                Page::System => self.system_page(ui, &t, &ctx),
+                                Page::About => self.about_page(ui, &t, palette),
+                            }
+                        } else {
+                            self.search_results(ui, &t, palette);
                         }
                         if self.save_failed {
                             ui.add_space(8.0);
                             ui.colored_label(DANGER, t.get("saveError"));
                         }
-                        ui.add_space(24.0);
+                        ui.add_space(32.0);
                     });
             });
 
@@ -402,20 +602,33 @@ impl eframe::App for Settings {
 }
 
 impl Settings {
-    fn page_title<'a>(&self, t: &'a Texts) -> &'a str {
-        match self.page {
-            Page::Dock => t.get("dock"),
-            Page::Personalize => t.get("personalize"),
-            Page::Windows => t.get("windows"),
-            Page::MenuBar => t.get("menuBar"),
-            Page::System => t.get("system"),
+    fn header(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
+        let searching = !self.search.trim().is_empty();
+        let title = if searching {
+            t.get("searchResults").to_owned()
+        } else {
+            self.page_label(t, self.page).to_owned()
+        };
+        ui.label(
+            RichText::new(title)
+                .font(ui::heading(28.0))
+                .color(palette.text),
+        );
+        if !searching {
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new(self.page_subtitle(t))
+                    .size(13.5)
+                    .color(palette.muted),
+            );
         }
+        ui.add_space(16.0);
     }
 
-    fn sidebar(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
+    fn sidebar(&mut self, ui: &mut Ui, t: &Texts, palette: Palette, compact: bool) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 11.0;
-            let (rect, _) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::hover());
+            let (rect, _) = ui.allocate_exact_size(vec2(36.0, 36.0), Sense::hover());
             match &self.logo {
                 Some(texture) => {
                     ui.painter().image(
@@ -427,86 +640,417 @@ impl Settings {
                 }
                 None => ui::logo(ui.painter(), rect),
             }
-            ui.vertical(|ui| {
-                ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(
-                    RichText::new("Whirlpool")
-                        .font(ui::heading(17.0))
-                        .color(palette.text),
+            if !compact {
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    ui.label(
+                        RichText::new("Whirlpool")
+                            .font(ui::heading(17.0))
+                            .color(palette.text),
+                    );
+                    ui.label(
+                        RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION")))
+                            .size(11.5)
+                            .color(palette.muted),
+                    );
+                });
+            }
+        });
+        ui.add_space(18.0);
+
+        // Search.
+        let search_id = ui.make_persistent_id("settings-search");
+        if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
+            ui.memory_mut(|memory| memory.request_focus(search_id));
+        }
+        if compact {
+            let (rect, response) =
+                ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::click());
+            if response.hovered() {
+                ui.painter().rect_filled(
+                    rect,
+                    egui::CornerRadius::same(10),
+                    palette.border.gamma_multiply(0.55),
                 );
+            }
+            icons::paint(
+                ui.painter(),
+                Rect::from_center_size(rect.center(), vec2(20.0, 20.0)),
+                Icon::Search,
+                palette.muted,
+            );
+            if response.on_hover_text(t.get("searchSettings")).clicked() {
+                self.search_open = true;
+            }
+        } else {
+            let field = ui.add(
+                egui::TextEdit::singleline(&mut self.search)
+                    .id(search_id)
+                    .hint_text(t.get("searchSettings"))
+                    .desired_width(f32::INFINITY)
+                    .margin(egui::Margin {
+                        left: 34,
+                        right: 10,
+                        top: 9,
+                        bottom: 9,
+                    }),
+            );
+            icons::paint(
+                ui.painter(),
+                Rect::from_center_size(
+                    field.rect.left_center() + vec2(18.0, 0.0),
+                    vec2(17.0, 17.0),
+                ),
+                Icon::Search,
+                palette.muted,
+            );
+            if field.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                {
+                    self.search.clear();
+                    self.search_open = false;
+                }
+            }
+        }
+        ui.add_space(14.0);
+
+        let badge = matches!(self.update_state, State::Available(_));
+        let groups: [(&str, &[Page]); 3] = [
+            ("groupShell", &[Page::Dock, Page::MenuBar, Page::Windows]),
+            ("groupLook", &[Page::Personalize]),
+            ("groupApp", &[Page::System, Page::About]),
+        ];
+        for (group, pages) in groups {
+            if !compact {
+                ui.add_space(6.0);
                 ui.label(
-                    RichText::new("dock + menu bar")
-                        .size(11.5)
+                    RichText::new(t.get(group).to_uppercase())
+                        .font(ui::heading(10.5))
+                        .extra_letter_spacing(1.1)
                         .color(palette.muted),
                 );
-            });
-        });
-        ui.add_space(22.0);
-        let pages = [
-            (Page::Dock, t.get("dock")),
-            (Page::Personalize, t.get("personalize")),
-            (Page::Windows, t.get("windows")),
-            (Page::MenuBar, t.get("menuBar")),
-            (Page::System, t.get("system")),
-        ];
-        let badge = matches!(self.update_state, State::Available(_));
-        for (page, label) in pages {
-            let selected = self.page == page;
-            let (rect, response) =
-                ui.allocate_exact_size(vec2(ui.available_width(), 38.0), Sense::click());
-            let round = egui::CornerRadius::same(10);
-            if selected {
-                ui.painter()
-                    .rect_filled(rect, round, ui::ACCENT.gamma_multiply(0.20));
-                // The tide mark: a short bar on the leading edge.
-                ui.painter().rect_filled(
-                    egui::Rect::from_center_size(
-                        pos2(rect.left() + 3.0, rect.center().y),
-                        vec2(3.0, 18.0),
-                    ),
-                    egui::CornerRadius::same(2),
-                    palette.accent_ink,
-                );
-            } else if response.hovered() {
-                ui.painter()
-                    .rect_filled(rect, round, palette.border.gamma_multiply(0.55));
-            }
-            let (color, font) = if selected {
-                (palette.accent_ink, ui::heading(14.0))
+                ui.add_space(4.0);
             } else {
-                (palette.text, egui::FontId::proportional(14.0))
-            };
-            ui.painter().text(
-                rect.left_center() + vec2(16.0, 0.0),
-                egui::Align2::LEFT_CENTER,
-                label,
-                font,
-                color,
-            );
-            if badge && page == Page::System {
-                ui.painter()
-                    .circle_filled(rect.right_center() - vec2(16.0, 0.0), 4.5, DANGER);
+                ui.add_space(10.0);
             }
-            if response
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .clicked()
-            {
-                self.page = page;
+            for &page in pages {
+                let selected = self.page == page && self.search.trim().is_empty();
+                let (rect, response) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::click());
+                let round = egui::CornerRadius::same(10);
+                if selected {
+                    ui.painter()
+                        .rect_filled(rect, round, ui::ACCENT.gamma_multiply(0.20));
+                    ui.painter().rect_filled(
+                        egui::Rect::from_center_size(
+                            pos2(rect.left() + 2.5, rect.center().y),
+                            vec2(3.0, 18.0),
+                        ),
+                        egui::CornerRadius::same(2),
+                        palette.accent_ink,
+                    );
+                } else if response.hovered() {
+                    ui.painter()
+                        .rect_filled(rect, round, palette.border.gamma_multiply(0.55));
+                }
+                let ink = if selected {
+                    palette.accent_ink
+                } else {
+                    palette.text
+                };
+                let icon_center = if compact {
+                    rect.center()
+                } else {
+                    pos2(rect.left() + 26.0, rect.center().y)
+                };
+                icons::paint(
+                    ui.painter(),
+                    Rect::from_center_size(icon_center, vec2(20.0, 20.0)),
+                    page_icon(page),
+                    ink,
+                );
+                let label = self.page_label(t, page);
+                if !compact {
+                    ui.painter().text(
+                        pos2(rect.left() + 46.0, rect.center().y),
+                        egui::Align2::LEFT_CENTER,
+                        label,
+                        if selected {
+                            ui::heading(14.0)
+                        } else {
+                            egui::FontId::proportional(14.0)
+                        },
+                        ink,
+                    );
+                }
+                if badge && page == Page::System {
+                    ui.painter().circle_filled(
+                        if compact {
+                            rect.right_top() + vec2(-10.0, 10.0)
+                        } else {
+                            rect.right_center() - vec2(14.0, 0.0)
+                        },
+                        4.5,
+                        DANGER,
+                    );
+                }
+                let response = if compact {
+                    response.on_hover_text(label)
+                } else {
+                    response
+                };
+                if response
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    self.page = page;
+                    {
+                        self.search.clear();
+                        self.search_open = false;
+                    }
+                }
+                ui.add_space(2.0);
             }
-            ui.add_space(2.0);
         }
-        ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
-            ui.label(
-                RichText::new(format!(
-                    "v{}  ·  100% native Rust",
-                    env!("CARGO_PKG_VERSION")
-                ))
-                .size(11.5)
-                .color(palette.muted),
-            );
-        });
     }
 
+    fn search_results(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
+        let query = self.search.trim().to_lowercase();
+        let words: Vec<&str> = query.split_whitespace().collect();
+        let hits: Vec<&(&str, &str, Page)> = SEARCH_INDEX
+            .iter()
+            .filter(|(title, extra, page)| {
+                let haystack = format!(
+                    "{} {} {}",
+                    title.to_lowercase(),
+                    extra,
+                    self.page_label(t, *page).to_lowercase()
+                );
+                words.iter().all(|word| haystack.contains(word))
+            })
+            .collect();
+        if hits.is_empty() {
+            ui::card(ui, None, |ui| {
+                ui.add_space(22.0);
+                ui.vertical_centered(|ui| {
+                    ui.label(
+                        RichText::new(format!("{} “{}”", t.get("searchNone"), self.search.trim()))
+                            .font(ui::heading(15.0))
+                            .color(palette.text),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(t.get("searchNoneHint"))
+                            .size(12.5)
+                            .color(palette.muted),
+                    );
+                    ui.add_space(12.0);
+                    if ui::push(ui, t.get("searchClear"), None).clicked() {
+                        {
+                            self.search.clear();
+                            self.search_open = false;
+                        }
+                    }
+                });
+                ui.add_space(22.0);
+            });
+            return;
+        }
+        let mut go = None;
+        ui::card(ui, None, |ui| {
+            for (index, (title, _, page)) in hits.iter().enumerate() {
+                if index > 0 {
+                    ui::divider(ui);
+                }
+                let (rect, response) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), 52.0), Sense::click());
+                if response.hovered() {
+                    ui.painter().rect_filled(
+                        rect.shrink2(vec2(-10.0, 3.0)),
+                        egui::CornerRadius::same(8),
+                        palette.border.gamma_multiply(0.45),
+                    );
+                }
+                icons::paint(
+                    ui.painter(),
+                    Rect::from_center_size(rect.left_center() + vec2(12.0, 0.0), vec2(20.0, 20.0)),
+                    page_icon(*page),
+                    palette.accent_ink,
+                );
+                ui.painter().text(
+                    rect.left_center() + vec2(36.0, -8.0),
+                    egui::Align2::LEFT_CENTER,
+                    *title,
+                    egui::FontId::proportional(14.0),
+                    palette.text,
+                );
+                ui.painter().text(
+                    rect.left_center() + vec2(36.0, 9.0),
+                    egui::Align2::LEFT_CENTER,
+                    self.page_label(t, *page),
+                    egui::FontId::proportional(12.0),
+                    palette.muted,
+                );
+                if response
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    go = Some(*page);
+                }
+            }
+        });
+        if let Some(page) = go {
+            self.page = page;
+            {
+                self.search.clear();
+                self.search_open = false;
+            }
+        }
+    }
+
+    fn preview_column(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
+        ui.label(
+            RichText::new(t.get("livePreview").to_uppercase())
+                .font(ui::heading(10.5))
+                .extra_letter_spacing(1.1)
+                .color(palette.muted),
+        );
+        ui.add_space(8.0);
+        let width = ui.available_width().min(PREVIEW_WIDTH);
+        let (rect, _) =
+            ui.allocate_exact_size(vec2(width, (width * 0.625).round()), Sense::hover());
+        let photo = self.photo_backdrop_id().and_then(|id| {
+            self.wall_thumbs
+                .iter()
+                .find(|(known, _)| *known == id)
+                .map(|(_, texture)| texture)
+        });
+        let backdrop = Backdrop {
+            wallpaper: photo.or(self.wallpaper.as_ref()),
+            icon_size: self.config.icon_size,
+        };
+        ui::preview_scene(ui.painter(), rect, &backdrop, &self.config, palette.window);
+        ui.add_space(14.0);
+        let config = &self.config;
+        let edge = match config.menu_bar_position {
+            BarPosition::Top => t.get("posTop"),
+            BarPosition::Bottom => t.get("posBottom"),
+        };
+        let style = match config.menu_bar_style {
+            BarStyle::Docked => t.get("styleDocked"),
+            BarStyle::Floating => t.get("styleFloating"),
+        };
+        let dock_edge = match config.dock_position {
+            DockPosition::Bottom => t.get("posBottom"),
+            DockPosition::Left => t.get("posLeft"),
+            DockPosition::Right => t.get("posRight"),
+        };
+        for (label, value) in [
+            (
+                t.get("menuBar"),
+                if config.menu_bar {
+                    format!("{edge} · {style}")
+                } else {
+                    t.get("previewOff").to_owned()
+                },
+            ),
+            (
+                t.get("dock"),
+                format!("{dock_edge} · {} px", config.icon_size),
+            ),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(label).size(12.5).color(palette.muted));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(RichText::new(value).size(12.5).color(palette.text));
+                });
+            });
+            ui.add_space(2.0);
+        }
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new(t.get("previewNote"))
+                .size(11.5)
+                .color(palette.muted),
+        );
+    }
+
+    fn about_page(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
+        ui::card(ui, None, |ui| {
+            ui.add_space(14.0);
+            ui.horizontal(|ui| {
+                let (rect, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
+                if let Some(texture) = &self.logo {
+                    ui.painter().image(
+                        texture.id(),
+                        rect,
+                        egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                        egui::Color32::WHITE,
+                    );
+                }
+                ui.vertical(|ui| {
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new("Whirlpool")
+                            .font(ui::heading(22.0))
+                            .color(palette.text),
+                    );
+                    ui.label(
+                        RichText::new(format!(
+                            "Version {}  ·  {}",
+                            env!("CARGO_PKG_VERSION"),
+                            t.get("aboutTagline")
+                        ))
+                        .size(13.0)
+                        .color(palette.muted),
+                    );
+                });
+            });
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(t.get("aboutAuthor"))
+                    .size(13.5)
+                    .color(palette.text),
+            );
+            ui.add_space(12.0);
+            ui.horizontal(|ui| {
+                if ui::push(ui, t.get("aboutSource"), None).clicked() {
+                    let _ = launcher::open("https://github.com/prashantchataut/whirlpool");
+                }
+                if ui::push(ui, t.get("aboutIssues"), None).clicked() {
+                    let _ = launcher::open("https://github.com/prashantchataut/whirlpool/issues");
+                }
+                if ui::push(ui, t.get("aboutPrivacy"), None).clicked() {
+                    let _ = launcher::open(
+                        "https://github.com/prashantchataut/whirlpool/blob/main/docs/PRIVACY.md",
+                    );
+                }
+            });
+            ui.add_space(14.0);
+        });
+        ui::card(ui, Some(t.get("aboutLicense")), |ui| {
+            ui.add_space(12.0);
+            ui.label(
+                RichText::new(LICENSE_TEXT.trim())
+                    .size(12.5)
+                    .color(palette.muted),
+            );
+            ui.add_space(12.0);
+        });
+        ui::card(ui, Some(t.get("aboutPhotos")), |ui| {
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(t.get("aboutPhotosBody"))
+                    .size(12.5)
+                    .color(palette.muted),
+            );
+            ui.add_space(10.0);
+        });
+    }
+}
+
+const LICENSE_TEXT: &str = include_str!("../../../LICENSE");
+
+impl Settings {
     fn banner(&mut self, ui: &mut Ui, t: &Texts, palette: Palette) {
         let State::Available(release) = self.update_state.clone() else {
             return;
@@ -694,7 +1238,9 @@ impl Settings {
         let (send, receive) = mpsc::channel();
         let ctx = ctx.clone();
         thread::spawn(move || {
-            let applied = whirlpool_shell::wallpaper::apply(id).is_ok();
+            let applied = photos::find(id).is_some_and(|photo| {
+                whirlpool_shell::wallpaper::apply_photo(photo.id, photo.jpeg).is_ok()
+            });
             let _ = send.send((id.to_owned(), applied));
             ctx.request_repaint();
         });
@@ -879,6 +1425,13 @@ impl Settings {
                         ui.vertical(|ui| {
                             let (rect, response) =
                                 ui.allocate_exact_size(vec2(width, height), Sense::click());
+                            let response = match photos::find(id) {
+                                Some(photo) => response.on_hover_text(format!(
+                                    "{} · pexels.com/photo/{}",
+                                    photo.author, photo.pexels_id
+                                )),
+                                None => response,
+                            };
                             ui.painter().image(
                                 texture.id(),
                                 rect,
@@ -896,8 +1449,10 @@ impl Settings {
                                     egui::StrokeKind::Inside,
                                 );
                             }
-                            let name = wallpaper::find(id).map_or(*id, |preset| preset.name);
+                            let (name, author) = photos::find(id)
+                                .map_or((*id, ""), |photo| (photo.title, photo.author));
                             ui.label(RichText::new(name).size(12.5));
+                            ui.label(RichText::new(author).size(11.0).weak());
                             if response.clicked() && busy.is_none() {
                                 chosen = Some(*id);
                             }
@@ -912,7 +1467,14 @@ impl Settings {
             let entropy = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(7, |elapsed| elapsed.as_nanos() as u64);
-            chosen = Some(wallpaper::shuffle(self.config.wallpaper.as_deref(), entropy).id);
+            let pool: Vec<&'static str> = photos::PHOTOS
+                .iter()
+                .map(|photo| photo.id)
+                .filter(|id| Some(*id) != self.config.wallpaper.as_deref())
+                .collect();
+            if !pool.is_empty() {
+                chosen = Some(pool[(entropy as usize) % pool.len()]);
+            }
         }
         if let Some(id) = chosen {
             self.apply_wallpaper(id, &ctx);

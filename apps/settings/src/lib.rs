@@ -5,6 +5,9 @@
 //! `--settings`, so there is one program to install and one icon to trust.
 
 mod app;
+mod icons;
+mod photos;
+mod quick;
 mod text;
 mod ui;
 mod update;
@@ -14,6 +17,11 @@ use eframe::egui;
 /// Opens the settings window (OpenGL) and returns when it is closed.
 pub fn run() -> eframe::Result {
     open(eframe::Renderer::Glow)
+}
+
+/// Opens the quick settings panel; see [`quick`].
+pub fn run_quick(right: i32, anchor_y: i32, bottom: bool) -> eframe::Result {
+    quick::run(right, anchor_y, bottom)
 }
 
 /// The same window drawn with DirectX instead of OpenGL, for machines whose
@@ -31,7 +39,7 @@ fn open(renderer: eframe::Renderer) -> eframe::Result {
             .with_title("Whirlpool")
             .with_icon(std::sync::Arc::new(window_icon()))
             .with_inner_size([width, height])
-            .with_min_inner_size([width.min(760.0), height.min(520.0)]),
+            .with_min_inner_size([width.min(560.0), height.min(420.0)]),
         centered: true,
         renderer,
         ..Default::default()
@@ -56,10 +64,10 @@ fn window_size() -> (f32, f32) {
     let work_width = (monitor.work_right - monitor.work_left) as f32 / scale;
     let work_height = (monitor.work_bottom - monitor.work_top) as f32 / scale;
     let width = (work_width * 0.62)
-        .clamp(760.0, 1040.0)
+        .clamp(560.0, 1040.0)
         .min(work_width - 32.0);
     let height = (work_height * 0.8)
-        .clamp(520.0, 780.0)
+        .clamp(420.0, 780.0)
         .min(work_height - 32.0);
     (width.max(480.0), height.max(360.0))
 }

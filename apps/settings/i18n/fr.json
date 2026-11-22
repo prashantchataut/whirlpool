@@ -108,5 +108,6 @@
   "barEdgeHint": "Place la barre en haut ou en bas. En bas, son îlot s'ouvre vers le haut comme une bulle.",
   "barEdgeTop": "Haut",
   "barEdgeBottom": "Bas",
-  "barAlign": "Alignement"
+  "barAlign": "Alignement",
+  "wallpapersHint": "Photos de Pexels incluses dans l'application. Cliquez sur l'une d'elles pour l'appliquer."
 }
