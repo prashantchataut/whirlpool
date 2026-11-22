@@ -116,12 +116,11 @@ fn spawn_settings_compat() -> std::io::Result<std::process::Child> {
 }
 
 /// The settings window. Only one at a time: a second request raises the first.
-fn open_settings() -> Result<()> {
+fn open_settings(compat: bool) -> Result<()> {
     // SAFETY: The static name is valid; the handle is released when the process exits.
-    let _single =
-        unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Settings"))?) };
+    let single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Settings"))?) };
     // SAFETY: Reads the thread's last error immediately after the call.
-    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         // SAFETY: Plain window lookups on the desktop; failures are ignored.
         unsafe {
             if let Ok(window) = FindWindowW(None, w!("Whirlpool")) {
