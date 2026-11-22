@@ -95,6 +95,7 @@ use windows::{
 
 use crate::{
     assets::{Visuals, fallback_name},
+    charge,
     drop::DropTarget,
     edge_watch::{self, EdgeWatch, Reveal, Target as EdgeTarget},
     flight::{Flight, Snapshot},
@@ -856,6 +857,7 @@ struct App {
     menu_open: bool,
     /// The crab, while it is out (see `perform`).
     mascot: Option<mascot::Mascot>,
+    charge: Option<charge::Charge>,
     /// Charging and energy saver at the last power change.
     power_seen: Option<(Option<bool>, bool)>,
     /// When the charger act last played.
@@ -2451,15 +2453,7 @@ impl App {
         whirlpool_shell::updates::mark_checked();
         self.update_tried = Some(Instant::now());
         self.schedule_update();
-        let settings = env::current_exe()
-            .ok()
-            .map(|exe| exe.with_file_name("whirlpool-settings.exe"))
-            .filter(|path| path.exists());
-        if let Some(settings) = settings
-            && let Err(error) = std::process::Command::new(settings).arg("--update").spawn()
-        {
-            eprintln!("whirlpool: actualización: {error}");
-        }
+        // Updates are installed by Setup; the dock never touches the network.
     }
 
     /// The crab plays `act` (see `mascot`), unless it is out already, it is
@@ -2494,6 +2488,27 @@ impl App {
         }
         if self.mascot.is_some() && act == mascot::Act::Charging {
             self.charging_shown = Some(Instant::now());
+        }
+    }
+
+    /// The charger plugged in: a medallion drops in under the menu bar.
+    fn start_charge(&mut self) {
+        if !self.config.charging_animation
+            || self.charge.is_some()
+            || self.fullscreen
+            || !animations_enabled()
+        {
+            return;
+        }
+        let percent = whirlpool_shell::system::battery().map_or(100, |battery| battery.percent);
+        let ripples = self.config.charging_style == whirlpool_config::ChargingStyle::Surge;
+        self.charge = charge::Charge::play(&self.gfx, percent, ripples);
+        if self.charge.is_some() {
+            self.charging_shown = Some(Instant::now());
+            // SAFETY: A timer on our own window; `mascot_tick` ends it with the animation.
+            unsafe {
+                SetTimer(Some(self.input), MASCOT_TIMER, MASCOT_POLL_MS, None);
+            }
         }
     }
 
@@ -2538,6 +2553,15 @@ impl App {
     }
 
     fn mascot_tick(&mut self) -> Result<()> {
+        if self.charge.as_ref().is_some_and(charge::Charge::finished)
+            || !self.config.charging_animation
+            || self.fullscreen
+        {
+            self.charge = None;
+        }
+        if self.charge.is_some() && self.mascot.is_none() {
+            return Ok(());
+        }
         if !self.config.mascot
             || self.fullscreen
             || !animations_enabled()
@@ -2585,6 +2609,14 @@ impl App {
                 .is_none_or(|shown| shown.elapsed() >= CHARGING_AGAIN);
         let act = power_act(before, now, charging_allowed);
         if let Some(act) = act {
+            if act == mascot::Act::Unplugged {
+                self.charge = None;
+            }
+            if act == mascot::Act::Charging {
+                // The charger has its own animation; the crab stays out of it.
+                self.start_charge();
+                return;
+            }
             if matches!(act, mascot::Act::Charging | mascot::Act::Unplugged)
                 && self.config.mascot
                 && !self.fullscreen
@@ -4205,6 +4237,11 @@ impl App {
             battery_percent: self.config.menu_bar_battery_percent,
             island_style: self.config.menu_bar_island_style,
             opacity: self.config.menu_bar_opacity,
+            size: self.config.menu_bar_size,
+            floating: self.config.menu_bar_style == whirlpool_config::BarStyle::Floating,
+            inset: self.config.menu_bar_inset,
+            gap: self.config.menu_bar_gap,
+            radius: self.config.menu_bar_radius,
             date: self.config.menu_bar_date,
             hour24: self.config.menu_bar_24h,
         };
@@ -4991,15 +5028,14 @@ fn run_outside(outside: Outside) {
         Outside::ShowDesktop => launcher::show_desktop(),
         Outside::UnpinFromTaskbar(id) => submit(ShellAction::Unpin { id }),
         Outside::OpenSettings => {
-            // The settings app is installed next to the dock.
-            let settings = env::current_exe()
-                .ok()
-                .map(|exe| exe.with_file_name("whirlpool-settings.exe"));
-            match settings {
-                Some(path) if path.exists() => submit(ShellAction::Open {
-                    id: path.to_string_lossy().into_owned(),
-                }),
-                _ => eprintln!("whirlpool: no se encontró whirlpool-settings.exe junto al dock"),
+            // Settings is this same program, started with `--settings`.
+            match env::current_exe() {
+                Ok(exe) => {
+                    if let Err(error) = std::process::Command::new(exe).arg("--settings").spawn() {
+                        whirlpool_shell::log::line(&format!("ajustes: {error}"));
+                    }
+                }
+                Err(error) => whirlpool_shell::log::line(&format!("ajustes: {error}")),
             }
         }
         Outside::InputMenu { gfx, anchor, dark } => {
@@ -5568,6 +5604,7 @@ pub fn run() -> Result<()> {
             ghost: None,
             menu_open: false,
             mascot: None,
+            charge: None,
             // Initial registration notifications establish the baseline after
             // the queue starts, without playing a startup charging/saver act.
             power_seen: None,

@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag such as v1.0.0 to build both programs on Windows, write checksums and a
+# Push a tag such as v2.0.0 to build the program and its installer on Windows, write checksums and a
 # build-provenance attestation, and attach everything to a GitHub release.
 on:
   push:
@@ -25,27 +25,42 @@ jobs:
       - name: Test
         run: cargo test --workspace
       - name: Build
-        run: cargo build --release -p whirlpool -p whirlpool-settings
+        run: cargo build --release -p whirlpool
       - name: Sign (only when a certificate is configured)
         if: env.CERT_PFX != ''
         shell: pwsh
         run: |
           [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:CERT_PFX))
           $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
-          foreach ($exe in 'whirlpool.exe', 'whirlpool-settings.exe') {
-            & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD "target/release/$exe"
-            if ($LASTEXITCODE -ne 0) { throw "signing $exe failed" }
-          }
+          & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD "target/release/whirlpool.exe"
+          if ($LASTEXITCODE -ne 0) { throw "signing whirlpool.exe failed" }
+          Remove-Item "$env:RUNNER_TEMP\cert.pfx"
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_NAME -match '^v(.+)$') { $Matches[1] } else { '0.0.0' }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          & $iscc "/DAppVersion=$version" installer\whirlpool.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
+      - name: Sign the installer (only when a certificate is configured)
+        if: env.CERT_PFX != ''
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:CERT_PFX))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
+          & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD dist/Whirlpool-Setup.exe
           Remove-Item "$env:RUNNER_TEMP\cert.pfx"
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item target/release/whirlpool.exe, target/release/whirlpool-settings.exe dist/
+          Copy-Item target/release/whirlpool.exe dist/
           Copy-Item scripts/install.ps1 dist/
-          Compress-Archive -Path dist/whirlpool.exe, dist/whirlpool-settings.exe -DestinationPath dist/Whirlpool-x64.zip
+          Compress-Archive -Path dist/whirlpool.exe, LICENSE -DestinationPath dist/Whirlpool-x64.zip
           Push-Location dist
-          Get-FileHash whirlpool.exe, whirlpool-settings.exe, Whirlpool-x64.zip -Algorithm SHA256 |
+          Get-FileHash whirlpool.exe, Whirlpool-Setup.exe, Whirlpool-x64.zip -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS.txt
           Pop-Location
           # Release notes: the CHANGELOG section of this version, English part first.
@@ -61,7 +76,7 @@ jobs:
         with:
           subject-path: |
             dist/whirlpool.exe
-            dist/whirlpool-settings.exe
+            dist/Whirlpool-Setup.exe
             dist/Whirlpool-x64.zip
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
@@ -71,7 +86,7 @@ jobs:
           body_path: dist/notes.md
           files: |
             dist/whirlpool.exe
-            dist/whirlpool-settings.exe
+            dist/Whirlpool-Setup.exe
             dist/Whirlpool-x64.zip
             dist/install.ps1
             dist/SHA256SUMS.txt

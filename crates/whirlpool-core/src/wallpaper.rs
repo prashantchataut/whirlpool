@@ -21,6 +21,15 @@ pub enum Style {
     /// A spiral of light around a bright eye: outer background, centre
     /// background, arms, eye, spare.
     Vortex,
+    /// Curtains of light over a starfield: sky top, sky bottom, three ribbons.
+    Aurora,
+    /// Contour lines of a noise landscape: background, minor line, major
+    /// line, shade, spare.
+    Topo,
+    /// A sun over a perspective grid: sky top, horizon, sun, grid, floor.
+    Grid,
+    /// The house vortex in four dithered tones: dark to bright (fifth unused).
+    Dither,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -231,6 +240,174 @@ pub const PRESETS: &[Preset] = &[
         [0x2a2c34, 0x9a9ca8, 0xf0ede8, 0x5a5c68, 0x1a1c22],
         47,
     ),
+    preset(
+        "boreal",
+        "Boreal",
+        Style::Aurora,
+        [0x020812, 0x0a2a3a, 0x3dffb0, 0x2fa8ff, 0x9a6bff],
+        21,
+    ),
+    preset(
+        "solstice",
+        "Solstice",
+        Style::Aurora,
+        [0x07031a, 0x1a1040, 0xff5fb0, 0x7a5cff, 0x3de6ff],
+        22,
+    ),
+    preset(
+        "glacier-2",
+        "Glacier II",
+        Style::Aurora,
+        [0x03101c, 0x0d3b52, 0x7ff3ff, 0x38b6ff, 0xd8fff6],
+        23,
+    ),
+    preset(
+        "ember-sky",
+        "Ember Sky",
+        Style::Aurora,
+        [0x120406, 0x3a0f1a, 0xff7a3d, 0xffc15a, 0xff3d6e],
+        24,
+    ),
+    preset(
+        "verdant-2",
+        "Verdant II",
+        Style::Aurora,
+        [0x02100a, 0x0a3a22, 0x7dff6b, 0x2fe6a0, 0xe6ff7a],
+        25,
+    ),
+    preset(
+        "violet-hour",
+        "Violet Hour",
+        Style::Aurora,
+        [0x0a0618, 0x2a1458, 0xc06bff, 0xff6bd6, 0x6b8bff],
+        26,
+    ),
+    preset(
+        "contour",
+        "Contour",
+        Style::Topo,
+        [0x06141c, 0x1f6f86, 0x6ff2e0, 0x0e3a4a, 0xffffff],
+        31,
+    ),
+    preset(
+        "ridgeline",
+        "Ridgeline",
+        Style::Topo,
+        [0x0e0c14, 0x5a4a8a, 0xffb86b, 0x2a2440, 0xffffff],
+        32,
+    ),
+    preset(
+        "paper-map",
+        "Paper Map",
+        Style::Topo,
+        [0xf3efe4, 0x2a3a36, 0xd9482b, 0xe3dccb, 0x000000],
+        33,
+    ),
+    preset(
+        "deep-survey",
+        "Deep Survey",
+        Style::Topo,
+        [0x020a14, 0x1b4a7a, 0x59d0ff, 0x08203a, 0xffffff],
+        34,
+    ),
+    preset(
+        "moss-map",
+        "Moss Map",
+        Style::Topo,
+        [0x0b140c, 0x3f7a4a, 0xc8ff6b, 0x14281a, 0xffffff],
+        35,
+    ),
+    preset(
+        "mono-lines",
+        "Mono Lines",
+        Style::Topo,
+        [0x0a0a0a, 0x6a6a6a, 0xffffff, 0x1a1a1a, 0xffffff],
+        36,
+    ),
+    preset(
+        "neon-run",
+        "Neon Run",
+        Style::Grid,
+        [0x0a0420, 0x4a0e5e, 0xff5fa8, 0x38e8ff, 0x14062e],
+        41,
+    ),
+    preset(
+        "dusk-drive",
+        "Dusk Drive",
+        Style::Grid,
+        [0x14061e, 0x5a1a4a, 0xffa04a, 0xff4a8a, 0x1a0a26],
+        42,
+    ),
+    preset(
+        "cyan-line",
+        "Cyan Line",
+        Style::Grid,
+        [0x02101a, 0x0a3a52, 0x7ff3ff, 0x2fd6e6, 0x04202e],
+        43,
+    ),
+    preset(
+        "mint-grid",
+        "Mint Grid",
+        Style::Grid,
+        [0x03140e, 0x0e4a38, 0x9affc8, 0x3de6a0, 0x062a1e],
+        44,
+    ),
+    preset(
+        "sunburn",
+        "Sunburn",
+        Style::Grid,
+        [0x1a0606, 0x6a1a1a, 0xffd04a, 0xff6a3a, 0x240a0a],
+        45,
+    ),
+    preset(
+        "mono-grid",
+        "Mono Grid",
+        Style::Grid,
+        [0x080808, 0x2a2a2a, 0xf0f0f0, 0xa0a0a0, 0x121212],
+        46,
+    ),
+    preset(
+        "dither-tide",
+        "Dither Tide",
+        Style::Dither,
+        [0x020b16, 0x0a4a66, 0x2fd6e6, 0xf2ffff, 0x000000],
+        51,
+    ),
+    preset(
+        "dither-ink",
+        "Dither Ink",
+        Style::Dither,
+        [0x0a0a0c, 0x3a3a46, 0x9a9aa8, 0xffffff, 0x000000],
+        52,
+    ),
+    preset(
+        "dither-amber",
+        "Dither Amber",
+        Style::Dither,
+        [0x120a02, 0x6a3a0a, 0xe6902f, 0xfff2d6, 0x000000],
+        53,
+    ),
+    preset(
+        "dither-rose",
+        "Dither Rose",
+        Style::Dither,
+        [0x14040e, 0x6a1a4a, 0xe62f9a, 0xffe6f4, 0x000000],
+        54,
+    ),
+    preset(
+        "dither-moss",
+        "Dither Moss",
+        Style::Dither,
+        [0x04100a, 0x14502a, 0x4ae66a, 0xe6ffee, 0x000000],
+        55,
+    ),
+    preset(
+        "dither-violet",
+        "Dither Violet",
+        Style::Dither,
+        [0x0a0618, 0x2e1a6a, 0x8a6bff, 0xf0e6ff, 0x000000],
+        56,
+    ),
 ];
 
 #[must_use]
@@ -382,11 +559,121 @@ fn vortex(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
     col
 }
 
+fn bayer4(x: i32, y: i32) -> f32 {
+    const M: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+    (f32::from(M[(y & 3) as usize][(x & 3) as usize]) + 0.5) / 16.0
+}
+
+fn aurora(p: &Preset, x: f32, y: f32, _aspect: f32) -> Rgb {
+    let [top, low, a, b, c] = p.colors.map(color);
+    let mut col = mix(top, low, smoothstep(0.0, 1.0, y));
+    let s = p.seed as f32;
+    for k in 0..3u32 {
+        let kf = k as f32;
+        let centre = 0.30
+            + 0.12 * kf
+            + 0.08 * (x * (1.1 + 0.6 * kf) + s + kf * 2.1).sin()
+            + 0.18 * (fbm(x * 0.9 + kf * 5.0, kf * 3.0, p.seed + k, 3) - 0.5);
+        let d = (y - centre) / (0.10 + 0.03 * kf);
+        // Curtains glow above their lower edge, like real ones.
+        let body = if d < 0.0 {
+            (-d * d * 0.6).exp()
+        } else {
+            (-d * d * 2.4).exp()
+        };
+        let streak = 0.55 + 0.45 * fbm(x * 38.0 + kf * 11.0, y * 1.5, p.seed + 9 + k, 2);
+        let shift = smoothstep(0.35, 0.75, fbm(x * 1.7, kf * 4.0 + 2.0, p.seed + 17, 2));
+        let tint = mix(mix(a, b, kf / 2.0), c, shift);
+        col = add(col, tint, 0.85 * body * streak);
+    }
+    // Stars, chunky like pixels.
+    let (cx, cy) = ((x * 260.0).floor() as i32, (y * 260.0).floor() as i32);
+    if y < 0.7 && hash(cx, cy, p.seed + 31) > 0.9972 {
+        col = add(col, [255.0, 255.0, 255.0], 0.65);
+    }
+    col
+}
+
+fn topo(p: &Preset, x: f32, y: f32, _aspect: f32) -> Rgb {
+    let [bg, line, accent, shade, _] = p.colors.map(color);
+    let h = fbm(x * 2.1 + 3.0, y * 2.1 + 1.0, p.seed, 5);
+    let f = h * 16.0;
+    let frac = f - f.floor();
+    let d = frac.min(1.0 - frac);
+    let major = (f.floor() as i32).rem_euclid(5) == 0;
+    let width = if major { 0.11 } else { 0.06 };
+    let ink = 1.0 - smoothstep(width * 0.55, width, d);
+    let col = mix(bg, shade, smoothstep(0.25, 0.8, h));
+    if major {
+        mix(col, accent, ink * 0.95)
+    } else {
+        mix(col, line, ink * 0.55)
+    }
+}
+
+fn grid(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
+    let [top, haze, sun, line, floor] = p.colors.map(color);
+    let horizon_y = 0.56;
+    let dx = x - aspect * 0.5;
+    if y < horizon_y {
+        let mut col = mix(top, haze, smoothstep(0.0, horizon_y, y));
+        // The sun: a disc cut by bands that widen toward the horizon.
+        let (sy, r) = (horizon_y - 0.17, 0.15);
+        let d = (dx * dx + (y - sy) * (y - sy)).sqrt();
+        let band = ((y - (sy - r)) / (2.0 * r)).clamp(0.0, 1.0);
+        let cut = if band > 0.5 {
+            smoothstep(0.0, 0.5, (band * 14.0).fract() + (0.5 - band) * 1.6)
+        } else {
+            1.0
+        };
+        col = add(col, sun, 0.22 * (-d * d / 0.05).exp());
+        return mix(col, sun, smoothstep(r, r - 0.004, d) * cut);
+    }
+    let t = (y - horizon_y).max(0.0005);
+    let z = 0.06 / t;
+    let (gx, gz) = (dx * z * 5.0, z * 2.5);
+    let wx = (gx - gx.round()).abs() / (z * 5.0 + 1.0);
+    let wz = (gz - gz.round()).abs() / (z * 2.5 + 1.0);
+    let ink = 1.0 - smoothstep(0.012, 0.03, wx.min(wz).min(0.5) * 2.0);
+    let fade = smoothstep(0.0, 0.1, t);
+    let base = mix(haze, floor, smoothstep(0.0, 0.35, t));
+    add(
+        mix(base, line, ink * fade * 0.9),
+        line,
+        0.12 * (-t * 22.0).exp(),
+    )
+}
+
+fn dither(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
+    let [c0, c1, c2, c3, _] = p.colors.map(color);
+    // A coarse grid, so the dots stay visible at any resolution.
+    let cells = 200.0;
+    let (ix, iy) = ((x * cells).floor() as i32, (y * cells).floor() as i32);
+    let (cx, cy) = ((ix as f32 + 0.5) / cells, (iy as f32 + 0.5) / cells);
+    let (dx, dy) = (cx - aspect * 0.5, cy - 0.5);
+    let d = (dx * dx + dy * dy).sqrt();
+    let phase = dy.atan2(dx) * 3.0 - 8.0 * (d + 0.03).ln();
+    let band = smoothstep(0.2, 1.0, phase.sin());
+    let level = 0.12
+        + 0.62 * band * (-d * 2.0).exp()
+        + 0.5 * (-d * d / 0.006).exp()
+        + 0.18 * (-d * 1.2).exp()
+        + 0.08 * (fbm(cx * 3.0, cy * 3.0, p.seed, 3) - 0.5);
+    let tone = (level.clamp(0.0, 1.0) * 3.0 + bayer4(ix, iy) - 0.5)
+        .round()
+        .clamp(0.0, 3.0) as usize;
+    [c0, c1, c2, c3][tone]
+}
+
 fn pixel(p: &Preset, x: f32, y: f32, aspect: f32) -> Rgb {
     let mut col = match p.style {
         Style::Mesh => mesh(p, x, y, aspect),
         Style::Horizon => horizon(p, x, y, aspect),
         Style::Vortex => vortex(p, x, y, aspect),
+        Style::Aurora => aurora(p, x, y, aspect),
+        Style::Topo => topo(p, x, y, aspect),
+        Style::Grid => grid(p, x, y, aspect),
+        Style::Dither => return dither(p, x, y, aspect),
     };
     // Gentle vignette.
     let (vx, vy) = (x / aspect - 0.5, y - 0.5);
@@ -484,7 +771,15 @@ mod tests {
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), PRESETS.len());
-        for style in [Style::Mesh, Style::Horizon, Style::Vortex] {
+        for style in [
+            Style::Mesh,
+            Style::Horizon,
+            Style::Vortex,
+            Style::Aurora,
+            Style::Topo,
+            Style::Grid,
+            Style::Dither,
+        ] {
             assert!(PRESETS.iter().any(|preset| preset.style == style));
         }
         assert!(PRESETS.len() >= 24);

@@ -5,12 +5,14 @@ import MenuBar from './components/MenuBar'
 import Playground, { WallpaperCanvas } from './components/Playground'
 import Screens from './components/Screens'
 import Trust from './components/Trust'
+import WhatsNew from './components/WhatsNew'
 import logo from './assets/logo.png'
 
 const REPO = 'https://github.com/prashantchataut/whirlpool'
-const DOWNLOAD = `${REPO}/releases/latest/download/Whirlpool-x64.zip`
+const DOWNLOAD = `${REPO}/releases/latest/download/Whirlpool-Setup.exe`
 
 const NAV: [string, string][] = [
+  ['What’s new', '#new'],
   ['Customize', '#customize'],
   ['Wallpapers', '#wallpapers'],
   ['Screens', '#screens'],
@@ -50,10 +52,10 @@ function Hero() {
             A dock that moves like water.
           </h1>
           <p className="mt-6 max-w-[520px] text-[18px] leading-relaxed text-white/75">
-            Whirlpool gives Windows 10 and 11 a magnifying glass dock and a menu bar. Two small native Rust programs, no web view, and it sleeps when you do.
+            Whirlpool gives Windows 10 and 11 a magnifying glass dock and a menu bar. One small native Rust program, settings included, no web view, and it sleeps when you do.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
-            <a href={DOWNLOAD} className="btn-primary">Download for Windows</a>
+            <a href={DOWNLOAD} className="btn-primary">Download Setup</a>
             <a href={REPO} className="btn-ghost">View the source</a>
           </div>
           <p className="mt-5 text-[13.5px] text-white/55">Windows 10 (1903+) and 11, 64-bit. Free and MIT licensed.</p>
@@ -83,8 +85,8 @@ function Hero() {
 }
 
 const FACTS: [string, string][] = [
-  ['2', 'native executables'],
-  ['24', 'drawn wallpapers'],
+  ['1', 'native executable'],
+  ['54', 'drawn wallpapers'],
   ['3', 'dock edges'],
   ['0', 'telemetry'],
 ]
@@ -135,6 +137,7 @@ export default function App() {
       <main>
         <Hero />
         <Facts />
+        <WhatsNew />
         <Playground />
         <Screens />
         <Trust />

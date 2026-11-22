@@ -8,6 +8,24 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ## [Unreleased]
 
+## [2.0.0]
+
+### Fixed
+- **Settings did not open.** The dock looked for a separate `whirlpool-settings.exe` that was missing for anyone who downloaded only `whirlpool.exe`. Settings is now part of `whirlpool.exe`.
+- **Old logo in Settings.** The window drew an old hand-made mark. It now shows the real logo, in the sidebar and as the window icon.
+- **No logo on the executable.** The icon file is rebuilt (classic bitmap frames for small sizes, PNG for 256 px) and the installer carries it too.
+- **The crab appeared when charging.** Charging has its own animation now.
+
+### Added
+- `Whirlpool-Setup.exe`, a per-user installer (Inno Setup) with Start menu entries, optional start with Windows, uninstall and taskbar restore.
+- Charging animation (*Surge* or *Halo*) with the real battery level.
+- Menu bar style (docked or floating), size (compact, regular, large), side margin, top gap and corner radius.
+- 30 wallpapers in four new styles (aurora, topographic, grid, dither): 54 in total.
+- Starting Whirlpool again while it runs opens Settings.
+
+### Changed
+- One executable instead of two. The release no longer contains `whirlpool-settings.exe`.
+
 ## [1.0.0]
 
 ### English

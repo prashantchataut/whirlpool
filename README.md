@@ -7,7 +7,7 @@
 <p align="center">
   <b>A dock that moves like water.</b><br>
   A magnifying dock and a customizable menu bar for Windows 10 and 11.<br>
-  Two small native Rust programs. No web view. No runtime. It sleeps when you do.
+  One small native Rust program, settings included. No web view. No runtime. It sleeps when you do.
 </p>
 
 <p align="center">
@@ -24,6 +24,29 @@
 > **About the images.** Everything under `docs/previews/` is a **design render** drawn from the app's own palette, labels and
 > layout (the website builds them from the same components as its live demo). They are not captures of a running Windows
 > session. Please run the release and compare.
+
+## New in 2.0
+
+<p align="center">
+  <img src="docs/previews/charging.png" alt="Design render: the charging animation, a glass medallion with a bolt and a battery ring, rings of water spreading from it" width="860">
+</p>
+
+- **One program.** Settings is built into `whirlpool.exe` (`whirlpool.exe --settings`). Right-click the dock, use the Start menu entry, or start Whirlpool again while it runs. The old second download is gone, and Settings now exits completely when you close it.
+- **A real installer.** `Whirlpool-Setup.exe`: per user, no administrator rights, Start menu entries, optional start with Windows, an entry in Apps and Features, and a clean uninstall that gives the taskbar back.
+- **The right logo everywhere.** The executable, the installer, the Settings window, its title bar and its sidebar all use the same mark. The icon file was rebuilt in the most compatible format.
+- **New charging animation.** A glass medallion drops in under the menu bar, its ring fills to your real battery level, a bolt pulses and rings of water spread out. *Surge* or the calmer *Halo*, or off. The old mascot no longer appears for the charger.
+- **Menu bar look and position.** Docked or floating (side margin, top gap, corner radius), compact, regular or large.
+- **54 wallpapers.** Aurora, contour maps, a synthwave grid and the dithered vortex join the originals.
+
+<p align="center">
+  <img src="docs/previews/menubar-styles.png" alt="Design render: the menu bar docked and floating" width="860">
+</p>
+<p align="center">
+  <img src="docs/previews/wallpapers-new.jpg" alt="The 30 new wallpapers, drawn by the app's renderer" width="860">
+</p>
+
+> The charging and menu bar images are **design renders** (`scripts/render_v2.py`) that use the app's own maths and palette.
+> The wallpaper sheet is the app's real renderer. None is a capture of a running Windows session.
 
 ## What you get
 
@@ -56,14 +79,15 @@
 
 Windows 10 (1903+) or Windows 11, 64-bit.
 
-**One line, per user, no admin.** The script verifies the SHA-256 of every file before it installs anything:
+**Setup (recommended).** Download `Whirlpool-Setup.exe` from [Releases](https://github.com/prashantchataut/whirlpool/releases/latest) and run it. No administrator rights.
+
+**One line, per user, no admin.** The script verifies the SHA-256 of the file before it installs anything:
 
 ```powershell
 irm https://raw.githubusercontent.com/prashantchataut/whirlpool/main/scripts/install.ps1 | iex
 ```
 
-**Or manually:** download `whirlpool.exe` and `whirlpool-settings.exe` from [Releases](https://github.com/prashantchataut/whirlpool/releases/latest),
-keep them in one folder and run `whirlpool.exe`.
+**Portable.** Download `whirlpool.exe` (or the zip) and run it. Open settings from the dock's right-click menu, or run `whirlpool.exe --settings`.
 
 ### Windows warns me. Is it safe?
 
