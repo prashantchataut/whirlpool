@@ -53,3 +53,10 @@ instead of each file. The release workflow already signs when two repository sec
 
 Free option for open source: apply to the [SignPath Foundation](https://signpath.org/) and replace the signing step
 with their GitHub action. Until a certificate is in place, releases are unsigned and say so.
+
+## Why Windows may warn, and what 2.0 changes
+
+- There is now one executable, with full version information and the real icon, and a standard installer (per user, no administrator rights, normal uninstall entry). Fewer, better-described files look less like a dropper than two loose executables.
+- Nothing is downloaded or unpacked at run time. Settings is part of the same signed-or-unsigned file, not a second program fetched later.
+- The release workflow records a build-provenance attestation for `whirlpool.exe`, `Whirlpool-Setup.exe` and the zip, plus `SHA256SUMS.txt`.
+- SmartScreen reputation is earned by downloads or by a code-signing certificate. Until one is configured, expect *More info > Run anyway* on first run. Maintainers can also submit each release to Microsoft as a false-positive report.
