@@ -109,5 +109,6 @@
   "barEdgeTop": "Haut",
   "barEdgeBottom": "Bas",
   "barAlign": "Alignement",
-  "wallpapersHint": "Photos de Pexels incluses dans l'application. Cliquez sur l'une d'elles pour l'appliquer."
+  "wallpapersHint": "Photos de Pexels incluses dans l'application. Cliquez sur l'une d'elles pour l'appliquer.",
+  "chargingAnimationHint": "Joue une animation quand vous branchez le chargeur."
 }

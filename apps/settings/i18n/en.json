@@ -118,7 +118,7 @@
   "startupRise": "Rise",
   "startupSwift": "Swift",
   "chargingAnimation": "Charging animation",
-  "chargingAnimationHint": "The crab plugs in when you connect the charger.",
+  "chargingAnimationHint": "Play an animation when you connect the charger.",
   "groupMenuBarLook": "Menu bar look",
   "menuBarOpacity": "Tint strength",
   "menuBarDate": "Show the date",
