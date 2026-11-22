@@ -95,7 +95,8 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
-        ["--settings"] => open_settings(),
+        ["--settings"] => open_settings(false),
+        ["--settings-compat"] => open_settings(true),
         _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
     }
 }
@@ -107,13 +108,19 @@ fn spawn_settings() -> std::io::Result<std::process::Child> {
         .spawn()
 }
 
+/// The same window, drawn with DirectX. Used when OpenGL is not available.
+fn spawn_settings_compat() -> std::io::Result<std::process::Child> {
+    std::process::Command::new(env::current_exe()?)
+        .arg("--settings-compat")
+        .spawn()
+}
+
 /// The settings window. Only one at a time: a second request raises the first.
-fn open_settings() -> Result<()> {
+fn open_settings(compat: bool) -> Result<()> {
     // SAFETY: The static name is valid; the handle is released when the process exits.
-    let _single =
-        unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Settings"))?) };
+    let single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Settings"))?) };
     // SAFETY: Reads the thread's last error immediately after the call.
-    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         // SAFETY: Plain window lookups on the desktop; failures are ignored.
         unsafe {
             if let Ok(window) = FindWindowW(None, w!("Whirlpool")) {
@@ -123,15 +130,36 @@ fn open_settings() -> Result<()> {
         }
         return Ok(());
     }
-    whirlpool_settings::run().map_err(|error| {
+    if !compat {
+        // A crash inside the graphics driver aborts the process. Before that
+        // happens, start the DirectX window so the user still gets Settings.
+        std::panic::set_hook(Box::new(|info| {
+            whirlpool_shell::log::line(&format!("settings crashed, retrying with DirectX: {info}"));
+            whirlpool_shell::log::flush();
+            let _ = spawn_settings_compat();
+        }));
+    }
+    let shown = if compat {
+        whirlpool_settings::run_compat()
+    } else {
+        whirlpool_settings::run()
+    };
+    shown.map_err(|error| {
         // The program has no console, so a failure to open the window would
         // be silent. Say what happened and where the details are.
-        whirlpool_shell::log::line(&format!("settings: {error}"));
+        whirlpool_shell::log::line(&format!("settings (compat={compat}): {error}"));
         whirlpool_shell::log::flush();
+        if !compat {
+            let _ = std::panic::take_hook();
+            drop(single);
+            if spawn_settings_compat().is_ok() {
+                return anyhow::anyhow!("settings: OpenGL failed, DirectX window started");
+            }
+        }
         let text = format!(
             "Whirlpool Settings could not open its window.\n\n{error}\n\n\
-             This usually means the graphics driver does not offer OpenGL 2.0 or newer \
-             (a remote desktop session or a virtual machine, for example). \
+             Neither OpenGL nor DirectX could create a window. This can happen in a \
+             remote desktop session or a virtual machine without graphics acceleration. \
              Details: %LOCALAPPDATA%\\Whirlpool\\whirlpool.log"
         );
         // SAFETY: A plain message box owned by no window; the strings outlive the call.

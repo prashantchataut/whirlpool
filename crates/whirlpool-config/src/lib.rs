@@ -154,6 +154,8 @@ pub struct Config {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AnimationStyle {
+    /// The slowest, dreamiest settle. Nothing hurries.
+    Dreamy,
     /// Slow and floaty.
     Relaxed,
     /// A little slower than the default, with long, silky settles.
@@ -162,6 +164,8 @@ pub enum AnimationStyle {
     Brisk,
     /// Quick and crisp.
     Snappy,
+    /// As fast as motion can be and still read as motion.
+    Rapid,
     /// The original feel. Also what an unknown value reads as.
     #[default]
     #[serde(other)]
@@ -173,11 +177,13 @@ impl AnimationStyle {
     #[must_use]
     pub fn speed(self) -> f32 {
         match self {
+            Self::Dreamy => 0.55,
             Self::Relaxed => 0.7,
             Self::Fluid => 0.85,
             Self::Smooth => 1.0,
             Self::Brisk => 1.3,
             Self::Snappy => 1.6,
+            Self::Rapid => 2.1,
         }
     }
 }
@@ -188,6 +194,8 @@ impl AnimationStyle {
 pub enum StartupAnimation {
     /// The dock simply appears.
     Off,
+    /// The dock floats in from far away, slowly.
+    Float,
     /// The slowest, softest arrival: the dock drifts in.
     Drift,
     /// A long, soft glide up from the edge.
@@ -208,6 +216,7 @@ impl StartupAnimation {
     pub fn omega(self) -> Option<f32> {
         match self {
             Self::Off => None,
+            Self::Float => Some(2.4),
             Self::Drift => Some(3.6),
             Self::Glide => Some(5.5),
             Self::Rise => Some(9.0),
@@ -279,6 +288,16 @@ pub enum BarTint {
     Amber,
     /// Soft rose.
     Rose,
+    /// Dusk violet.
+    Violet,
+    /// Cool mint.
+    Mint,
+    /// Red-orange, like the last light of the day.
+    Sunset,
+    /// Blue-grey stone.
+    Slate,
+    /// Warm paper.
+    Sand,
     /// The default deep teal. Also what an unknown value reads as.
     #[default]
     #[serde(other)]
@@ -296,6 +315,11 @@ impl BarTint {
             Self::Forest => [8, 30, 20],
             Self::Amber => [42, 26, 8],
             Self::Rose => [40, 12, 24],
+            Self::Violet => [26, 14, 44],
+            Self::Mint => [8, 38, 32],
+            Self::Sunset => [46, 18, 10],
+            Self::Slate => [20, 26, 34],
+            Self::Sand => [38, 33, 24],
         }
     }
 
@@ -309,6 +333,11 @@ impl BarTint {
             Self::Forest => [242, 252, 246],
             Self::Amber => [255, 249, 238],
             Self::Rose => [255, 242, 246],
+            Self::Violet => [247, 242, 255],
+            Self::Mint => [240, 253, 249],
+            Self::Sunset => [255, 244, 238],
+            Self::Slate => [241, 244, 248],
+            Self::Sand => [252, 249, 241],
         }
     }
 }
@@ -324,6 +353,10 @@ pub enum ChargingStyle {
     Edge,
     /// A thin line of light sweeps along the top edge up to the battery level.
     Tide,
+    /// A soft glow rises from the bottom of the screen, behind the dock.
+    Bloom,
+    /// Slow ribbons of colour drift across the top of the screen.
+    Aurora,
     /// Rings of water spread from the medallion. The default. Also what an unknown value reads as.
     #[default]
     #[serde(other)]

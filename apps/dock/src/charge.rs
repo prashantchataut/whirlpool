@@ -86,8 +86,22 @@ impl Charge {
                 },
                 3.4,
             ),
+            ChargingStyle::Bloom => (
+                RECT {
+                    top: monitor.screen.bottom - (280.0 * scale) as i32,
+                    ..monitor.screen
+                },
+                3.8,
+            ),
+            ChargingStyle::Aurora => (
+                RECT {
+                    bottom: monitor.screen.top + (300.0 * scale) as i32,
+                    ..monitor.screen
+                },
+                4.4,
+            ),
             ChargingStyle::Halo => {
-                let (width, height) = ((260.0 * scale) as i32, (110.0 * scale) as i32);
+                let (width, height) = ((220.0 * scale) as i32, (96.0 * scale) as i32);
                 let top = monitor.work_top + (4.0 * scale) as i32;
                 (
                     RECT {
@@ -131,6 +145,8 @@ impl Charge {
                 ChargingStyle::Halo => capsule_scene(gfx, width, height, percent, scale)?,
                 ChargingStyle::Edge => edge_scene(gfx, width, height, percent, scale)?,
                 ChargingStyle::Tide => tide_scene(gfx, width, height, percent, scale)?,
+                ChargingStyle::Bloom => bloom_scene(gfx, width, height, percent, scale)?,
+                ChargingStyle::Aurora => aurora_scene(gfx, width, height, percent, scale)?,
             };
             target.SetRoot(&root)?;
             Ok(target)
@@ -578,8 +594,8 @@ fn capsule_scene(
     let root = c.CreateContainerVisual()?;
     root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
 
-    let pill_w = (200.0 * scale).round() as u32;
-    let pill_h = (52.0 * scale).round() as u32;
+    let pill_w = (132.0 * scale).round() as u32;
+    let pill_h = (38.0 * scale).round() as u32;
     let pill = sprite(gfx, &capsule_image(pill_w, pill_h, percent))?;
     let rest = Vector3::new(
         (width - pill_w as f32) / 2.0,
@@ -626,13 +642,14 @@ fn capsule_scene(
     Ok(root)
 }
 
-/// The capsule at (`x`, `y`) pixels: premultiplied colour.
+/// The capsule at (`x`, `y`) pixels: premultiplied colour. Deliberately
+/// small and quiet: dark glass, a soft dot in the battery's colour, the level.
 fn capsule_at(
     x: f32,
     y: f32,
     w: f32,
     h: f32,
-    fraction: f32,
+    _fraction: f32,
     text: &[char],
     color: [f32; 3],
 ) -> Rgba {
@@ -657,22 +674,29 @@ fn capsule_at(
         return out;
     }
     let sheen = (1.0 - (y / h)).clamp(0.0, 1.0);
-    let body = mix3([0.03, 0.07, 0.10], [0.08, 0.16, 0.20], sheen * 0.7);
-    paint(body, 0.90 * inside);
+    let body = mix3([0.04, 0.05, 0.07], [0.10, 0.12, 0.15], sheen * 0.6);
+    paint(body, 0.86 * inside);
     // A hairline just inside the edge.
-    let rim = smooth(2.2, 0.6, -sd) * smooth(-0.2, 0.9, -sd);
-    paint([1.0, 1.0, 1.0], 0.20 * rim * inside.max(0.4));
+    let rim = smooth(2.0, 0.5, -sd) * smooth(-0.2, 0.9, -sd);
+    paint([1.0, 1.0, 1.0], 0.14 * rim * inside.max(0.4));
 
-    // The bolt, on the left.
-    let big = h * 0.46;
-    let (bu, bv) = ((x - h * 0.52) / big, (y - h * 0.5) / big);
-    if inside_bolt(bu, bv) {
-        paint(mix3(color, [1.0, 1.0, 1.0], 0.35), 1.0);
-    }
-    // The level, in the middle.
-    let cell = h * 0.058;
+    // The dot and the level, centred together.
+    let cell = h * 0.064;
     let columns = text.len() as f32 * 4.0 - 1.0;
-    let (x0, y0) = (h * 0.98, h * 0.5 - 2.5 * cell);
+    let dot = h * 0.22;
+    let gap = h * 0.30;
+    let group = dot + gap + columns * cell;
+    let left = (w - group) / 2.0;
+    let (cx, cy) = (left + dot / 2.0, h / 2.0);
+    let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+    // Halo of the dot, then the dot.
+    paint(color, 0.22 * smooth(h * 0.40, dot * 0.5, d));
+    paint(
+        mix3(color, [1.0, 1.0, 1.0], 0.25),
+        smooth(dot * 0.5 + 0.7, dot * 0.5 - 0.7, d),
+    );
+
+    let (x0, y0) = (left + dot + gap, h * 0.5 - 2.5 * cell);
     let (gx, gy) = (((x - x0) / cell).floor(), ((y - y0) / cell).floor());
     if (0.0..columns).contains(&gx) && (0.0..5.0).contains(&gy) {
         let (index, column) = ((gx as usize) / 4, (gx as usize) % 4);
@@ -680,29 +704,7 @@ fn capsule_at(
             && let Some(&character) = text.get(index)
             && glyph(character)[gy as usize].as_bytes()[column] == b'#'
         {
-            paint([0.95, 0.99, 0.98], 1.0);
-        }
-    }
-    // A thin meter on the right.
-    let (m0, m1) = (w * 0.60, w - h * 0.50);
-    let thick = (h * 0.075).max(2.0);
-    let dy = (y - h / 2.0).abs();
-    if x >= m0 - thick && x <= m1 + thick {
-        let along = ((x - m0).clamp(0.0, m1 - m0)) / (m1 - m0);
-        let capx = if x < m0 {
-            m0 - x
-        } else if x > m1 {
-            x - m1
-        } else {
-            0.0
-        };
-        let d = (dy * dy + capx * capx).sqrt();
-        let a = smooth(thick / 2.0 + 0.7, thick / 2.0 - 0.7, d);
-        if a > 0.0 {
-            paint([1.0, 1.0, 1.0], 0.16 * a);
-            if along <= fraction {
-                paint(color, a);
-            }
+            paint([0.95, 0.97, 0.98], 0.96);
         }
     }
     out
@@ -981,6 +983,139 @@ fn tide_scene(
         )?,
     )?;
     root.Children()?.InsertAtTop(&head)?;
+    Ok(root)
+}
+
+/* -------------------------------------------------------------- Bloom */
+
+/// A wide soft glow, brightest at the bottom centre. `u` runs -1..1 across,
+/// `v` 0..1 from top to bottom.
+fn bloom_image(w: u32, h: u32, color: [f32; 3]) -> IconImage {
+    to_image(w, h, |x, y| {
+        let u = (x as f32 + 0.5) / w as f32 * 2.0 - 1.0;
+        let v = (y as f32 + 0.5) / h as f32;
+        let across = (-(u * u) / 0.30).exp();
+        let rise = v.powf(2.4);
+        let a = (0.85 * across * rise).clamp(0.0, 1.0);
+        let c = mix3(color, [1.0, 1.0, 1.0], 0.35 * v * across);
+        [c[0] * a, c[1] * a, c[2] * a, a]
+    })
+}
+
+fn bloom_scene(
+    gfx: &Gfx,
+    width: f32,
+    height: f32,
+    percent: u8,
+    scale: f32,
+) -> Result<ContainerVisual> {
+    let c = &gfx.compositor;
+    let linear: CompositionEasingFunction = c.CreateLinearEasingFunction()?.cast()?;
+    let out = ease_out(c)?;
+    let root = c.CreateContainerVisual()?;
+    root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
+    let color = level_color(percent);
+    let _ = scale;
+
+    // Broad glow, then a tighter and brighter core that follows it.
+    for (fraction, tall, delay, peak) in
+        [(1.0f32, 1.0f32, 0.0f32, 0.80f32), (0.42, 0.62, 0.25, 0.95)]
+    {
+        let (w, h) = (width * fraction, height * tall);
+        let glow = stretched(gfx, &bloom_image(128, 48, color), w, h)?;
+        let rest = Vector3::new((width - w) / 2.0, height - h, 0.0);
+        glow.SetOffset(rest)?;
+        glow.SetCenterPoint(Vector3::new(w / 2.0, h, 0.0))?;
+        glow.SetOpacity(0.0)?;
+        glow.StartAnimation(
+            h!("Scale"),
+            &vector(
+                c,
+                &[
+                    (0.0, Vector3::new(0.7, 0.35, 1.0)),
+                    (1.3, Vector3::new(1.0, 1.0, 1.0)),
+                    (2.6, Vector3::new(1.04, 1.06, 1.0)),
+                    (3.6, Vector3::new(1.0, 0.8, 1.0)),
+                ],
+                delay,
+                &out,
+            )?,
+        )?;
+        glow.StartAnimation(
+            h!("Opacity"),
+            &scalar(
+                c,
+                &[(0.0, 0.0), (0.7, peak), (2.5, peak * 0.8), (3.6, 0.0)],
+                delay,
+                &linear,
+            )?,
+        )?;
+        root.Children()?.InsertAtTop(&glow)?;
+    }
+    Ok(root)
+}
+
+/* ------------------------------------------------------------- Aurora */
+
+/// One soft ribbon: fades toward the bottom and the sides, with a slow swell.
+fn aurora_image(w: u32, h: u32, color: [f32; 3], phase: f32) -> IconImage {
+    to_image(w, h, |x, y| {
+        let u = (x as f32 + 0.5) / w as f32;
+        let v = (y as f32 + 0.5) / h as f32;
+        let side = smooth(0.0, 0.28, u) * smooth(1.0, 0.72, u);
+        let swell = 0.55 + 0.45 * (u * 6.2 + phase).sin();
+        let fall = (1.0 - v).powf(1.7);
+        let a = (0.62 * side * swell * fall).clamp(0.0, 1.0);
+        [color[0] * a, color[1] * a, color[2] * a, a]
+    })
+}
+
+fn aurora_scene(
+    gfx: &Gfx,
+    width: f32,
+    height: f32,
+    percent: u8,
+    scale: f32,
+) -> Result<ContainerVisual> {
+    let c = &gfx.compositor;
+    let linear: CompositionEasingFunction = c.CreateLinearEasingFunction()?.cast()?;
+    let ease = c.CreateCubicBezierEasingFunction(Vector2::new(0.4, 0.0), Vector2::new(0.2, 1.0))?;
+    let ease: CompositionEasingFunction = ease.cast()?;
+    let root = c.CreateContainerVisual()?;
+    root.SetRelativeSizeAdjustment(Vector2::new(1.0, 1.0))?;
+    let base = level_color(percent);
+    let cool = mix3(base, [0.30, 0.80, 1.0], 0.55);
+    let pale = mix3(base, [1.0, 1.0, 1.0], 0.45);
+    let _ = scale;
+
+    // (colour, width share, height share, drift from, drift to, delay, phase)
+    let ribbons = [
+        (base, 0.95f32, 1.00f32, -0.20f32, 0.05f32, 0.0f32, 0.0f32),
+        (cool, 0.80, 0.78, 0.30, 0.05, 0.3, 2.1),
+        (pale, 0.55, 0.52, -0.05, 0.40, 0.6, 4.0),
+    ];
+    for (color, wide, tall, from, to, delay, phase) in ribbons {
+        let (w, h) = (width * wide, height * tall);
+        let ribbon = stretched(gfx, &aurora_image(160, 40, color, phase), w, h)?;
+        let start = Vector3::new(width * from, -h * 0.12, 0.0);
+        let end = Vector3::new(width * to, 0.0, 0.0);
+        ribbon.SetOffset(start)?;
+        ribbon.SetOpacity(0.0)?;
+        ribbon.StartAnimation(
+            h!("Offset"),
+            &vector(c, &[(0.0, start), (4.4, end)], delay, &ease)?,
+        )?;
+        ribbon.StartAnimation(
+            h!("Opacity"),
+            &scalar(
+                c,
+                &[(0.0, 0.0), (1.1, 1.0), (3.0, 0.9), (4.2, 0.0)],
+                delay,
+                &linear,
+            )?,
+        )?;
+        root.Children()?.InsertAtTop(&ribbon)?;
+    }
     Ok(root)
 }
 

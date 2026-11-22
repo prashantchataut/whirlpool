@@ -11,8 +11,19 @@ mod update;
 
 use eframe::egui;
 
-/// Opens the settings window and returns when it is closed.
+/// Opens the settings window (OpenGL) and returns when it is closed.
 pub fn run() -> eframe::Result {
+    open(eframe::Renderer::Glow)
+}
+
+/// The same window drawn with DirectX instead of OpenGL, for machines whose
+/// graphics driver offers no usable OpenGL (virtual machines, remote desktop,
+/// some older Intel drivers).
+pub fn run_compat() -> eframe::Result {
+    open(eframe::Renderer::Wgpu)
+}
+
+fn open(renderer: eframe::Renderer) -> eframe::Result {
     whirlpool_config::migrate_legacy_folder();
     let (width, height) = window_size();
     let options = eframe::NativeOptions {
@@ -22,6 +33,7 @@ pub fn run() -> eframe::Result {
             .with_inner_size([width, height])
             .with_min_inner_size([width.min(760.0), height.min(520.0)]),
         centered: true,
+        renderer,
         ..Default::default()
     };
     eframe::run_native(

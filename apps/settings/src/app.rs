@@ -719,11 +719,13 @@ impl Settings {
                         "animation-style",
                         &mut config.animation_style,
                         &[
+                            (AnimationStyle::Dreamy, t.get("styleDreamy")),
                             (AnimationStyle::Relaxed, t.get("styleRelaxed")),
                             (AnimationStyle::Fluid, t.get("styleFluid")),
                             (AnimationStyle::Smooth, t.get("styleSmooth")),
                             (AnimationStyle::Brisk, t.get("styleBrisk")),
                             (AnimationStyle::Snappy, t.get("styleSnappy")),
+                            (AnimationStyle::Rapid, t.get("styleRapid")),
                         ],
                     );
                 },
@@ -741,6 +743,7 @@ impl Settings {
                         &mut config.startup_animation,
                         &[
                             (StartupAnimation::Off, t.get("startupOff")),
+                            (StartupAnimation::Float, t.get("startupFloat")),
                             (StartupAnimation::Drift, t.get("startupDrift")),
                             (StartupAnimation::Glide, t.get("startupGlide")),
                             (StartupAnimation::Rise, t.get("startupRise")),
@@ -774,6 +777,8 @@ impl Settings {
                                 (ChargingStyle::Halo, t.get("chargeHalo")),
                                 (ChargingStyle::Edge, t.get("chargeEdge")),
                                 (ChargingStyle::Tide, t.get("chargeTide")),
+                                (ChargingStyle::Bloom, t.get("chargeBloom")),
+                                (ChargingStyle::Aurora, t.get("chargeAurora")),
                             ],
                         );
                     },
@@ -810,6 +815,11 @@ impl Settings {
                             (BarTint::Forest, t.get("tintForest")),
                             (BarTint::Amber, t.get("tintAmber")),
                             (BarTint::Rose, t.get("tintRose")),
+                            (BarTint::Violet, t.get("tintViolet")),
+                            (BarTint::Mint, t.get("tintMint")),
+                            (BarTint::Sunset, t.get("tintSunset")),
+                            (BarTint::Slate, t.get("tintSlate")),
+                            (BarTint::Sand, t.get("tintSand")),
                         ],
                     );
                 },
