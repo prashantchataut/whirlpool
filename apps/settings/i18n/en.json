@@ -173,5 +173,15 @@
   "barAlign": "Bar position",
   "alignLeft": "Left",
   "alignCenter": "Center",
-  "alignRight": "Right"
+  "alignRight": "Right",
+  "styleDreamy": "Dreamy",
+  "styleRapid": "Rapid",
+  "startupFloat": "Float",
+  "chargeBloom": "Bloom",
+  "chargeAurora": "Aurora",
+  "tintViolet": "Violet",
+  "tintMint": "Mint",
+  "tintSunset": "Sunset",
+  "tintSlate": "Slate",
+  "tintSand": "Sand"
 }
