@@ -95,6 +95,7 @@ use windows::{
 
 use crate::{
     assets::{Visuals, fallback_name},
+    charge,
     drop::DropTarget,
     edge_watch::{self, EdgeWatch, Reveal, Target as EdgeTarget},
     flight::{Flight, Snapshot},
