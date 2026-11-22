@@ -6,6 +6,7 @@ import Playground, { WallpaperCanvas } from './components/Playground'
 import Screens from './components/Screens'
 import Trust from './components/Trust'
 import WhatsNew from './components/WhatsNew'
+import Charging from './components/Charging'
 import logo from './assets/logo.png'
 
 const REPO = 'https://github.com/prashantchataut/whirlpool'
@@ -13,6 +14,7 @@ const DOWNLOAD = `${REPO}/releases/latest/download/Whirlpool-Setup.exe`
 
 const NAV: [string, string][] = [
   ['What’s new', '#new'],
+  ['Charging', '#charging'],
   ['Customize', '#customize'],
   ['Wallpapers', '#wallpapers'],
   ['Screens', '#screens'],
@@ -52,7 +54,7 @@ function Hero() {
             A dock that moves like water.
           </h1>
           <p className="mt-6 max-w-[520px] text-[18px] leading-relaxed text-white/75">
-            Whirlpool gives Windows 10 and 11 a magnifying glass dock and a menu bar. One small native Rust program, settings included, no web view, and it sleeps when you do.
+            A magnifying glass dock and a customizable menu bar for Windows 10 and 11. One small native program with Settings built in. It uses no CPU while you are not touching it.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <a href={DOWNLOAD} className="btn-primary">Download Setup</a>
@@ -86,8 +88,8 @@ function Hero() {
 
 const FACTS: [string, string][] = [
   ['1', 'native executable'],
-  ['54', 'drawn wallpapers'],
-  ['3', 'dock edges'],
+  ['66', 'drawn wallpapers'],
+  ['4', 'charging animations'],
   ['0', 'telemetry'],
 ]
 
@@ -138,6 +140,7 @@ export default function App() {
         <Hero />
         <Facts />
         <WhatsNew />
+        <Charging />
         <Playground />
         <Screens />
         <Trust />

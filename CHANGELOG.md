@@ -8,6 +8,22 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ## [Unreleased]
 
+## [3.0.0]
+
+### Added
+- **Four charging animations.** Surge (a small medallion and two thin rings), Halo (a slim glass capsule), Edge glow (the screen edges glow like liquid glass: green above 60%, yellow in the middle, orange at 20% and below) and Tide (a line of light along the top edge up to the level). Pick one in Settings, or turn charging animations off.
+- **Menu bar options:** colour (Ocean, Graphite, Midnight, Forest, Amber, Rose), width and left/centre/right position for the floating bar, and an optional edge highlight.
+- **12 wallpapers in four new styles:** Tidal, Halftone, Ripple and Silk (66 in total).
+- **More motion:** animation styles Fluid and Brisk; startup animations Drift and Dart, chosen from drop-downs.
+- If Settings cannot open its window (no OpenGL, for example) it says why and points to the log.
+
+### Changed
+- Halo is a small capsule instead of a large glow; Surge is smaller with thinner rings.
+- The crab is off by default and stored under a new key, so earlier files that enabled it do not bring it back.
+- Network access uses the Windows TLS stack (Schannel). The bundled crypto library is gone: a smaller program with a plainer import table.
+- The release build is optimised for size.
+- `LICENSE` carries Whirlpool's own notice; `NOTICE` lists bundled components and is installed alongside it.
+
 ## [2.0.0]
 
 ### Fixed

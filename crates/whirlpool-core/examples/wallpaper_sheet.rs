@@ -1,14 +1,22 @@
 //! Writes a contact sheet of every wallpaper preset as a PPM on stdout:
 //! `cargo run -p whirlpool-core --example wallpaper_sheet > sheet.ppm`
+//! Optional arguments keep only the wallpapers whose id contains one of them.
 use std::io::Write;
 use whirlpool_core::wallpaper::{PRESETS, render};
 
 fn main() {
     let (w, h, cols) = (320u32, 200u32, 6u32);
-    let rows = (PRESETS.len() as u32).div_ceil(cols);
+    let filters: Vec<String> = std::env::args().skip(1).collect();
+    let presets: Vec<_> = PRESETS
+        .iter()
+        .filter(|preset| {
+            filters.is_empty() || filters.iter().any(|f| preset.id.contains(f.as_str()))
+        })
+        .collect();
+    let rows = (presets.len() as u32).div_ceil(cols);
     let (sw, sh) = (w * cols, h * rows);
     let mut sheet = vec![20u8; (sw * sh * 3) as usize];
-    for (i, preset) in PRESETS.iter().enumerate() {
+    for (i, preset) in presets.iter().enumerate() {
         let tile = render(preset, w, h);
         let (cx, cy) = ((i as u32 % cols) * w, (i as u32 / cols) * h);
         for y in 0..h {

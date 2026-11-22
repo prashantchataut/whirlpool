@@ -115,9 +115,22 @@ fn float_px(widgets: &MenuBarWidgets, scale: f32) -> (i32, i32) {
 fn inset_screen(screen: RECT, widgets: &MenuBarWidgets, scale: f32) -> RECT {
     configure(widgets);
     let (inset, gap) = float_px(widgets, scale);
+    let (mut left, mut right) = (screen.left + inset, screen.right - inset);
+    if widgets.floating && widgets.width < 100 {
+        let room = right - left;
+        let narrow = (room as f32 * widgets.width.clamp(40, 100) as f32 / 100.0).round() as i32;
+        match widgets.align {
+            whirlpool_config::BarAlign::Left => right = left + narrow,
+            whirlpool_config::BarAlign::Right => left = right - narrow,
+            whirlpool_config::BarAlign::Center => {
+                left += (room - narrow) / 2;
+                right = left + narrow;
+            }
+        }
+    }
     RECT {
-        left: screen.left + inset,
-        right: screen.right - inset,
+        left,
+        right,
         top: screen.top + gap,
         bottom: screen.bottom,
     }
@@ -232,6 +245,13 @@ pub struct MenuBarWidgets {
     pub inset: u32,
     pub gap: u32,
     pub radius: u32,
+    /// Where a narrower floating bar sits.
+    pub align: whirlpool_config::BarAlign,
+    /// Width of a floating bar, in percent of the room it has.
+    pub width: u32,
+    pub tint: whirlpool_config::BarTint,
+    /// A hairline along the edge of the bar.
+    pub border: bool,
 }
 
 impl Default for MenuBarWidgets {
@@ -251,6 +271,10 @@ impl Default for MenuBarWidgets {
             inset: 24,
             gap: 8,
             radius: 14,
+            align: whirlpool_config::BarAlign::Center,
+            width: 100,
+            tint: whirlpool_config::BarTint::Ocean,
+            border: true,
         }
     }
 }
@@ -1965,12 +1989,12 @@ impl MenuBar {
         // Without transparency the bar is solid, as macOS draws it with
         // "Reduce transparency".
         let alpha = (look.widgets.opacity.clamp(10, 100) * 255 / 100) as u8;
-        let tint = match (look.light, look.glass) {
-            (true, true) => rgba(244, 252, 250, alpha),
-            (false, true) => rgba(6, 28, 36, alpha),
-            (true, false) => rgba(230, 242, 240, 255),
-            (false, false) => rgba(10, 34, 42, 255),
+        let [tint_r, tint_g, tint_b] = if look.light {
+            look.widgets.tint.light()
+        } else {
+            look.widgets.tint.dark()
         };
+        let tint = rgba(tint_r, tint_g, tint_b, if look.glass { alpha } else { 255 });
         let backdrop = if look.glass {
             Some(c.CreateHostBackdropBrush()?.cast()?)
         } else {
@@ -2005,6 +2029,19 @@ impl MenuBar {
             })?;
             fill.SetBrush(brush)?;
             material.Children()?.InsertAtTop(&fill)?;
+        }
+        if look.widgets.border {
+            let thin = px(1.0).max(1.0);
+            let line = c.CreateSpriteVisual()?;
+            line.SetSize(Vector2 { X: width, Y: thin })?;
+            line.SetOffset(Vector3::new(0.0, height - thin, 0.0))?;
+            let edge = if look.light {
+                rgba(0, 0, 0, 34)
+            } else {
+                rgba(255, 255, 255, 40)
+            };
+            line.SetBrush(&c.CreateColorBrushWithColor(edge)?)?;
+            material.Children()?.InsertAtTop(&line)?;
         }
         layers.InsertAtTop(&material)?;
 

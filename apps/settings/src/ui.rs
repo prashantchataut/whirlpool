@@ -240,6 +240,22 @@ pub fn row(
 }
 
 /// The pill switch every on/off setting uses.
+/// A drop-down for options that do not fit in a row of buttons.
+pub fn choose<T: Copy + PartialEq>(ui: &mut Ui, id: &str, current: &mut T, options: &[(T, &str)]) {
+    let label = options
+        .iter()
+        .find(|(value, _)| *value == *current)
+        .map_or("", |(_, text)| *text);
+    egui::ComboBox::from_id_salt(id)
+        .selected_text(label)
+        .width(168.0)
+        .show_ui(ui, |ui| {
+            for (value, text) in options {
+                ui.selectable_value(current, *value, *text);
+            }
+        });
+}
+
 pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     let palette = Palette::of(ui);
     let (rect, mut response) = ui.allocate_exact_size(vec2(42.0, 24.0), Sense::click());

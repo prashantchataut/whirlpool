@@ -13,6 +13,27 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Version 3.0.0: what changed
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Charging | Four styles: `surge`, `halo` (capsule), `edge` (liquid glass screen edges, colour by level), `tide`. Glows are drawn at 1/4 resolution and stretched by the compositor. | `apps/dock/src/charge.rs` |
+| Menu bar | `menuBarTint`, `menuBarAlign`, `menuBarWidth`, `menuBarBorder`; width and alignment are applied in `inset_screen`. | `menubar.rs`, config |
+| Wallpapers | Tidal, Halftone, Ripple, Silk styles; 66 presets. | `crates/whirlpool-core/src/wallpaper.rs` |
+| Motion | Animation styles Fluid and Brisk, startup Drift and Dart, drop-down chooser. | config, `ui::choose` |
+| Crab | Off by default, key renamed to `crab`. | config |
+| Size | `reqwest` uses native TLS (no aws-lc); `opt-level = "s"`. | `apps/dock/Cargo.toml`, `Cargo.toml` |
+| Settings | Error dialog if the window fails to open. | `apps/dock/src/main.rs` |
+| License | Own notice in `LICENSE`; `NOTICE` kept and installed. | root |
+
+### 3.0 verification notes
+
+- Verified here (Linux): `whirlpool-core` and `whirlpool-config` tests and a contact sheet of the new wallpapers. Windows code is built and tested by CI only.
+- **Not verified on a real desktop:** the four charging animations, the narrower floating bar, the drop-down widths in Settings.
+- **Not done: menu bar on the bottom edge.** The bar, its panels and the island assume the top edge (`BAR_TOP`, `place()`, panel geometry). It needs its own pass before more bar options are added.
+- Not started: dock themes and opacity, dynamic-island presets, per-monitor wallpapers, a wallpaper rotation timer, a charging preview button in Settings.
+- Site: the charging section is a CSS preview of the motion, not a capture of Windows.
+
 ## Version 2.0.0: what changed
 
 | Area | Change | Where |
