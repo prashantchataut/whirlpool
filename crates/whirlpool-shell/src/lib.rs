@@ -1,6 +1,7 @@
 pub mod accessories;
 pub mod appbar;
 pub mod autostart;
+pub mod desktop_wallpaper;
 pub mod dock_link;
 pub mod end_task;
 pub mod files;
@@ -20,6 +21,5 @@ pub mod status;
 pub mod system;
 pub mod taskbar;
 pub mod tracker;
-pub mod updates;
 pub mod wallpaper;
 pub mod watch;

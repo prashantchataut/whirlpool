@@ -17,6 +17,7 @@ windows-numerics = "0.3"
 whirlpool-config = { path = "crates/whirlpool-config" }
 whirlpool-core = { path = "crates/whirlpool-core" }
 whirlpool-shell = { path = "crates/whirlpool-shell" }
+whirlpool-update = { path = "crates/whirlpool-update" }
 
 [workspace.lints.clippy]
 perf = { level = "deny", priority = -1 }

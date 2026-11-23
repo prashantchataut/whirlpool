@@ -1,0 +1,138 @@
+name: Sign Windows binaries
+description: >
+  Signs the listed files with whichever signing service has secrets configured: Azure Trusted
+  Signing, a PFX certificate (signtool), or SignPath. With none configured it runs as a dry run:
+  it lists what it would sign, changes nothing and reports `signed=false`.
+inputs:
+  files:
+    description: Newline-separated paths relative to the workspace
+    required: true
+  pfx-base64: { required: false, default: '' }
+  pfx-password: { required: false, default: '' }
+  azure-endpoint: { required: false, default: '' }
+  azure-account: { required: false, default: '' }
+  azure-profile: { required: false, default: '' }
+  azure-tenant-id: { required: false, default: '' }
+  azure-client-id: { required: false, default: '' }
+  azure-client-secret: { required: false, default: '' }
+  signpath-token: { required: false, default: '' }
+  signpath-org-id: { required: false, default: '' }
+  signpath-project: { required: false, default: 'whirlpool' }
+  signpath-policy: { required: false, default: 'release-signing' }
+  signpath-config: { required: false, default: 'default' }
+outputs:
+  signed:
+    description: 'true only when a service actually signed the files'
+    value: ${{ steps.result.outputs.signed }}
+  mode:
+    description: azure, signpath, pfx or dry-run
+    value: ${{ steps.mode.outputs.mode }}
+runs:
+  using: composite
+  steps:
+    - id: mode
+      shell: pwsh
+      env:
+        PFX: ${{ inputs.pfx-base64 }}
+        AZ_ACCOUNT: ${{ inputs.azure-account }}
+        AZ_SECRET: ${{ inputs.azure-client-secret }}
+        SP_TOKEN: ${{ inputs.signpath-token }}
+        FILES: ${{ inputs.files }}
+      run: |
+        $mode = if ($env:AZ_ACCOUNT -and $env:AZ_SECRET) { 'azure' }
+                elseif ($env:SP_TOKEN) { 'signpath' }
+                elseif ($env:PFX) { 'pfx' }
+                else { 'dry-run' }
+        "mode=$mode" >> $env:GITHUB_OUTPUT
+        $list = $env:FILES -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        if ($mode -eq 'dry-run') {
+          Write-Host "SIGNING DRY RUN: no signing secrets are configured, nothing is signed."
+          foreach ($f in $list) {
+            if (-not (Test-Path $f)) { throw "would sign $f, but it does not exist" }
+            Write-Host "  would sign: $f ($((Get-Item $f).Length) bytes)"
+          }
+        } else { Write-Host "Signing with: $mode" }
+        New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\tosign" | Out-Null
+        Remove-Item "$env:RUNNER_TEMP\tosign\*" -Force -ErrorAction SilentlyContinue
+        if ($mode -in 'azure', 'signpath') { foreach ($f in $list) { Copy-Item $f "$env:RUNNER_TEMP\tosign\" } }
+
+    - name: Azure Trusted Signing
+      if: steps.mode.outputs.mode == 'azure'
+      uses: azure/trusted-signing-action@v0.5.1
+      with:
+        azure-tenant-id: ${{ inputs.azure-tenant-id }}
+        azure-client-id: ${{ inputs.azure-client-id }}
+        azure-client-secret: ${{ inputs.azure-client-secret }}
+        endpoint: ${{ inputs.azure-endpoint }}
+        trusted-signing-account-name: ${{ inputs.azure-account }}
+        certificate-profile-name: ${{ inputs.azure-profile }}
+        files-folder: ${{ runner.temp }}\tosign
+        files-folder-filter: exe
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
+
+    - name: SignPath upload
+      if: steps.mode.outputs.mode == 'signpath'
+      id: upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}
+        path: ${{ runner.temp }}\tosign\*
+
+    - name: SignPath signing request
+      if: steps.mode.outputs.mode == 'signpath'
+      uses: signpath/github-action-submit-signing-request@v1
+      with:
+        api-token: ${{ inputs.signpath-token }}
+        organization-id: ${{ inputs.signpath-org-id }}
+        project-slug: ${{ inputs.signpath-project }}
+        signing-policy-slug: ${{ inputs.signpath-policy }}
+        artifact-configuration-slug: ${{ inputs.signpath-config }}
+        github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
+        wait-for-completion: true
+        output-artifact-directory: ${{ runner.temp }}\signed
+
+    - name: Copy signed files back (Azure, SignPath)
+      if: steps.mode.outputs.mode == 'azure' || steps.mode.outputs.mode == 'signpath'
+      shell: pwsh
+      env:
+        MODE: ${{ steps.mode.outputs.mode }}
+        FILES: ${{ inputs.files }}
+      run: |
+        $src = if ($env:MODE -eq 'azure') { "$env:RUNNER_TEMP\tosign" } else { "$env:RUNNER_TEMP\signed" }
+        foreach ($f in ($env:FILES -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+          Copy-Item (Join-Path $src (Split-Path $f -Leaf)) $f -Force
+        }
+
+    - name: signtool with a PFX certificate
+      if: steps.mode.outputs.mode == 'pfx'
+      shell: pwsh
+      env:
+        PFX: ${{ inputs.pfx-base64 }}
+        PFX_PASSWORD: ${{ inputs.pfx-password }}
+        FILES: ${{ inputs.files }}
+      run: |
+        $pfx = "$env:RUNNER_TEMP\cert.pfx"
+        [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX))
+        $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
+        foreach ($f in ($env:FILES -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+          & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $env:PFX_PASSWORD $f
+          if ($LASTEXITCODE -ne 0) { Remove-Item $pfx -Force; throw "signing $f failed" }
+        }
+        Remove-Item $pfx -Force
+
+    - name: Verify and report
+      id: result
+      shell: pwsh
+      env:
+        MODE: ${{ steps.mode.outputs.mode }}
+        FILES: ${{ inputs.files }}
+      run: |
+        if ($env:MODE -eq 'dry-run') { "signed=false" >> $env:GITHUB_OUTPUT; exit 0 }
+        foreach ($f in ($env:FILES -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+          $sig = Get-AuthenticodeSignature $f
+          Write-Host "$f : $($sig.Status) ($($sig.SignerCertificate.Subject))"
+          if ($sig.Status -ne 'Valid') { throw "$f has no valid signature after signing" }
+        }
+        "signed=true" >> $env:GITHUB_OUTPUT

@@ -4,7 +4,11 @@ use std::{
     env,
     path::PathBuf,
     rc::Rc,
-    sync::mpsc::{self, Receiver, Sender},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, Sender},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -16,8 +20,9 @@ use eframe::egui::{
 use serde_json::{Map, Value};
 use whirlpool_config::{
     AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
-    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
+    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation, WallpaperFit,
 };
+use whirlpool_config::{OverlayCorner, OverlayPreset};
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
@@ -34,6 +39,14 @@ const SAVE_DELAY: Duration = Duration::from_millis(60);
 const RESET_ARMED: Duration = Duration::from_secs(4);
 /// Roster keys belong to the dock; Settings never writes them.
 const DOCK_OWNED: [&str; 5] = ["version", "pinned", "groups", "recent", "taskbarPins"];
+
+/// What the folder picker is choosing a folder for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FolderTarget {
+    Shortcuts,
+    Wallpapers,
+    DarkWallpapers,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -63,8 +76,14 @@ pub struct Settings {
     wallpaper_rx: Receiver<Option<ColorImage>>,
     wallpaper: Option<TextureHandle>,
     folder_rx: Option<Receiver<Option<String>>>,
+    folder_target: FolderTarget,
+    monitor_count: usize,
+    rotate_busy: Option<Receiver<bool>>,
+    rotate_failed: bool,
     update_state: State,
-    update_rx: Option<Receiver<Option<update::Release>>>,
+    update_rx: Option<Receiver<update::Msg>>,
+    update_cancel: Arc<AtomicBool>,
+    rollback: Option<String>,
     reset_armed: Option<Instant>,
     banner_dismissed: bool,
     wall_thumbs: Vec<(&'static str, TextureHandle)>,
@@ -89,6 +108,10 @@ fn load_config() -> Config {
         .ok()
         .flatten()
         .unwrap_or_default()
+}
+
+fn dock_exe_for_overlay() -> std::io::Result<PathBuf> {
+    Ok(dock_exe())
 }
 
 fn as_map(config: &Config) -> Map<String, Value> {
@@ -189,7 +212,13 @@ impl Settings {
             wallpaper_rx: spawn_wallpaper(ctx),
             wallpaper: None,
             folder_rx: None,
+            folder_target: FolderTarget::Shortcuts,
+            monitor_count: whirlpool_shell::desktop_wallpaper::monitors().len().max(1),
+            rotate_busy: None,
+            rotate_failed: false,
             update_rx: None,
+            update_cancel: Arc::new(AtomicBool::new(false)),
+            rollback: update::rollback_target(),
             reset_armed: None,
             banner_dismissed: false,
             wall_thumbs: Vec::new(),
@@ -226,8 +255,32 @@ impl Settings {
             return;
         }
         self.update_state = State::Checking;
-        self.update_rx = Some(update::check());
+        self.update_rx = Some(update::spawn_check(self.config.update_prereleases));
         ctx.request_repaint_after(Duration::from_millis(250));
+    }
+
+    fn start_install(&mut self, release: update::Release) {
+        self.update_cancel.store(false, Ordering::Relaxed);
+        self.update_state = State::Working(update::Progress::Downloading {
+            done: 0,
+            total: None,
+        });
+        self.update_rx = Some(update::spawn_install(
+            release,
+            Arc::clone(&self.update_cancel),
+        ));
+    }
+
+    fn start_rollback(&mut self, version: &str) {
+        self.update_cancel.store(false, Ordering::Relaxed);
+        self.update_state = State::Working(update::Progress::Downloading {
+            done: 0,
+            total: None,
+        });
+        self.update_rx = Some(update::spawn_rollback(
+            version,
+            Arc::clone(&self.update_cancel),
+        ));
     }
 
     /// Collects what the background threads have finished.
@@ -247,29 +300,62 @@ impl Settings {
         {
             self.folder_rx = None;
             if let Some(path) = choice {
-                self.config.shortcuts_folder = Some(path);
+                match self.folder_target {
+                    FolderTarget::Shortcuts => self.config.shortcuts_folder = Some(path),
+                    FolderTarget::Wallpapers => self.config.wallpaper_folder = Some(path),
+                    FolderTarget::DarkWallpapers => self.config.wallpaper_dark_folder = Some(path),
+                }
             }
         }
         if let Some(receive) = &self.update_rx {
-            match receive.try_recv() {
-                Ok(found) => {
-                    self.update_state = match found {
-                        Some(release) if update::is_newer(&release.version) => {
-                            State::Available(release)
+            loop {
+                match receive.try_recv() {
+                    Ok(update::Msg::Checked(result)) => {
+                        self.update_state = match result {
+                            Ok(whirlpool_update::Outcome::Available(release)) => {
+                                State::Available(release)
+                            }
+                            Ok(whirlpool_update::Outcome::UpToDate) => State::Current,
+                            Err(error) => State::Failed(error.to_string()),
+                        };
+                        self.update_rx = None;
+                        break;
+                    }
+                    Ok(update::Msg::Progress(progress)) => {
+                        self.update_state = State::Working(progress);
+                    }
+                    Ok(update::Msg::Launched) => {
+                        // Setup replaces this program's file: leave it free.
+                        self.update_state = State::Restarting;
+                        ctx.request_repaint();
+                        std::process::exit(0);
+                    }
+                    Ok(update::Msg::Failed(why)) => {
+                        self.update_state = State::Failed(why);
+                        self.update_rx = None;
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Empty) => {
+                        ctx.request_repaint_after(Duration::from_millis(120));
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        if !matches!(self.update_state, State::Failed(_)) {
+                            self.update_state = State::Failed(
+                                "The update stopped unexpectedly. Try again.".to_owned(),
+                            );
                         }
-                        Some(_) => State::Current,
-                        None => State::Failed,
-                    };
-                    self.update_rx = None;
-                }
-                Err(mpsc::TryRecvError::Empty) => {
-                    ctx.request_repaint_after(Duration::from_millis(250));
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    self.update_state = State::Failed;
-                    self.update_rx = None;
+                        self.update_rx = None;
+                        break;
+                    }
                 }
             }
+        }
+        if let Some(receive) = &self.rotate_busy
+            && let Ok(ok) = receive.try_recv()
+        {
+            self.rotate_failed = !ok;
+            self.rotate_busy = None;
         }
         if self.animations_checked.elapsed() > Duration::from_millis(1500) {
             self.animations_checked = Instant::now();
@@ -316,12 +402,17 @@ impl Settings {
         }
     }
 
-    fn choose_folder(&mut self, ctx: &egui::Context) {
+    fn choose_folder(&mut self, target: FolderTarget, ctx: &egui::Context) {
         if self.folder_rx.is_some() {
             return;
         }
+        self.folder_target = target;
         let (send, receive) = mpsc::channel();
-        let current = self.config.shortcuts_folder.clone();
+        let current = match target {
+            FolderTarget::Shortcuts => self.config.shortcuts_folder.clone(),
+            FolderTarget::Wallpapers => self.config.wallpaper_folder.clone(),
+            FolderTarget::DarkWallpapers => self.config.wallpaper_dark_folder.clone(),
+        };
         let ctx = ctx.clone();
         thread::spawn(move || {
             let _ = send.send(folder::pick(0, current.as_deref()));
@@ -1078,13 +1169,15 @@ impl Settings {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.label(
-                    RichText::new(t.with_version("updateBannerTitle", &release.version))
-                        .font(ui::heading(15.0))
-                        .color(palette.text),
+                    RichText::new(
+                        t.with_version("updateBannerTitle", &release.version.to_string()),
+                    )
+                    .font(ui::heading(15.0))
+                    .color(palette.text),
                 );
                 ui.horizontal(|ui| {
                     if ui::push(ui, t.get("updatesInstall"), Some(ui::ACCENT)).clicked() {
-                        let _ = launcher::open(&release.page);
+                        self.start_install(release.clone());
                     }
                     if ui::push(ui, t.get("updateLater"), None).clicked() {
                         self.banner_dismissed = true;
@@ -1210,7 +1303,7 @@ impl Settings {
         });
         if pick {
             let ctx = ui.ctx().clone();
-            self.choose_folder(&ctx);
+            self.choose_folder(FolderTarget::Shortcuts, &ctx);
         }
     }
 
@@ -1259,11 +1352,144 @@ impl Settings {
         self.wall_apply_rx = Some(receive);
     }
 
+    /// Wallpaper rotation: source, schedule, fit, one picture per display.
+    fn rotation_card(&mut self, ui: &mut Ui, t: &Texts, ctx: &egui::Context) {
+        let mut pick: Option<FolderTarget> = None;
+        let mut change_now = false;
+        let busy = self.rotate_busy.is_some();
+        let failed = self.rotate_failed;
+        let monitors = self.monitor_count;
+        let config = &mut self.config;
+        ui::card(ui, Some(t.get("wallRotation")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("wallRotationOn"),
+                Some(t.get("wallRotationHint")),
+                &mut config.wallpaper_rotation,
+            );
+            if config.wallpaper_rotation {
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("wallEvery"),
+                    Some(t.get("wallEveryHint")),
+                    330.0,
+                    |ui| {
+                        ui::choose(
+                            ui,
+                            "wall-every",
+                            &mut config.wallpaper_every_minutes,
+                            &[
+                                (5, t.get("wallMin5")),
+                                (15, t.get("wallMin15")),
+                                (30, t.get("wallMin30")),
+                                (60, t.get("wallHour1")),
+                                (180, t.get("wallHour3")),
+                                (1440, t.get("wallDay1")),
+                            ],
+                        );
+                    },
+                );
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("wallShuffle"),
+                    Some(t.get("wallShuffleHint")),
+                    &mut config.wallpaper_shuffle,
+                );
+            }
+            ui::divider(ui);
+            let source = config.wallpaper_folder.clone();
+            ui::row(
+                ui,
+                t.get("wallSource"),
+                Some(source.as_deref().unwrap_or(t.get("wallSourceBundled"))),
+                230.0,
+                |ui| {
+                    if ui::push(ui, t.get("wallChoose"), None).clicked() {
+                        pick = Some(FolderTarget::Wallpapers);
+                    }
+                    if source.is_some() && ui::push(ui, t.get("wallBundled"), None).clicked() {
+                        config.wallpaper_folder = None;
+                    }
+                },
+            );
+            ui::divider(ui);
+            let dark = config.wallpaper_dark_folder.clone();
+            ui::row(
+                ui,
+                t.get("wallDark"),
+                Some(dark.as_deref().unwrap_or(t.get("wallDarkHint"))),
+                230.0,
+                |ui| {
+                    if ui::push(ui, t.get("wallChoose"), None).clicked() {
+                        pick = Some(FolderTarget::DarkWallpapers);
+                    }
+                    if dark.is_some() && ui::push(ui, t.get("wallClear"), None).clicked() {
+                        config.wallpaper_dark_folder = None;
+                    }
+                },
+            );
+            ui::divider(ui);
+            ui::row(ui, t.get("wallFit"), None, 400.0, |ui| {
+                ui::choose(
+                    ui,
+                    "wall-fit",
+                    &mut config.wallpaper_fit,
+                    &[
+                        (WallpaperFit::Fill, t.get("wallFill")),
+                        (WallpaperFit::Fit, t.get("wallFitWhole")),
+                        (WallpaperFit::Stretch, t.get("wallStretch")),
+                        (WallpaperFit::Tile, t.get("wallTile")),
+                        (WallpaperFit::Center, t.get("wallCenter")),
+                    ],
+                );
+            });
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("wallPerMonitor"),
+                Some(&t.with_version("wallPerMonitorHint", &monitors.to_string())),
+                &mut config.wallpaper_per_monitor,
+            );
+            ui::divider(ui);
+            let hint = if failed {
+                t.get("wallNextFailed")
+            } else {
+                t.get("wallNextHint")
+            };
+            ui::row(ui, t.get("wallNext"), Some(hint), 150.0, |ui| {
+                if busy {
+                    ui.add_enabled(false, egui::Button::new(t.get("wallNext")));
+                } else if ui::push(ui, t.get("wallNext"), None).clicked() {
+                    change_now = true;
+                }
+            });
+        });
+        if let Some(target) = pick {
+            self.choose_folder(target, ctx);
+        }
+        if change_now {
+            let (send, receive) = mpsc::channel();
+            let (config, ctx) = (self.config.clone(), ctx.clone());
+            thread::spawn(move || {
+                let mut state = crate::rotate::State::new(config.wallpaper_every_minutes);
+                // One step past what the dock's own clock-based sequence would show now.
+                let ok =
+                    crate::rotate::advance(&config, crate::rotate::dark_now(), &mut state).is_ok();
+                let _ = send.send(ok);
+                ctx.request_repaint();
+            });
+            self.rotate_busy = Some(receive);
+        }
+    }
+
     fn personalize_page(&mut self, ui: &mut Ui, t: &Texts) {
         let ctx = ui.ctx().clone();
         if self.wall_thumbs.is_empty() && self.wall_thumbs_rx.is_none() {
             self.wall_thumbs_rx = Some(spawn_thumbnails(&ctx));
         }
+        self.rotation_card(ui, t, &ctx);
         let config = &mut self.config;
         ui::card(ui, Some(t.get("groupAnimations")), |ui| {
             ui::row(
@@ -1811,11 +2037,141 @@ impl Settings {
         }
     }
 
+    /// The system overlay: what it shows, where, how it looks and the hotkey.
+    fn overlay_card(&mut self, ui: &mut Ui, t: &Texts) {
+        let mut toggle_now = false;
+        let config = &mut self.config;
+        let valid = config.overlay_hotkey.trim().is_empty()
+            || whirlpool_core::overlay::parse_hotkey(&config.overlay_hotkey).is_some();
+        ui::card(ui, Some(t.get("overlay")), |ui| {
+            ui::row(
+                ui,
+                t.get("overlayShow"),
+                Some(t.get("overlayShowHint")),
+                150.0,
+                |ui| {
+                    if ui::push(ui, t.get("overlayToggle"), None).clicked() {
+                        toggle_now = true;
+                    }
+                },
+            );
+            ui::divider(ui);
+            let hint = if valid {
+                t.get("overlayHotkeyHint")
+            } else {
+                t.get("overlayHotkeyBad")
+            };
+            ui::row(ui, t.get("overlayHotkey"), Some(hint), 190.0, |ui| {
+                ui.add(egui::TextEdit::singleline(&mut config.overlay_hotkey).desired_width(170.0));
+            });
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayPreset"),
+                Some(t.get("overlayPresetHint")),
+                330.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-preset",
+                        &mut config.overlay_preset,
+                        &[
+                            (OverlayPreset::Minimal, t.get("overlayMinimal")),
+                            (OverlayPreset::Detailed, t.get("overlayDetailed")),
+                            (OverlayPreset::Oneline, t.get("overlayOneLine")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayCorner"),
+                Some(t.get("overlayCornerHint")),
+                440.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-corner",
+                        &mut config.overlay_corner,
+                        &[
+                            (OverlayCorner::TopLeft, t.get("cornerTopLeft")),
+                            (OverlayCorner::TopRight, t.get("cornerTopRight")),
+                            (OverlayCorner::BottomLeft, t.get("cornerBottomLeft")),
+                            (OverlayCorner::BottomRight, t.get("cornerBottomRight")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::row(ui, t.get("overlayOpacity"), None, 220.0, |ui| {
+                ui.add(egui::Slider::new(&mut config.overlay_opacity, 30..=100).suffix("%"));
+            });
+            ui::divider(ui);
+            ui::row(ui, t.get("overlaySize"), None, 220.0, |ui| {
+                ui.add(egui::Slider::new(&mut config.overlay_scale, 70..=200).suffix("%"));
+            });
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayInterval"),
+                Some(t.get("overlayIntervalHint")),
+                330.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-interval",
+                        &mut config.overlay_interval_ms,
+                        &[
+                            (250, t.get("overlayMs250")),
+                            (500, t.get("overlayMs500")),
+                            (1000, t.get("overlayS1")),
+                            (2000, t.get("overlayS2")),
+                            (5000, t.get("overlayS5")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::toggle_row(ui, t.get("overlayMono"), None, &mut config.overlay_mono);
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("overlayClickThrough"),
+                Some(t.get("overlayClickThroughHint")),
+                &mut config.overlay_click_through,
+            );
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("overlayFullscreen"),
+                Some(t.get("overlayFullscreenHint")),
+                &mut config.overlay_over_fullscreen,
+            );
+            ui::divider(ui);
+            ui.label(
+                RichText::new(t.get("overlayAbout"))
+                    .size(12.0)
+                    .color(Palette::of(ui).muted),
+            );
+        });
+        if toggle_now && let Ok(exe) = dock_exe_for_overlay() {
+            let _ = std::process::Command::new(exe)
+                .arg("--overlay-toggle")
+                .spawn();
+        }
+    }
+
     fn system_page(&mut self, ui: &mut Ui, t: &Texts, ctx: &egui::Context) {
+        self.overlay_card(ui, t);
         let mut autostart = self.autostart;
         let mut recheck = false;
         let mut reset_clicked = false;
         let mut open_repo = false;
+        let mut install_release: Option<update::Release> = None;
+        let mut cancel_update = false;
+        let mut rollback_to: Option<String> = None;
+        let rollback = self.rollback.clone();
         let update_state = self.update_state.clone();
         let reset_armed = self.reset_armed.is_some();
         let config = &mut self.config;
@@ -1851,27 +2207,81 @@ impl Settings {
                 Some(t.get("checkUpdatesHint")),
                 &mut config.check_updates,
             );
+            if config.check_updates {
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("updateOnStartup"),
+                    Some(t.get("updateOnStartupHint")),
+                    &mut config.update_on_startup,
+                );
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("updateEvery"),
+                    Some(t.get("updateEveryHint")),
+                    160.0,
+                    |ui| {
+                        ui::choose(
+                            ui,
+                            "update-every",
+                            &mut config.update_check_days,
+                            &[
+                                (0, t.get("updateNever")),
+                                (1, t.get("updateDaily")),
+                                (7, t.get("updateWeekly")),
+                                (30, t.get("updateMonthly")),
+                            ],
+                        );
+                    },
+                );
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("updatePrereleases"),
+                    Some(t.get("updatePrereleasesHint")),
+                    &mut config.update_prereleases,
+                );
+            }
             ui::divider(ui);
             let hint = match &update_state {
                 State::Off => t.get("updatesOff").to_owned(),
                 State::Checking => t.get("updatesChecking").to_owned(),
                 State::Current => t.with_version("updatesCurrent", env!("CARGO_PKG_VERSION")),
-                State::Available(release) => t.with_version("updatesAvailable", &release.version),
-                State::Failed => t.get("updatesError").to_owned(),
+                State::Available(release) => {
+                    t.with_version("updatesAvailable", &release.version.to_string())
+                }
+                State::Working(update::Progress::Downloading { done, total }) => match total {
+                    Some(total) => format!(
+                        "{} {:.1} / {:.1} MB",
+                        t.get("updatesDownloading"),
+                        *done as f64 / 1_048_576.0,
+                        *total as f64 / 1_048_576.0
+                    ),
+                    None => t.get("updatesDownloading").to_owned(),
+                },
+                State::Working(update::Progress::Verifying) => t.get("updatesVerifying").to_owned(),
+                State::Restarting => t.get("updatesRestarting").to_owned(),
+                State::Failed(why) => why.clone(),
             };
             ui::row(
                 ui,
-                t.get("updatesNow"),
+                &t.with_version("updatesNow", env!("CARGO_PKG_VERSION")),
                 Some(&hint),
-                140.0,
+                170.0,
                 |ui| match &update_state {
                     State::Available(release) => {
                         if ui::push(ui, t.get("updatesInstall"), Some(ui::ACCENT)).clicked() {
-                            let _ = launcher::open(&release.page);
+                            install_release = Some(release.clone());
                         }
                     }
-                    State::Checking => {
+                    State::Checking | State::Restarting => {
                         ui.add_enabled(false, egui::Button::new(t.get("updatesCheck")));
+                    }
+                    State::Working(_) => {
+                        if ui::push(ui, t.get("updatesCancel"), None).clicked() {
+                            cancel_update = true;
+                        }
                     }
                     _ => {
                         if ui::push(ui, t.get("updatesCheck"), None).clicked() {
@@ -1879,6 +2289,64 @@ impl Settings {
                         }
                     }
                 },
+            );
+            if let State::Working(progress) = &update_state {
+                let fraction = match progress {
+                    update::Progress::Downloading {
+                        done,
+                        total: Some(total),
+                    } => *done as f32 / (*total).max(1) as f32,
+                    update::Progress::Downloading { .. } => 0.0,
+                    update::Progress::Verifying => 1.0,
+                };
+                ui.add(egui::ProgressBar::new(fraction).desired_height(6.0));
+            }
+            if let State::Available(release) = &update_state {
+                ui::divider(ui);
+                let notes = release.notes.trim();
+                egui::CollapsingHeader::new(t.get("updatesNotes"))
+                    .id_salt("update-notes")
+                    .show(ui, |ui| {
+                        ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                            let shown: String = notes.chars().take(4000).collect();
+                            ui.label(
+                                RichText::new(if shown.is_empty() {
+                                    t.get("updatesNoNotes")
+                                } else {
+                                    shown.as_str()
+                                })
+                                .size(12.5),
+                            );
+                        });
+                    });
+            }
+            if let Some(previous) = &rollback {
+                ui::divider(ui);
+                let busy = matches!(update_state, State::Working(_) | State::Restarting);
+                ui::row(
+                    ui,
+                    &t.with_version("updatesRollback", previous),
+                    Some(t.get("updatesRollbackHint")),
+                    170.0,
+                    |ui| {
+                        if ui
+                            .add_enabled(
+                                !busy,
+                                egui::Button::new(t.get("updatesRollbackButton"))
+                                    .min_size(vec2(0.0, 30.0)),
+                            )
+                            .clicked()
+                        {
+                            rollback_to = Some(previous.clone());
+                        }
+                    },
+                );
+            }
+            ui::divider(ui);
+            ui.label(
+                RichText::new(t.get("updatesPrivacy"))
+                    .size(12.0)
+                    .color(Palette::of(ui).muted),
             );
         });
         ui::card(ui, None, |ui| {
@@ -1915,6 +2383,15 @@ impl Settings {
         }
         if recheck {
             self.recheck_updates(ctx);
+        }
+        if let Some(release) = install_release {
+            self.start_install(release);
+        }
+        if let Some(version) = rollback_to {
+            self.start_rollback(&version);
+        }
+        if cancel_update {
+            self.update_cancel.store(true, Ordering::Relaxed);
         }
         if open_repo {
             let _ = launcher::open(update::REPOSITORY);

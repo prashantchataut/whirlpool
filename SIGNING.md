@@ -1,32 +1,39 @@
 # Code signing
 
-Whirlpool is not signed yet. A signature needs a certificate that only you can request. Everything on the build side is
-ready: `release.yml` signs `whirlpool.exe` and `Whirlpool-Setup.exe` with `signtool` as soon as the two secrets below
-exist, and skips signing when they do not.
+**Whirlpool builds are not signed.** No certificate is held by this project and none has been bought. The release
+workflow has everything wired; it signs the moment one of the three secret sets below exists, and until then it runs
+in **dry-run** mode: the log says `SIGNING DRY RUN`, lists the files it would sign, changes nothing, and the release
+notes say the build is unsigned. The workflow never self-signs and never reports `signed=true` unless Windows
+verifies the signature (`Get-AuthenticodeSignature` must say `Valid`).
 
-## Option A: SignPath Foundation (free for open source)
+The wiring is `.github/actions/sign/action.yml`, called twice from `release.yml` (the program, then the installer).
 
-1. Apply at https://signpath.org/ (Foundation program). It asks for the repository, the license (MIT) and a statement
-   that the project is not malware-adjacent. Review takes days to weeks.
-2. When accepted, install the SignPath GitHub app, create a project and a `release-signing` policy, and add the
-   organization ID, project slug and API token as repository secrets.
-3. Replace the two `Sign` steps in `release.yml` with `signpath/github-action-submit-signing-request@v1`, passing the
-   unsigned artifact. SignPath returns the signed file.
+## What you do, in order
 
-## Option B: Azure Trusted Signing (paid, per month)
+1. **Pick one route.** SignPath Foundation is free for open source (slow to approve). Azure Trusted Signing is paid
+   per month and fast. A purchased OV/EV certificate works too.
+2. **SignPath Foundation**
+   1. Apply at https://signpath.org/ using the text in [`docs/signpath/APPLICATION.md`](docs/signpath/APPLICATION.md).
+      The repository already has what they ask for: a license (MIT), a [privacy statement](docs/PRIVACY.md),
+      [reproducible build notes](docs/REPRODUCIBLE_BUILD.md) and a [signing policy](docs/signpath/POLICY.md).
+   2. After approval, install the SignPath GitHub app and create the project `whirlpool`, the signing policy
+      `release-signing` and an artifact configuration `default` that signs `*.exe` (Authenticode).
+   3. Add repository secrets `SIGNPATH_API_TOKEN` and `SIGNPATH_ORGANIZATION_ID`. If your slugs differ, edit the
+      `signpath-*` defaults in `.github/actions/sign/action.yml`.
+3. **Azure Trusted Signing** (instead of step 2): create a Trusted Signing account and certificate profile, finish
+   identity validation, then add secrets `AZURE_SIGNING_ENDPOINT`, `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE`,
+   `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`.
+4. **Purchased certificate** (instead of step 2): export a `.pfx`, run
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`, store it as `WINDOWS_CERT_PFX_BASE64` and the
+   password as `WINDOWS_CERT_PASSWORD`.
+5. **Test** by pushing a tag such as `v4.2.1-rc1`. In the run, the two "Sign" steps must say `Signing with: <mode>`
+   and the "Verify and report" step must print `Valid`.
+6. **Then** remove the "not code-signed" sentence from the README (the release notes switch by themselves) and make
+   the in-app updater verify the signature as well as the hash (not built yet: `STATUS.md`).
 
-1. Create an Azure account, a Trusted Signing account and a certificate profile; complete identity validation
-   (individual developers are supported in some regions).
-2. Add `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` as secrets and use
-   `azure/trusted-signing-action@v0` in place of the `Sign` steps.
+The SignPath and Azure steps have not been exercised: no account exists. Only the dry-run path has run in CI.
 
-## Option C: a certificate you buy (OV or EV)
+## What a signature does and does not do
 
-Export it as a `.pfx`, base64 it (`[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`) and store it as
-`WINDOWS_CERT_PFX_BASE64`, with the password as `WINDOWS_CERT_PASSWORD`. The existing workflow steps use these.
-
-## What to expect
-
-A valid signature gives the publisher name in the UAC and SmartScreen dialogs. SmartScreen reputation still builds with
-downloads over time, for signed files too; an EV certificate removes the warm-up period, the others do not. Until then
-the README tells people how to verify the SHA-256 sum and the build attestation.
+It shows your publisher name in SmartScreen and UAC and ties the file to you. SmartScreen *reputation* still builds
+with downloads over time. Until then, verify downloads by hash: see the README.

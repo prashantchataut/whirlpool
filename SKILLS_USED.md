@@ -1,8 +1,11 @@
 # Skills used
 
-Read from `.agents/skills/` (pinned in `skills-lock.json`) and applied: `frontend-design`, `design-taste-frontend`,
-`ui-ux-pro-max`, `accessibility`, `impeccable`, `copywriting` (site copy, banned-phrase check), `animation-vocabulary`.
+Honest record for session 3. The web skill libraries named in the brief (open-design.ai, skills.sh, skillissue.in)
+were not fetched in this session, so none of their text was applied and none is claimed. What informed the work:
 
-Not installed this session: the skills.sh / skillissue.in search was not possible from the sandbox; the open-design.ai
-catalog was read (407 entries) and the repo's existing set already covers its UI/UX, design-system, motion and
-accessibility entries. Nothing was installed that was not read.
+| Area | What was used | What it changed |
+| --- | --- | --- |
+| Rust / windows crate | Reading the `windows` 0.62 API from the crate source, compiling against `x86_64-pc-windows-msvc` locally with `cargo check` before every push | Per-monitor wallpaper (`IDesktopWallpaper`), overlay counters (PDH, IP Helper, DWM), hotkey registration |
+| Release engineering | GitHub Actions matrix, composite action, `gh release` | `release.yml`, `.github/actions/sign`, `updater-e2e.yml` |
+| Colour and contrast | WCAG relative-luminance contrast | `whirlpool-core::tint`: the accent always carries text at 4.5:1 |
+| Motion | egui `animate_bool_with_time`, reduced motion from the system setting | Quick settings tiles ease in 120-200 ms; no animation when Windows animations are off |

@@ -203,6 +203,15 @@ const SPRING_TIMER: usize = 8;
 const SPRING_DELAY_MS: u32 = 600;
 /// While the Alt+Tab switcher is open, checks how long it stays: Windows
 /// reports when it comes to the front, but not reliably when it closes.
+/// `lParam` of WM_SETTINGCHANGE names what changed; the light/dark switch is "ImmersiveColorSet".
+fn is_theme_change(l: LPARAM) -> bool {
+    if l.0 == 0 {
+        return false;
+    }
+    // SAFETY: For WM_SETTINGCHANGE a non-zero lParam is a NUL-terminated wide string.
+    unsafe { PCWSTR(l.0 as *const u16).to_string() }.is_ok_and(|name| name == "ImmersiveColorSet")
+}
+
 /// A duration as timer milliseconds; Windows caps timers at about 24 days.
 fn millis(duration: std::time::Duration) -> u32 {
     duration.as_millis().min(0x7FFF_FFFF) as u32
@@ -211,6 +220,10 @@ fn millis(duration: std::time::Duration) -> u32 {
 /// The background update runs once a day: a single timer, aimed at the
 /// moment the next look is due (see `schedule_update`).
 const UPDATE_TIMER: usize = 12;
+/// Wallpaper rotation: one coarse timer, present only while rotation is on.
+const WALLPAPER_TIMER: usize = 41;
+/// Id of the global hotkey that shows and hides the system overlay.
+const OVERLAY_HOTKEY: i32 = 0x5750;
 const PREVIEW_TIMER: usize = 13;
 /// While the crab is out (a few seconds): is its act over, is the pointer on it.
 const MASCOT_TIMER: usize = 14;
@@ -819,6 +832,10 @@ struct App {
     launched: Instant,
     /// When this dock last started a background update.
     update_tried: Option<Instant>,
+    /// Wallpaper rotation state, shared with the thread that applies a change.
+    rotation: std::sync::Arc<std::sync::Mutex<whirlpool_settings::rotate::State>>,
+    /// Dark or light apps theme as of the last look, to notice a switch.
+    dark_apps: bool,
     /// The selection in the switcher, as far as it can be followed.
     follow: Option<SwitcherFollow>,
     /// The magnifier rests on the icon selected in Alt+Tab, not the pointer.
@@ -2419,53 +2436,138 @@ impl App {
         self.render()
     }
 
-    /// Aims the update timer at the next look: a day after the last one,
-    /// which survives restarts, and never sooner than two minutes after the
-    /// dock starts. So the dock wakes for it once a day, not on a schedule.
+    /// (Re)registers the overlay hotkey from the settings; an empty or invalid one means none.
+    fn register_overlay_hotkey(&self) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey,
+        };
+        const NO_REPEAT: u32 = 0x4000;
+        // SAFETY: Hotkey calls on our own window; unregistering one that is not set is harmless.
+        unsafe {
+            let _ = UnregisterHotKey(Some(self.input), OVERLAY_HOTKEY);
+            let Some((modifiers, key)) =
+                whirlpool_core::overlay::parse_hotkey(&self.config.overlay_hotkey)
+            else {
+                return;
+            };
+            if RegisterHotKey(
+                Some(self.input),
+                OVERLAY_HOTKEY,
+                HOT_KEY_MODIFIERS(modifiers | NO_REPEAT),
+                key,
+            )
+            .is_err()
+            {
+                whirlpool_shell::log::line(&format!(
+                    "overlay hotkey {} is taken by another program",
+                    self.config.overlay_hotkey
+                ));
+            }
+        }
+    }
+
+    /// Arms the wallpaper timer, or removes it: with rotation off no timer exists at all.
+    fn schedule_wallpaper(&self) {
+        // SAFETY: Timers on our own window; setting one again replaces it.
+        unsafe {
+            if self.config.wallpaper_rotation {
+                let minutes = u64::from(self.config.wallpaper_every_minutes.clamp(1, 1440));
+                SetTimer(
+                    Some(self.input),
+                    WALLPAPER_TIMER,
+                    millis(std::time::Duration::from_secs(minutes * 60)),
+                    None,
+                );
+            } else {
+                let _ = KillTimer(Some(self.input), WALLPAPER_TIMER);
+            }
+        }
+    }
+
+    /// One rotation step, applied on a thread so the dock never waits for the shell.
+    fn rotate_wallpaper(&self) {
+        if !self.config.wallpaper_rotation || self.fullscreen {
+            return;
+        }
+        let (config, state) = (self.config.clone(), std::sync::Arc::clone(&self.rotation));
+        std::thread::spawn(move || {
+            let dark = whirlpool_settings::rotate::dark_now();
+            let Ok(mut state) = state.lock() else { return };
+            match whirlpool_settings::rotate::advance(&config, dark, &mut state) {
+                Ok(count) => {
+                    whirlpool_shell::log::line(&format!("wallpaper: changed on {count} display(s)"))
+                }
+                Err(error) => whirlpool_shell::log::line(&format!("wallpaper rotation: {error}")),
+            }
+        });
+    }
+
+    /// Windows switched between light and dark apps: with a folder for each, change at once.
+    fn on_theme_change(&mut self) {
+        let dark = whirlpool_settings::rotate::dark_now();
+        if dark == self.dark_apps {
+            return;
+        }
+        self.dark_apps = dark;
+        if self.config.wallpaper_dark_folder.is_some() {
+            self.rotate_wallpaper();
+        }
+    }
+
+    /// Aims the update timer at the next background look: `update_check_days` after the last
+    /// one (remembered in `updates\state.json`, so restarts do not reset it), plus one look a few
+    /// minutes after the dock starts when "check on startup" is on. Never sooner than
+    /// `UPDATE_AFTER_START` after launch. With checks off there is no timer at all.
     fn schedule_update(&self) {
         // SAFETY: Timers on our own window; setting one again replaces it.
         unsafe {
-            if !self.config.check_updates || !self.config.auto_update {
+            if !self.config.check_updates {
                 let _ = KillTimer(Some(self.input), UPDATE_TIMER);
                 return;
             }
-            // Also counted from the last try in this session: if the date
-            // could not be saved, the registry would call it due again at
-            // once, and the dock would start one update after another.
+            let due = whirlpool_settings::update::background_due_in(self.config.update_check_days);
+            let startup = self.config.update_on_startup && self.update_tried.is_none();
+            let seconds = match (startup, due) {
+                (true, _) => 0,
+                (false, Some(seconds)) => seconds,
+                (false, None) => {
+                    let _ = KillTimer(Some(self.input), UPDATE_TIMER);
+                    return;
+                }
+            };
+            // Also counted from the last try in this session: if the date could not be saved,
+            // the state would call it due again at once.
             let since_try = self
                 .update_tried
                 .map_or(std::time::Duration::ZERO, |tried| {
                     UPDATE_EVERY.saturating_sub(tried.elapsed())
                 });
-            let wait = whirlpool_shell::updates::due_in(UPDATE_EVERY)
+            let wait = std::time::Duration::from_secs(seconds)
                 .max(UPDATE_AFTER_START.saturating_sub(self.launched.elapsed()))
                 .max(since_try);
             SetTimer(Some(self.input), UPDATE_TIMER, millis(wait), None);
         }
     }
 
-    /// Starts the background update: Settings without a window, which does
-    /// the network part and exits when there is nothing to install. The
-    /// dock itself never touches the network.
+    /// The background look: asks GitHub on a thread and records what it found. It never
+    /// downloads or installs; that needs a click in Settings.
     fn update_now(&mut self) {
         // SAFETY: Our own timer.
         unsafe {
             let _ = KillTimer(Some(self.input), UPDATE_TIMER);
         }
-        if !self.config.check_updates || !self.config.auto_update {
+        if !self.config.check_updates {
             return;
         }
-        // Installing restarts the dock: not in the middle of a game.
+        // Not in the middle of a game.
         if self.fullscreen {
             // SAFETY: Our own timer.
             unsafe { SetTimer(Some(self.input), UPDATE_TIMER, millis(UPDATE_RETRY), None) };
             return;
         }
-        // Recorded first: whatever happens, the next look is tomorrow.
-        whirlpool_shell::updates::mark_checked();
         self.update_tried = Some(Instant::now());
+        whirlpool_settings::update::background_check(self.config.update_prereleases);
         self.schedule_update();
-        // Updates are installed by Setup; the dock never touches the network.
     }
 
     /// The crab plays `act` (see `mascot`), unless it is out already, it is
@@ -3855,6 +3957,8 @@ impl App {
         }
         // Updates may have been turned on or off.
         self.schedule_update();
+        self.schedule_wallpaper();
+        self.register_overlay_hotkey();
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
         self.update_menu_bar_app()?;
@@ -5212,6 +5316,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             unsafe { SetTimer(Some(hwnd), BIN_TIMER, BIN_DELAY_MS, None) };
         }
         WM_SETTINGCHANGE if w.0 == SPI_SETWORKAREA => {}
+        WM_SETTINGCHANGE if is_theme_change(l) => {
+            with_app("tema", |app| {
+                app.on_theme_change();
+                Ok(())
+            });
+        }
         WM_SETTINGCHANGE | WM_DISPLAYCHANGE | WM_DPICHANGED => {
             if matches!(msg, WM_DISPLAYCHANGE | WM_DPICHANGED) {
                 with_app("pantalla de la mascota", |app| {
@@ -5263,6 +5373,17 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
                 let _ = KillTimer(Some(hwnd), w.0);
             }
             with_app("apps fijadas", App::sync_taskbar_pins);
+        }
+        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == OVERLAY_HOTKEY => {
+            if let Ok(exe) = std::env::current_exe() {
+                crate::overlay::toggle(&exe);
+            }
+        }
+        WM_TIMER if w.0 == WALLPAPER_TIMER => {
+            with_app("fondo de pantalla", |app| {
+                app.rotate_wallpaper();
+                Ok(())
+            });
         }
         WM_TIMER if w.0 == UPDATE_TIMER => {
             with_app("actualización", |app| {
@@ -5598,6 +5719,10 @@ pub fn run() -> Result<()> {
             switch_ended: None,
             launched: Instant::now(),
             update_tried: None,
+            rotation: std::sync::Arc::new(std::sync::Mutex::new(
+                whirlpool_settings::rotate::State::new(30),
+            )),
+            dark_apps: whirlpool_settings::rotate::dark_now(),
             follow: None,
             pointed: false,
             pending_drop: None,
@@ -5707,6 +5832,8 @@ pub fn run() -> Result<()> {
         DROP_WINDOW.store(input.0 as isize, Ordering::Relaxed);
 
         app.schedule_update();
+        app.schedule_wallpaper();
+        app.register_overlay_hotkey();
         APP.set(Some(app));
     }
 

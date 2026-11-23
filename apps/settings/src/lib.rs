@@ -6,11 +6,12 @@
 
 mod app;
 mod icons;
-mod photos;
+pub mod photos;
 mod quick;
+pub mod rotate;
 mod text;
 mod ui;
-mod update;
+pub mod update;
 
 use eframe::egui;
 

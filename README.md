@@ -29,8 +29,11 @@ The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. Mor
 - **Six charging animations**: Surge, Halo, Edge, Tide, Bloom, Aurora. Green when healthy, yellow in the middle, orange when low.
 - **Motion**: seven speeds from Dreamy to Rapid, and five start-up animations.
 - **Fourteen wallpaper photographs** from Pexels, stored in the program (credits in [ASSETS_LICENSES.md](ASSETS_LICENSES.md)).
-- **Quick settings** from the bar's network and volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, Cast, Night light, Battery saver.
-- **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing**: not signed yet, see [SIGNING.md](SIGNING.md); SmartScreen reputation builds over time with signed, widely downloaded releases.
+- **Quick settings** from the bar's network and volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, Cast, Night light, Battery saver. Colours follow your wallpaper and the Windows theme.
+- **System overlay** (hotkey, default Ctrl+Shift+F10): CPU, memory, GPU load, video memory, network, battery and the desktop's frame rate. Three layouts, snaps to corners, drags, click-through. A separate process, so nothing runs while it is hidden. Its frame rate is the compositor's, not the focused game's.
+- **Wallpaper rotation**: every 5 minutes to 1 day, in order or shuffled, from a folder or the bundled photographs, a different folder for dark mode, a different picture per display. Off by default.
+- **Updates that install**: Settings > System > Updates downloads the release for your CPU, checks its SHA-256, installs and restarts; it can roll back one version. `whirlpool --update` does the same from a terminal.
+- **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing: builds are currently unsigned**, see [SIGNING.md](SIGNING.md).
 - **Settings are built in**: `whirlpool.exe --settings`, or launch Whirlpool again while it runs. If OpenGL cannot start, it retries with DirectX.
 
 ### Settings
@@ -57,6 +60,17 @@ The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. Mor
 1. Download `Whirlpool-Setup.exe` from the [latest release](https://github.com/prashantchataut/whirlpool/releases/latest). It installs per user and needs no administrator rights.
 2. If SmartScreen says *Windows protected your PC*: **More info**, then **Run anyway**. New unsigned programs have no reputation yet; see [docs/TRUST.md](docs/TRUST.md).
 3. Verify if you like: `Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256` against `SHA256SUMS.txt`, or `gh attestation verify Whirlpool-Setup.exe --repo prashantchataut/whirlpool`.
+
+**Windows on ARM:** use `Whirlpool-Setup-arm64.exe`. It is cross-compiled in CI and has not been run on ARM hardware by the maintainer; the x64 installer also runs there through emulation.
+
+**Builds are currently unsigned.** Check a download before running it:
+
+```powershell
+(Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()   # must equal the line for Whirlpool-Setup.exe in SHA256SUMS.txt
+gh attestation verify .\Whirlpool-Setup.exe --repo prashantchataut/whirlpool   # build provenance
+```
+
+Each release's notes link a VirusTotal search for the installer's hash.
 
 Also available: `Whirlpool-x64.zip` (portable) and `install.ps1`. Quit any time from the dock menu, or run `whirlpool.exe --restore` to put the taskbar back.
 

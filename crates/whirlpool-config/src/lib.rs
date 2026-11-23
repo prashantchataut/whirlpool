@@ -104,9 +104,46 @@ pub struct Config {
     /// Settings asks GitHub Releases for a newer version when it opens. The
     /// only network access in Whirlpool, so it can be turned off.
     pub check_updates: bool,
-    /// With `check_updates`: once a day, while the user is away from the
-    /// computer, new versions are downloaded and installed without asking.
+    /// With `check_updates`: the dock looks in the background every
+    /// `update_check_days` days. It only records that a version exists; it
+    /// never downloads or installs without a click in Settings.
     pub auto_update: bool,
+    /// With `check_updates`: also look a couple of minutes after the dock starts.
+    pub update_on_startup: bool,
+    /// Days between background looks. 0 turns the periodic look off.
+    pub update_check_days: u32,
+    /// Offer release candidates as well as stable releases.
+    pub update_prereleases: bool,
+    /// Change the wallpaper on a timer. Off by default; no timer exists while it is off.
+    pub wallpaper_rotation: bool,
+    /// Minutes between changes (1 to 1440).
+    pub wallpaper_every_minutes: u32,
+    pub wallpaper_shuffle: bool,
+    /// Folder of pictures to rotate through; `None` uses the photographs bundled with Whirlpool.
+    pub wallpaper_folder: Option<String>,
+    /// Used instead of `wallpaper_folder` while Windows apps are in dark mode.
+    pub wallpaper_dark_folder: Option<String>,
+    pub wallpaper_fit: WallpaperFit,
+    /// Each display gets a different picture from the same source.
+    pub wallpaper_per_monitor: bool,
+    /// Global hotkey that shows or hides the system overlay, e.g. `Ctrl+Shift+F10`. Empty: none.
+    pub overlay_hotkey: String,
+    pub overlay_corner: OverlayCorner,
+    pub overlay_preset: OverlayPreset,
+    /// 30 to 100.
+    pub overlay_opacity: u8,
+    /// Size in percent, 70 to 200.
+    pub overlay_scale: u8,
+    /// Mouse clicks pass through the overlay to the window below. It cannot be dragged then.
+    pub overlay_click_through: bool,
+    /// Milliseconds between readings, 250 to 5000.
+    pub overlay_interval_ms: u32,
+    /// Keep the overlay when a full-screen app is in front.
+    pub overlay_over_fullscreen: bool,
+    pub overlay_mono: bool,
+    /// Where the user dropped it, when that is not a corner.
+    pub overlay_x: Option<i32>,
+    pub overlay_y: Option<i32>,
     pub language: Language,
     /// A folder shown at the right of the dock whose contents open as a
     /// menu, with a submenu for each folder inside, like a Windows 10 taskbar
@@ -285,6 +322,44 @@ pub enum BarPosition {
     #[default]
     #[serde(other)]
     Top,
+}
+
+/// How a wallpaper picture is fitted to the display.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WallpaperFit {
+    /// Cover the display, cropping the overflow.
+    #[default]
+    Fill,
+    /// Show the whole picture with bars if needed.
+    Fit,
+    Stretch,
+    Tile,
+    Center,
+}
+
+/// Where the system overlay sits until it is dragged somewhere else.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OverlayCorner {
+    TopLeft,
+    #[default]
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+/// How much the overlay shows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OverlayPreset {
+    /// CPU, memory and the display's frame rate.
+    Minimal,
+    /// Everything that can be read: CPU, memory, GPU, video memory, network, battery.
+    #[default]
+    Detailed,
+    /// The minimal set on one line.
+    Oneline,
 }
 
 /// The colour the menu bar is tinted with.
@@ -471,6 +546,16 @@ impl Config {
         self.menu_bar_gap = self.menu_bar_gap.min(32);
         self.menu_bar_radius = self.menu_bar_radius.min(24);
         self.menu_bar_width = self.menu_bar_width.clamp(40, 100);
+        self.wallpaper_every_minutes = self.wallpaper_every_minutes.clamp(1, 1440);
+        self.overlay_opacity = self.overlay_opacity.clamp(30, 100);
+        self.overlay_scale = self.overlay_scale.clamp(70, 200);
+        self.overlay_interval_ms = self.overlay_interval_ms.clamp(250, 5000);
+        for folder in [&mut self.wallpaper_folder, &mut self.wallpaper_dark_folder] {
+            *folder = folder
+                .take()
+                .map(|f| f.trim().to_owned())
+                .filter(|f| !f.is_empty());
+        }
         self.wallpaper = self
             .wallpaper
             .map(|id| id.trim().to_owned())
@@ -526,6 +611,27 @@ impl Default for Config {
             mascot: false,
             check_updates: true,
             auto_update: true,
+            update_on_startup: false,
+            update_check_days: 7,
+            update_prereleases: false,
+            wallpaper_rotation: false,
+            wallpaper_every_minutes: 30,
+            wallpaper_shuffle: false,
+            wallpaper_folder: None,
+            wallpaper_dark_folder: None,
+            wallpaper_fit: WallpaperFit::Fill,
+            wallpaper_per_monitor: false,
+            overlay_hotkey: "Ctrl+Shift+F10".to_owned(),
+            overlay_corner: OverlayCorner::TopRight,
+            overlay_preset: OverlayPreset::Detailed,
+            overlay_opacity: 85,
+            overlay_scale: 100,
+            overlay_click_through: false,
+            overlay_interval_ms: 1000,
+            overlay_over_fullscreen: true,
+            overlay_mono: true,
+            overlay_x: None,
+            overlay_y: None,
             language: Language::Auto,
             shortcuts_folder: None,
             animation_style: AnimationStyle::Smooth,

@@ -18,6 +18,11 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Wallpapers are fourteen Pexels photographs stored in the program (set as Fill); the generated wallpapers are no longer offered.
 
 ### Added
+- **Updater that updates.** Settings > System > Updates and `whirlpool --update` check GitHub Releases, compare versions (pre-releases ordered correctly), download the installer for this CPU (x64 or ARM64), refuse it unless its SHA-256 matches `SHA256SUMS.txt`, install silently and relaunch. Progress bar, release notes, cancel, rollback to the previous version, clear messages for offline and rate limits. Settings for check on startup, check every N days and release candidates. The old button only opened the release page and the dock's daily check did nothing.
+- **System overlay** (Ctrl+Shift+F10 by default): CPU, memory, GPU load, video memory, network, battery and the desktop compositor's frame rate; three layouts, four corners with snapping, drag, opacity, size, click-through, update interval, hide over full-screen apps. A separate process: nothing runs while it is hidden.
+- **Wallpaper rotation**: off by default; every 5 minutes to 1 day, sequential or shuffled, from a folder or the bundled photographs, a folder for dark mode, fill/fit/stretch/tile/center, a different picture on each display. `whirlpool --wallpaper-next`.
+- Quick settings redesigned: colours follow the wallpaper and the system theme, animated tiles, battery drawn to scale, keyboard focus and labels.
+- Release workflow: x64 and ARM64 installers, `SHA256SUMS.txt`, notes from the commits, pre-releases for tags with a suffix, signing step that dry-runs without secrets. Installer: `/relaunch=1`, ARM64 variant.
 - Quick settings panel from the bar's network/volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, shortcuts to Cast, Night light and Battery saver.
 - ARM64 build job; `WHIRLPOOL_PAGE` opens a Settings page; capture workflow; PRIVACY, SIGNING, AUDIT, ASSETS_LICENSES.
 

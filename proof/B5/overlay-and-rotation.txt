@@ -1,0 +1,10 @@
+overlay minimal : running=True
+overlay minimal after toggle off: running=False
+overlay detailed : running=True
+overlay detailed after toggle off: running=False
+overlay oneline : running=True
+overlay oneline after toggle off: running=False
+overlay cost, detailed @1s over 30s: cpu=0.013% of the whole machine (4 logical cores), working set=18.6 MB, private=7.9 MB
+rotation step 0: exit=0 wallpaper=D:\a\_temp\rotation-test\pic2.png
+rotation step 1: exit=0 wallpaper=D:\a\_temp\rotation-test\pic0.png
+rotation step 2: exit=0 wallpaper=D:\a\_temp\rotation-test\pic1.png

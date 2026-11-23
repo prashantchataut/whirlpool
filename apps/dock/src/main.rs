@@ -27,6 +27,7 @@ mod media;
 mod menu;
 mod menubar;
 mod multi_window_view;
+mod overlay;
 mod recovery;
 mod scene;
 mod shell_work;
@@ -95,11 +96,42 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
+        ["--wallpaper-next", rest @ ..] => {
+            // One rotation step now, using the saved settings; `N` skips ahead N pictures.
+            let config = whirlpool_config::load(&whirlpool_config::default_path())
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            let skip = rest.first().and_then(|n| n.parse().ok()).unwrap_or(0);
+            let mut state = whirlpool_settings::rotate::State::new(config.wallpaper_every_minutes)
+                .skipping(skip);
+            let dark = whirlpool_settings::rotate::dark_now();
+            let result = whirlpool_settings::rotate::advance(&config, dark, &mut state);
+            whirlpool_shell::log::line(&format!("wallpaper-next: {result:?}"));
+            whirlpool_shell::log::flush();
+            std::process::exit(i32::from(result.is_err()))
+        }
+        ["--overlay"] => overlay::run(),
+        ["--overlay-toggle"] => {
+            overlay::toggle(&env::current_exe().context("exe")?);
+            Ok(())
+        }
+        ["--version"] => {
+            whirlpool_shell::log::line(concat!("whirlpool ", env!("CARGO_PKG_VERSION")));
+            whirlpool_shell::log::flush();
+            Ok(())
+        }
+        ["--update", flags @ ..] => {
+            let code = whirlpool_settings::update::cli(flags);
+            std::process::exit(code)
+        }
         ["--settings"] => open_settings(false),
         ["--settings-compat"] => open_settings(true),
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
-        _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
+        _ => bail!(
+            "usage: whirlpool [--settings | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+        ),
     }
 }
 
