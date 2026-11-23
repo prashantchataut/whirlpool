@@ -3997,6 +3997,7 @@ impl App {
         self.schedule_wallpaper();
         self.register_overlay_hotkey();
         self.register_launchpad_hotkey();
+        crate::drag::configure(self.config.drag_motion);
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
         self.update_menu_bar_app()?;
@@ -5891,6 +5892,7 @@ pub fn run() -> Result<()> {
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
         );
         FOREGROUND_HOOK.store(foreground_hook.0 as isize, Ordering::Relaxed);
+        crate::drag::install();
         LAST_FRONT.store(tracker::foreground_window(), Ordering::Relaxed);
         let target: IDropTarget = DropTarget.into();
         RegisterDragDrop(input, &target)?;
@@ -5900,6 +5902,7 @@ pub fn run() -> Result<()> {
         app.schedule_wallpaper();
         app.register_overlay_hotkey();
         app.register_launchpad_hotkey();
+        crate::drag::configure(app.config.drag_motion);
         APP.set(Some(app));
     }
 
@@ -5922,6 +5925,7 @@ pub fn run() -> Result<()> {
     // SAFETY: The drop target was registered on this window in this thread.
     unsafe {
         let _ = RevokeDragDrop(HWND(DROP_WINDOW.load(Ordering::Relaxed) as *mut _));
+        crate::drag::uninstall();
         for hook in [&MINIMIZE_HOOK, &CLOAK_HOOK, &FOREGROUND_HOOK] {
             let _ = UnhookWinEvent(HWINEVENTHOOK(hook.load(Ordering::Relaxed) as *mut _));
         }

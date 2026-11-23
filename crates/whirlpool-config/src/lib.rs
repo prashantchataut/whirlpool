@@ -87,8 +87,6 @@ pub struct Config {
     /// Windows being dragged get a spring settle on release, a shadow behind them and a snap
     /// preview. Windows cannot transform another program's window, so this never moves pixels of it.
     pub drag_motion: bool,
-    /// Experimental: show a tilting DWM-thumbnail ghost of the dragged window. Off by default.
-    pub drag_tilt_ghost: bool,
     /// Opt-in peripheral monitoring. Off means no accessory reader or queries.
     pub accessory_battery: bool,
     /// Show search button in the menu bar (`None` follows Windows taskbar setting).
@@ -631,7 +629,6 @@ impl Default for Config {
             launchpad: true,
             launchpad_hotkey: "Ctrl+Alt+Space".to_owned(),
             drag_motion: true,
-            drag_tilt_ghost: false,
             accessory_battery: false,
             menu_bar_search: None,
             menu_bar_task_view: None,
@@ -1208,7 +1205,7 @@ mod tests {
         assert_eq!(unknown.menu_bar_island_preset, IslandPreset::Classic);
         let fresh = Config::default();
         assert_eq!(fresh.menu_bar_island_preset, IslandPreset::Classic);
-        assert!(fresh.launchpad && !fresh.drag_tilt_ghost);
+        assert!(fresh.launchpad && fresh.drag_motion);
         let text = serde_json::to_string(&fresh).unwrap();
         assert!(text.contains("\"menuBarIslandPreset\":\"classic\""));
     }
