@@ -114,6 +114,18 @@ pub struct Config {
     pub update_check_days: u32,
     /// Offer release candidates as well as stable releases.
     pub update_prereleases: bool,
+    /// Change the wallpaper on a timer. Off by default; no timer exists while it is off.
+    pub wallpaper_rotation: bool,
+    /// Minutes between changes (1 to 1440).
+    pub wallpaper_every_minutes: u32,
+    pub wallpaper_shuffle: bool,
+    /// Folder of pictures to rotate through; `None` uses the photographs bundled with Whirlpool.
+    pub wallpaper_folder: Option<String>,
+    /// Used instead of `wallpaper_folder` while Windows apps are in dark mode.
+    pub wallpaper_dark_folder: Option<String>,
+    pub wallpaper_fit: WallpaperFit,
+    /// Each display gets a different picture from the same source.
+    pub wallpaper_per_monitor: bool,
     pub language: Language,
     /// A folder shown at the right of the dock whose contents open as a
     /// menu, with a submenu for each folder inside, like a Windows 10 taskbar
@@ -292,6 +304,20 @@ pub enum BarPosition {
     #[default]
     #[serde(other)]
     Top,
+}
+
+/// How a wallpaper picture is fitted to the display.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WallpaperFit {
+    /// Cover the display, cropping the overflow.
+    #[default]
+    Fill,
+    /// Show the whole picture with bars if needed.
+    Fit,
+    Stretch,
+    Tile,
+    Center,
 }
 
 /// The colour the menu bar is tinted with.
@@ -478,6 +504,13 @@ impl Config {
         self.menu_bar_gap = self.menu_bar_gap.min(32);
         self.menu_bar_radius = self.menu_bar_radius.min(24);
         self.menu_bar_width = self.menu_bar_width.clamp(40, 100);
+        self.wallpaper_every_minutes = self.wallpaper_every_minutes.clamp(1, 1440);
+        for folder in [&mut self.wallpaper_folder, &mut self.wallpaper_dark_folder] {
+            *folder = folder
+                .take()
+                .map(|f| f.trim().to_owned())
+                .filter(|f| !f.is_empty());
+        }
         self.wallpaper = self
             .wallpaper
             .map(|id| id.trim().to_owned())
@@ -536,6 +569,13 @@ impl Default for Config {
             update_on_startup: false,
             update_check_days: 7,
             update_prereleases: false,
+            wallpaper_rotation: false,
+            wallpaper_every_minutes: 30,
+            wallpaper_shuffle: false,
+            wallpaper_folder: None,
+            wallpaper_dark_folder: None,
+            wallpaper_fit: WallpaperFit::Fill,
+            wallpaper_per_monitor: false,
             language: Language::Auto,
             shortcuts_folder: None,
             animation_style: AnimationStyle::Smooth,

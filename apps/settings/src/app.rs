@@ -20,7 +20,7 @@ use eframe::egui::{
 use serde_json::{Map, Value};
 use whirlpool_config::{
     AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
-    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation,
+    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation, WallpaperFit,
 };
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
@@ -38,6 +38,14 @@ const SAVE_DELAY: Duration = Duration::from_millis(60);
 const RESET_ARMED: Duration = Duration::from_secs(4);
 /// Roster keys belong to the dock; Settings never writes them.
 const DOCK_OWNED: [&str; 5] = ["version", "pinned", "groups", "recent", "taskbarPins"];
+
+/// What the folder picker is choosing a folder for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FolderTarget {
+    Shortcuts,
+    Wallpapers,
+    DarkWallpapers,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -67,6 +75,10 @@ pub struct Settings {
     wallpaper_rx: Receiver<Option<ColorImage>>,
     wallpaper: Option<TextureHandle>,
     folder_rx: Option<Receiver<Option<String>>>,
+    folder_target: FolderTarget,
+    monitor_count: usize,
+    rotate_busy: Option<Receiver<bool>>,
+    rotate_failed: bool,
     update_state: State,
     update_rx: Option<Receiver<update::Msg>>,
     update_cancel: Arc<AtomicBool>,
@@ -195,6 +207,10 @@ impl Settings {
             wallpaper_rx: spawn_wallpaper(ctx),
             wallpaper: None,
             folder_rx: None,
+            folder_target: FolderTarget::Shortcuts,
+            monitor_count: whirlpool_shell::desktop_wallpaper::monitors().len().max(1),
+            rotate_busy: None,
+            rotate_failed: false,
             update_rx: None,
             update_cancel: Arc::new(AtomicBool::new(false)),
             rollback: update::rollback_target(),
@@ -279,7 +295,11 @@ impl Settings {
         {
             self.folder_rx = None;
             if let Some(path) = choice {
-                self.config.shortcuts_folder = Some(path);
+                match self.folder_target {
+                    FolderTarget::Shortcuts => self.config.shortcuts_folder = Some(path),
+                    FolderTarget::Wallpapers => self.config.wallpaper_folder = Some(path),
+                    FolderTarget::DarkWallpapers => self.config.wallpaper_dark_folder = Some(path),
+                }
             }
         }
         if let Some(receive) = &self.update_rx {
@@ -326,6 +346,12 @@ impl Settings {
                 }
             }
         }
+        if let Some(receive) = &self.rotate_busy
+            && let Ok(ok) = receive.try_recv()
+        {
+            self.rotate_failed = !ok;
+            self.rotate_busy = None;
+        }
         if self.animations_checked.elapsed() > Duration::from_millis(1500) {
             self.animations_checked = Instant::now();
             self.animations_on = system::animations_enabled();
@@ -371,12 +397,17 @@ impl Settings {
         }
     }
 
-    fn choose_folder(&mut self, ctx: &egui::Context) {
+    fn choose_folder(&mut self, target: FolderTarget, ctx: &egui::Context) {
         if self.folder_rx.is_some() {
             return;
         }
+        self.folder_target = target;
         let (send, receive) = mpsc::channel();
-        let current = self.config.shortcuts_folder.clone();
+        let current = match target {
+            FolderTarget::Shortcuts => self.config.shortcuts_folder.clone(),
+            FolderTarget::Wallpapers => self.config.wallpaper_folder.clone(),
+            FolderTarget::DarkWallpapers => self.config.wallpaper_dark_folder.clone(),
+        };
         let ctx = ctx.clone();
         thread::spawn(move || {
             let _ = send.send(folder::pick(0, current.as_deref()));
@@ -1267,7 +1298,7 @@ impl Settings {
         });
         if pick {
             let ctx = ui.ctx().clone();
-            self.choose_folder(&ctx);
+            self.choose_folder(FolderTarget::Shortcuts, &ctx);
         }
     }
 
@@ -1316,11 +1347,144 @@ impl Settings {
         self.wall_apply_rx = Some(receive);
     }
 
+    /// Wallpaper rotation: source, schedule, fit, one picture per display.
+    fn rotation_card(&mut self, ui: &mut Ui, t: &Texts, ctx: &egui::Context) {
+        let mut pick: Option<FolderTarget> = None;
+        let mut change_now = false;
+        let busy = self.rotate_busy.is_some();
+        let failed = self.rotate_failed;
+        let monitors = self.monitor_count;
+        let config = &mut self.config;
+        ui::card(ui, Some(t.get("wallRotation")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("wallRotationOn"),
+                Some(t.get("wallRotationHint")),
+                &mut config.wallpaper_rotation,
+            );
+            if config.wallpaper_rotation {
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("wallEvery"),
+                    Some(t.get("wallEveryHint")),
+                    330.0,
+                    |ui| {
+                        ui::choose(
+                            ui,
+                            "wall-every",
+                            &mut config.wallpaper_every_minutes,
+                            &[
+                                (5, t.get("wallMin5")),
+                                (15, t.get("wallMin15")),
+                                (30, t.get("wallMin30")),
+                                (60, t.get("wallHour1")),
+                                (180, t.get("wallHour3")),
+                                (1440, t.get("wallDay1")),
+                            ],
+                        );
+                    },
+                );
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("wallShuffle"),
+                    Some(t.get("wallShuffleHint")),
+                    &mut config.wallpaper_shuffle,
+                );
+            }
+            ui::divider(ui);
+            let source = config.wallpaper_folder.clone();
+            ui::row(
+                ui,
+                t.get("wallSource"),
+                Some(source.as_deref().unwrap_or(t.get("wallSourceBundled"))),
+                230.0,
+                |ui| {
+                    if ui::push(ui, t.get("wallChoose"), None).clicked() {
+                        pick = Some(FolderTarget::Wallpapers);
+                    }
+                    if source.is_some() && ui::push(ui, t.get("wallBundled"), None).clicked() {
+                        config.wallpaper_folder = None;
+                    }
+                },
+            );
+            ui::divider(ui);
+            let dark = config.wallpaper_dark_folder.clone();
+            ui::row(
+                ui,
+                t.get("wallDark"),
+                Some(dark.as_deref().unwrap_or(t.get("wallDarkHint"))),
+                230.0,
+                |ui| {
+                    if ui::push(ui, t.get("wallChoose"), None).clicked() {
+                        pick = Some(FolderTarget::DarkWallpapers);
+                    }
+                    if dark.is_some() && ui::push(ui, t.get("wallClear"), None).clicked() {
+                        config.wallpaper_dark_folder = None;
+                    }
+                },
+            );
+            ui::divider(ui);
+            ui::row(ui, t.get("wallFit"), None, 400.0, |ui| {
+                ui::choose(
+                    ui,
+                    "wall-fit",
+                    &mut config.wallpaper_fit,
+                    &[
+                        (WallpaperFit::Fill, t.get("wallFill")),
+                        (WallpaperFit::Fit, t.get("wallFitWhole")),
+                        (WallpaperFit::Stretch, t.get("wallStretch")),
+                        (WallpaperFit::Tile, t.get("wallTile")),
+                        (WallpaperFit::Center, t.get("wallCenter")),
+                    ],
+                );
+            });
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("wallPerMonitor"),
+                Some(&t.with_version("wallPerMonitorHint", &monitors.to_string())),
+                &mut config.wallpaper_per_monitor,
+            );
+            ui::divider(ui);
+            let hint = if failed {
+                t.get("wallNextFailed")
+            } else {
+                t.get("wallNextHint")
+            };
+            ui::row(ui, t.get("wallNext"), Some(hint), 150.0, |ui| {
+                if busy {
+                    ui.add_enabled(false, egui::Button::new(t.get("wallNext")));
+                } else if ui::push(ui, t.get("wallNext"), None).clicked() {
+                    change_now = true;
+                }
+            });
+        });
+        if let Some(target) = pick {
+            self.choose_folder(target, ctx);
+        }
+        if change_now {
+            let (send, receive) = mpsc::channel();
+            let (config, ctx) = (self.config.clone(), ctx.clone());
+            thread::spawn(move || {
+                let mut state = crate::rotate::State::new(config.wallpaper_every_minutes);
+                // One step past what the dock's own clock-based sequence would show now.
+                let ok =
+                    crate::rotate::advance(&config, crate::rotate::dark_now(), &mut state).is_ok();
+                let _ = send.send(ok);
+                ctx.request_repaint();
+            });
+            self.rotate_busy = Some(receive);
+        }
+    }
+
     fn personalize_page(&mut self, ui: &mut Ui, t: &Texts) {
         let ctx = ui.ctx().clone();
         if self.wall_thumbs.is_empty() && self.wall_thumbs_rx.is_none() {
             self.wall_thumbs_rx = Some(spawn_thumbnails(&ctx));
         }
+        self.rotation_card(ui, t, &ctx);
         let config = &mut self.config;
         ui::card(ui, Some(t.get("groupAnimations")), |ui| {
             ui::row(

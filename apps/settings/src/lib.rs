@@ -6,8 +6,9 @@
 
 mod app;
 mod icons;
-mod photos;
+pub mod photos;
 mod quick;
+pub mod rotate;
 mod text;
 mod ui;
 pub mod update;

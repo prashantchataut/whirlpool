@@ -19,7 +19,7 @@ use windows::{
     core::{PCWSTR, w},
 };
 
-fn folder() -> PathBuf {
+pub fn folder() -> PathBuf {
     PathBuf::from(env::var_os("LOCALAPPDATA").unwrap_or_default())
         .join("Whirlpool")
         .join("wallpapers")

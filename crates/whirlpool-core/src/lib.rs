@@ -7,6 +7,7 @@ pub mod genie;
 pub mod layout;
 pub mod magnify;
 pub mod roster;
+pub mod rotation;
 pub mod spring;
 pub mod tint;
 pub mod wallpaper;
