@@ -33,7 +33,8 @@ jobs:
           $want = (Select-String -Path SHA256SUMS.txt -Pattern ' Whirlpool-Setup.exe$').Line.Split(' ')[0]
           $got = (Get-FileHash Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()
           if ($want -ne $got) { throw "installer hash mismatch" }
-          Start-Process .\Whirlpool-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""' -Wait
+          $i = Start-Process .\Whirlpool-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""' -PassThru
+          if (-not $i.WaitForExit(180000)) { throw 'install did not finish' }
           $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
           if (-not (Test-Path $exe)) { throw "not installed at $exe" }
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
@@ -43,7 +44,9 @@ jobs:
         run: |
           $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
-          $p = Start-Process $exe -ArgumentList '--update','--beta' -Wait -PassThru
+          $p = Start-Process $exe -ArgumentList '--update','--beta' -PassThru
+          # Not -Wait: Setup relaunches Whirlpool, which never exits, and -Wait waits for descendants too.
+          if (-not $p.WaitForExit(120000)) { throw 'updater did not finish' }
           "updater exit code: $($p.ExitCode)" | Tee-Object proof\e2e.txt -Append
           $deadline = (Get-Date).AddMinutes(4)
           $want = '${{ inputs.to_tag || 'v4.2.0-rc2' }}'.TrimStart('v')
@@ -65,10 +68,13 @@ jobs:
         run: |
           $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
-          $p = Start-Process $exe -ArgumentList '--update','--beta','--check-only' -Wait -PassThru
+          $p = Start-Process $exe -ArgumentList '--update','--beta','--check-only' -PassThru
+          if (-not $p.WaitForExit(120000)) { throw 'check did not finish' }
           "check after update, exit code: $($p.ExitCode) (0 = up to date)" | Tee-Object proof\e2e.txt -Append
           if ($p.ExitCode -ne 0) { throw "still sees an update" }
-          Start-Process $exe -ArgumentList '--update','--rollback' -Wait
+          $r = Start-Process $exe -ArgumentList '--update','--rollback' -PassThru
+          if (-not $r.WaitForExit(120000)) { throw 'rollback did not finish' }
+          "rollback exit code: $($r.ExitCode)" | Tee-Object proof\e2e.txt -Append
           $want = '${{ inputs.from_tag || 'v4.2.0-rc1' }}'.TrimStart('v')
           $deadline = (Get-Date).AddMinutes(4)
           do { Start-Sleep 3; $now = (Get-ItemProperty $key -ErrorAction SilentlyContinue).DisplayVersion } until ($now -eq $want -or (Get-Date) -gt $deadline)
@@ -81,7 +87,7 @@ jobs:
         run: |
           Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           $u = "$env:LOCALAPPDATA\Programs\Whirlpool\unins000.exe"
-          if (Test-Path $u) { Start-Process $u -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES' -Wait; Start-Sleep 3 }
+          if (Test-Path $u) { $q = Start-Process $u -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES' -PassThru; $null = $q.WaitForExit(120000); Start-Sleep 3 }
           "uninstalled, folder left behind: $(Test-Path "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe")" | Tee-Object proof\e2e.txt -Append
       - uses: actions/upload-artifact@v4
         if: always()
