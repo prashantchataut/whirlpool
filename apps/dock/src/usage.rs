@@ -164,6 +164,12 @@ impl ActiveProviders {
 /// Only show a provider while its local client is running. A stored login by
 /// itself does not imply the client is in use.
 pub fn active_providers() -> ActiveProviders {
+    if demo() {
+        let mut active = ActiveProviders::default();
+        active.0[Provider::Claude as usize] = true;
+        active.0[Provider::Codex as usize] = true;
+        return active;
+    }
     // SAFETY: The snapshot handle is closed before this function returns.
     let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }) else {
         return ActiveProviders::default();
@@ -254,6 +260,33 @@ fn decode_logo(bytes: &[u8]) -> Option<IconImage> {
     })
 }
 
+/// `WHIRLPOOL_DEMO=1` shows sample quota meters instead of reading provider caches. It exists so a
+/// clean CI runner, which has no AI client installed, can photograph the island. Never set by the app.
+fn demo() -> bool {
+    env::var_os("WHIRLPOOL_DEMO").is_some()
+}
+
+fn demo_snapshot() -> Snapshot {
+    let window = |label: &str, minutes: i64, used_percent: u8| Window {
+        label: Some(label.to_owned()),
+        minutes,
+        used_percent,
+        resets_at: Some(Utc::now() + chrono::Duration::minutes(minutes / 3)),
+    };
+    let mut snapshot = Snapshot::default();
+    snapshot.providers[Provider::Claude as usize] = ProviderUsage {
+        state: State::Ready,
+        windows: vec![window("5 h", 300, 42), window("7 d", 10_080, 18)],
+        fetched_at: Some(SystemTime::now()),
+    };
+    snapshot.providers[Provider::Codex as usize] = ProviderUsage {
+        state: State::Ready,
+        windows: vec![window("5 h", 300, 67), window("7 d", 10_080, 31)],
+        fetched_at: Some(SystemTime::now()),
+    };
+    snapshot
+}
+
 pub struct Monitor {
     current: Arc<Mutex<Snapshot>>,
     running: Arc<AtomicBool>,
@@ -300,6 +333,28 @@ impl Monitor {
         if !active.any() {
             self.running.store(false, Ordering::Release);
             self.mark_inactive();
+            return;
+        }
+        if demo() {
+            let first = self.last_started.is_none();
+            self.last_started = Some(Instant::now());
+            self.last_active = active;
+            *self
+                .current
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = demo_snapshot();
+            self.running.store(false, Ordering::Release);
+            if first {
+                // SAFETY: The window is owned by the live menu bar; posting is asynchronous.
+                unsafe {
+                    let _ = PostMessageW(
+                        Some(HWND(self.hwnd as *mut _)),
+                        self.changed_message,
+                        WPARAM(0),
+                        LPARAM(0),
+                    );
+                }
+            }
             return;
         }
         if !force

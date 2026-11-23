@@ -119,6 +119,89 @@ pub fn search(names: &[&str], query: &str) -> Vec<usize> {
     tiers.into_iter().flatten().collect()
 }
 
+/// A key that moves the selection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Nav {
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+}
+
+/// The page an item is on.
+#[must_use]
+pub fn page_of(index: usize, grid: Grid) -> usize {
+    index / grid.per_page().max(1)
+}
+
+/// Where the selection goes when `nav` is pressed. Left and right walk the items in order, so they
+/// run on to the next page; up and down move a row and cross to the neighbouring page from the top or
+/// bottom row; a short last row is reached by going down from the row above it. Never leaves
+/// `0..count`.
+#[must_use]
+pub fn navigate(current: usize, count: usize, grid: Grid, nav: Nav) -> usize {
+    if count == 0 {
+        return 0;
+    }
+    let last = count - 1;
+    let current = current.min(last);
+    let columns = grid.columns.max(1) as usize;
+    let per = grid.per_page().max(1);
+    let slot = current % per;
+    let page = current / per;
+    match nav {
+        Nav::Left => current.saturating_sub(1),
+        Nav::Right => (current + 1).min(last),
+        Nav::Home => 0,
+        Nav::End => last,
+        Nav::Up => {
+            if slot >= columns {
+                current - columns
+            } else if page > 0 {
+                // Bottom row of the previous page, same column.
+                (page - 1) * per + (per - columns) + slot % columns
+            } else {
+                current
+            }
+        }
+        Nav::Down => {
+            let below = current + columns;
+            if slot + columns < per {
+                if below <= last {
+                    below
+                } else if last / columns > current / columns {
+                    last
+                } else {
+                    current
+                }
+            } else if (page + 1) * per <= last {
+                // Top row of the next page, same column.
+                ((page + 1) * per + slot % columns).min(last)
+            } else {
+                current
+            }
+        }
+        Nav::PageUp => {
+            if page > 0 {
+                (current - per).min(last)
+            } else {
+                0
+            }
+        }
+        Nav::PageDown => {
+            if (page + 1) * per <= last {
+                (current + per).min(last)
+            } else {
+                last
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,5 +308,71 @@ mod tests {
         assert_eq!(search(&names, ""), vec![0, 1, 2, 3, 4]);
         assert_eq!(search(&names, "  NOTE "), vec![0]);
         assert!(search(&names, "zzz").is_empty());
+    }
+
+    #[test]
+    fn keyboard_navigation_walks_rows_pages_and_short_rows() {
+        let grid = Grid {
+            columns: 4,
+            rows: 3,
+        }; // 12 per page
+        let count = 30; // pages of 12, 12 and 6 (rows of 4 and 2)
+        let go = |from, nav| navigate(from, count, grid, nav);
+        assert_eq!(go(0, Nav::Left), 0, "stays at the start");
+        assert_eq!(go(11, Nav::Right), 12, "runs on to the next page");
+        assert_eq!(go(29, Nav::Right), 29, "stays at the end");
+        assert_eq!(go(1, Nav::Down), 5);
+        assert_eq!(go(5, Nav::Up), 1);
+        assert_eq!(go(2, Nav::Up), 2, "top of the first page");
+        assert_eq!(
+            go(10, Nav::Down),
+            14,
+            "bottom row goes to the next page, same column"
+        );
+        assert_eq!(
+            go(13, Nav::Up),
+            9,
+            "top row goes back to the previous page's bottom row"
+        );
+        // Last page holds 24..30: row 0 is 24..28, row 1 is 28..30.
+        assert_eq!(
+            go(27, Nav::Down),
+            29,
+            "a short last row is reached by its last item"
+        );
+        assert_eq!(go(29, Nav::Down), 29);
+        assert_eq!(go(5, Nav::PageDown), 17);
+        assert_eq!(go(26, Nav::PageDown), 29, "last page: to the very end");
+        assert_eq!(go(17, Nav::PageUp), 5);
+        assert_eq!(go(3, Nav::PageUp), 0);
+        assert_eq!(go(7, Nav::Home), 0);
+        assert_eq!(go(7, Nav::End), 29);
+        assert_eq!(
+            navigate(0, 0, grid, Nav::Down),
+            0,
+            "an empty list has no selection to move"
+        );
+        assert_eq!(
+            navigate(99, 5, grid, Nav::Left),
+            3,
+            "a stale index is clamped first"
+        );
+        assert_eq!(page_of(11, grid), 0);
+        assert_eq!(page_of(12, grid), 1);
+        // Every key from every position stays in range.
+        for from in 0..count {
+            for nav in [
+                Nav::Left,
+                Nav::Right,
+                Nav::Up,
+                Nav::Down,
+                Nav::Home,
+                Nav::End,
+                Nav::PageUp,
+                Nav::PageDown,
+            ] {
+                assert!(go(from, nav) < count);
+            }
+        }
     }
 }

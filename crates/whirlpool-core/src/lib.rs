@@ -12,6 +12,7 @@ pub mod magnify;
 pub mod overlay;
 pub mod roster;
 pub mod rotation;
+pub mod snap;
 pub mod spring;
 pub mod tint;
 pub mod wallpaper;

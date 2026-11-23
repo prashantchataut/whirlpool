@@ -78,6 +78,15 @@ pub struct Config {
     pub menu_bar_music: bool,
     /// Visual style and placement of the music and AI usage island in the menu bar.
     pub menu_bar_island_style: IslandStyle,
+    /// Size of the island and its opened panel.
+    pub menu_bar_island_preset: IslandPreset,
+    /// Launchpad: the full-screen app grid opened from the dock or the hotkey.
+    pub launchpad: bool,
+    /// Global hotkey that opens the Launchpad, `Ctrl+Alt+Space` by default; empty means none.
+    pub launchpad_hotkey: String,
+    /// Windows being dragged get a spring settle on release, a shadow behind them and a snap
+    /// preview. Windows cannot transform another program's window, so this never moves pixels of it.
+    pub drag_motion: bool,
     /// Opt-in peripheral monitoring. Off means no accessory reader or queries.
     pub accessory_battery: bool,
     /// Show search button in the menu bar (`None` follows Windows taskbar setting).
@@ -518,6 +527,19 @@ pub enum IslandStyle {
     Notch,
 }
 
+/// Size of the dynamic island. `Classic` is what Whirlpool has always drawn; an unknown value
+/// written by a newer version reads as `Classic`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IslandPreset {
+    Compact,
+    Wide,
+    Expressive,
+    #[default]
+    #[serde(other)]
+    Classic,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
@@ -603,6 +625,10 @@ impl Default for Config {
             ai_usage: true,
             menu_bar_music: true,
             menu_bar_island_style: IslandStyle::Notch,
+            menu_bar_island_preset: IslandPreset::Classic,
+            launchpad: true,
+            launchpad_hotkey: "Ctrl+Alt+Space".to_owned(),
+            drag_motion: true,
             accessory_battery: false,
             menu_bar_search: None,
             menu_bar_task_view: None,
@@ -1163,5 +1189,24 @@ mod tests {
         let odd: Config = serde_json::from_str(r#"{"menuBarPosition":"sideways"}"#).unwrap();
         assert_eq!(odd.menu_bar_position, BarPosition::Top);
         assert_eq!(Config::default().menu_bar_position, BarPosition::Top);
+    }
+
+    #[test]
+    fn island_preset_launchpad_and_drag_settings_round_trip() {
+        let config: Config = serde_json::from_str(
+            r#"{"menuBarIslandPreset":"wide","launchpadHotkey":"Win+F1","dragMotion":false}"#,
+        )
+        .unwrap();
+        assert_eq!(config.menu_bar_island_preset, IslandPreset::Wide);
+        assert_eq!(config.launchpad_hotkey, "Win+F1");
+        assert!(!config.drag_motion);
+        let unknown: Config =
+            serde_json::from_str(r#"{"menuBarIslandPreset":"gigantic"}"#).unwrap();
+        assert_eq!(unknown.menu_bar_island_preset, IslandPreset::Classic);
+        let fresh = Config::default();
+        assert_eq!(fresh.menu_bar_island_preset, IslandPreset::Classic);
+        assert!(fresh.launchpad && fresh.drag_motion);
+        let text = serde_json::to_string(&fresh).unwrap();
+        assert!(text.contains("\"menuBarIslandPreset\":\"classic\""));
     }
 }

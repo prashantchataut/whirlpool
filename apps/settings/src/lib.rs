@@ -6,6 +6,7 @@
 
 mod app;
 mod icons;
+mod launchpad;
 pub mod photos;
 mod quick;
 pub mod rotate;
@@ -24,6 +25,14 @@ pub fn run() -> eframe::Result {
 pub fn run_quick(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Result {
     quick::run(right, anchor_y, bottom, compat)
 }
+
+/// The Launchpad: the full-screen app grid. `compat` draws it with DirectX.
+pub fn run_launchpad(compat: bool) -> eframe::Result {
+    launchpad::run(compat)
+}
+
+/// The title of the Launchpad window, so the dock can close a running one.
+pub const LAUNCHPAD_TITLE: &str = launchpad::TITLE;
 
 /// The same window drawn with DirectX instead of OpenGL, for machines whose
 /// graphics driver offers no usable OpenGL (virtual machines, remote desktop,

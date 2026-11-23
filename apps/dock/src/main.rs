@@ -15,6 +15,7 @@ mod accessories;
 mod app;
 mod assets;
 mod charge;
+mod drag;
 mod drop;
 mod edge_watch;
 mod flight;
@@ -111,6 +112,8 @@ fn main() -> Result<()> {
             whirlpool_shell::log::flush();
             std::process::exit(i32::from(result.is_err()))
         }
+        ["--launchpad"] => open_launchpad(false),
+        ["--launchpad-compat"] => open_launchpad(true),
         ["--overlay"] => overlay::run(),
         ["--overlay-toggle"] => {
             overlay::toggle(&env::current_exe().context("exe")?);
@@ -130,7 +133,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --launchpad | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }
@@ -138,6 +141,40 @@ fn main() -> Result<()> {
 /// The quick settings panel the menu bar opens. One at a time; a second
 /// request while it is open does nothing, since the panel closes itself when
 /// it loses focus.
+/// Opens the Launchpad, or closes it if it is already open, so one hotkey does both.
+fn open_launchpad(compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::LAUNCHPAD_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single =
+        unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Launchpad"))?) };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        // Still starting up: a second press must not open a second grid.
+        return Ok(());
+    }
+    whirlpool_settings::run_launchpad(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("launchpad (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            let _ = std::process::Command::new(exe)
+                .arg("--launchpad-compat")
+                .spawn();
+        }
+        anyhow::anyhow!("launchpad: {error}")
+    })
+}
+
 fn open_quick_settings(right: &str, y: &str, edge: &str, compat: bool) -> Result<()> {
     // SAFETY: The static name is valid; the handle is released when the process exits.
     let _single = unsafe {
