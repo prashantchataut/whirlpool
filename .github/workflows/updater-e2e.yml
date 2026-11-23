@@ -4,6 +4,9 @@ name: Updater end to end
 # (`whirlpool --update`) against GitHub Releases: check, download, SHA-256 check, install, relaunch.
 # Finally rolls back and uninstalls. Logs and a desktop screenshot are uploaded.
 on:
+  push:
+    branches: [release-pipeline-4.2]
+    paths: ['.github/workflows/updater-e2e.yml']
   workflow_dispatch:
     inputs:
       from_tag:
@@ -26,7 +29,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force proof | Out-Null
-          gh release download "${{ inputs.from_tag }}" --repo $env:GITHUB_REPOSITORY -p Whirlpool-Setup.exe -p SHA256SUMS.txt
+          gh release download "${{ inputs.from_tag || 'v4.2.0-rc1' }}" --repo $env:GITHUB_REPOSITORY -p Whirlpool-Setup.exe -p SHA256SUMS.txt
           $want = (Select-String -Path SHA256SUMS.txt -Pattern ' Whirlpool-Setup.exe$').Line.Split(' ')[0]
           $got = (Get-FileHash Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()
           if ($want -ne $got) { throw "installer hash mismatch" }
@@ -43,7 +46,7 @@ jobs:
           $p = Start-Process $exe -ArgumentList '--update','--beta' -Wait -PassThru
           "updater exit code: $($p.ExitCode)" | Tee-Object proof\e2e.txt -Append
           $deadline = (Get-Date).AddMinutes(4)
-          $want = '${{ inputs.to_tag }}'.TrimStart('v')
+          $want = '${{ inputs.to_tag || 'v4.2.0-rc2' }}'.TrimStart('v')
           do { Start-Sleep 3; $now = (Get-ItemProperty $key -ErrorAction SilentlyContinue).DisplayVersion } until ($now -eq $want -or (Get-Date) -gt $deadline)
           "installed after update: $now (wanted $want)" | Tee-Object proof\e2e.txt -Append
           if ($now -ne $want) { throw "update did not install" }
@@ -66,7 +69,7 @@ jobs:
           "check after update, exit code: $($p.ExitCode) (0 = up to date)" | Tee-Object proof\e2e.txt -Append
           if ($p.ExitCode -ne 0) { throw "still sees an update" }
           Start-Process $exe -ArgumentList '--update','--rollback' -Wait
-          $want = '${{ inputs.from_tag }}'.TrimStart('v')
+          $want = '${{ inputs.from_tag || 'v4.2.0-rc1' }}'.TrimStart('v')
           $deadline = (Get-Date).AddMinutes(4)
           do { Start-Sleep 3; $now = (Get-ItemProperty $key -ErrorAction SilentlyContinue).DisplayVersion } until ($now -eq $want -or (Get-Date) -gt $deadline)
           "installed after rollback: $now (wanted $want)" | Tee-Object proof\e2e.txt -Append
