@@ -27,6 +27,7 @@ mod media;
 mod menu;
 mod menubar;
 mod multi_window_view;
+mod overlay;
 mod recovery;
 mod scene;
 mod shell_work;
@@ -95,6 +96,11 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
+        ["--overlay"] => overlay::run(),
+        ["--overlay-toggle"] => {
+            overlay::toggle(&env::current_exe().context("exe")?);
+            Ok(())
+        }
         ["--version"] => {
             whirlpool_shell::log::line(concat!("whirlpool ", env!("CARGO_PKG_VERSION")));
             whirlpool_shell::log::flush();
@@ -109,7 +115,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }

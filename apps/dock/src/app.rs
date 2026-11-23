@@ -222,6 +222,8 @@ fn millis(duration: std::time::Duration) -> u32 {
 const UPDATE_TIMER: usize = 12;
 /// Wallpaper rotation: one coarse timer, present only while rotation is on.
 const WALLPAPER_TIMER: usize = 41;
+/// Id of the global hotkey that shows and hides the system overlay.
+const OVERLAY_HOTKEY: i32 = 0x5750;
 const PREVIEW_TIMER: usize = 13;
 /// While the crab is out (a few seconds): is its act over, is the pointer on it.
 const MASCOT_TIMER: usize = 14;
@@ -2434,6 +2436,36 @@ impl App {
         self.render()
     }
 
+    /// (Re)registers the overlay hotkey from the settings; an empty or invalid one means none.
+    fn register_overlay_hotkey(&self) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey,
+        };
+        const NO_REPEAT: u32 = 0x4000;
+        // SAFETY: Hotkey calls on our own window; unregistering one that is not set is harmless.
+        unsafe {
+            let _ = UnregisterHotKey(Some(self.input), OVERLAY_HOTKEY);
+            let Some((modifiers, key)) =
+                whirlpool_core::overlay::parse_hotkey(&self.config.overlay_hotkey)
+            else {
+                return;
+            };
+            if RegisterHotKey(
+                Some(self.input),
+                OVERLAY_HOTKEY,
+                HOT_KEY_MODIFIERS(modifiers | NO_REPEAT),
+                key,
+            )
+            .is_err()
+            {
+                whirlpool_shell::log::line(&format!(
+                    "overlay hotkey {} is taken by another program",
+                    self.config.overlay_hotkey
+                ));
+            }
+        }
+    }
+
     /// Arms the wallpaper timer, or removes it: with rotation off no timer exists at all.
     fn schedule_wallpaper(&self) {
         // SAFETY: Timers on our own window; setting one again replaces it.
@@ -3926,6 +3958,7 @@ impl App {
         // Updates may have been turned on or off.
         self.schedule_update();
         self.schedule_wallpaper();
+        self.register_overlay_hotkey();
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
         self.update_menu_bar_app()?;
@@ -5341,6 +5374,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             }
             with_app("apps fijadas", App::sync_taskbar_pins);
         }
+        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == OVERLAY_HOTKEY => {
+            if let Ok(exe) = std::env::current_exe() {
+                crate::overlay::toggle(&exe);
+            }
+        }
         WM_TIMER if w.0 == WALLPAPER_TIMER => {
             with_app("fondo de pantalla", |app| {
                 app.rotate_wallpaper();
@@ -5795,6 +5833,7 @@ pub fn run() -> Result<()> {
 
         app.schedule_update();
         app.schedule_wallpaper();
+        app.register_overlay_hotkey();
         APP.set(Some(app));
     }
 

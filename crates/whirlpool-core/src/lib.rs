@@ -6,6 +6,7 @@ pub mod frame;
 pub mod genie;
 pub mod layout;
 pub mod magnify;
+pub mod overlay;
 pub mod roster;
 pub mod rotation;
 pub mod spring;

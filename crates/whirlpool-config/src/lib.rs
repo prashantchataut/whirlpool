@@ -126,6 +126,24 @@ pub struct Config {
     pub wallpaper_fit: WallpaperFit,
     /// Each display gets a different picture from the same source.
     pub wallpaper_per_monitor: bool,
+    /// Global hotkey that shows or hides the system overlay, e.g. `Ctrl+Shift+F10`. Empty: none.
+    pub overlay_hotkey: String,
+    pub overlay_corner: OverlayCorner,
+    pub overlay_preset: OverlayPreset,
+    /// 30 to 100.
+    pub overlay_opacity: u8,
+    /// Size in percent, 70 to 200.
+    pub overlay_scale: u8,
+    /// Mouse clicks pass through the overlay to the window below. It cannot be dragged then.
+    pub overlay_click_through: bool,
+    /// Milliseconds between readings, 250 to 5000.
+    pub overlay_interval_ms: u32,
+    /// Keep the overlay when a full-screen app is in front.
+    pub overlay_over_fullscreen: bool,
+    pub overlay_mono: bool,
+    /// Where the user dropped it, when that is not a corner.
+    pub overlay_x: Option<i32>,
+    pub overlay_y: Option<i32>,
     pub language: Language,
     /// A folder shown at the right of the dock whose contents open as a
     /// menu, with a submenu for each folder inside, like a Windows 10 taskbar
@@ -320,6 +338,30 @@ pub enum WallpaperFit {
     Center,
 }
 
+/// Where the system overlay sits until it is dragged somewhere else.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OverlayCorner {
+    TopLeft,
+    #[default]
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+/// How much the overlay shows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OverlayPreset {
+    /// CPU, memory and the display's frame rate.
+    Minimal,
+    /// Everything that can be read: CPU, memory, GPU, video memory, network, battery.
+    #[default]
+    Detailed,
+    /// The minimal set on one line.
+    Oneline,
+}
+
 /// The colour the menu bar is tinted with.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -505,6 +547,9 @@ impl Config {
         self.menu_bar_radius = self.menu_bar_radius.min(24);
         self.menu_bar_width = self.menu_bar_width.clamp(40, 100);
         self.wallpaper_every_minutes = self.wallpaper_every_minutes.clamp(1, 1440);
+        self.overlay_opacity = self.overlay_opacity.clamp(30, 100);
+        self.overlay_scale = self.overlay_scale.clamp(70, 200);
+        self.overlay_interval_ms = self.overlay_interval_ms.clamp(250, 5000);
         for folder in [&mut self.wallpaper_folder, &mut self.wallpaper_dark_folder] {
             *folder = folder
                 .take()
@@ -576,6 +621,17 @@ impl Default for Config {
             wallpaper_dark_folder: None,
             wallpaper_fit: WallpaperFit::Fill,
             wallpaper_per_monitor: false,
+            overlay_hotkey: "Ctrl+Shift+F10".to_owned(),
+            overlay_corner: OverlayCorner::TopRight,
+            overlay_preset: OverlayPreset::Detailed,
+            overlay_opacity: 85,
+            overlay_scale: 100,
+            overlay_click_through: false,
+            overlay_interval_ms: 1000,
+            overlay_over_fullscreen: true,
+            overlay_mono: true,
+            overlay_x: None,
+            overlay_y: None,
             language: Language::Auto,
             shortcuts_folder: None,
             animation_style: AnimationStyle::Smooth,

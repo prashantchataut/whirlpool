@@ -22,6 +22,7 @@ use whirlpool_config::{
     AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
     DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation, WallpaperFit,
 };
+use whirlpool_config::{OverlayCorner, OverlayPreset};
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
 
 use crate::{
@@ -107,6 +108,10 @@ fn load_config() -> Config {
         .ok()
         .flatten()
         .unwrap_or_default()
+}
+
+fn dock_exe_for_overlay() -> std::io::Result<PathBuf> {
+    Ok(dock_exe())
 }
 
 fn as_map(config: &Config) -> Map<String, Value> {
@@ -2032,7 +2037,133 @@ impl Settings {
         }
     }
 
+    /// The system overlay: what it shows, where, how it looks and the hotkey.
+    fn overlay_card(&mut self, ui: &mut Ui, t: &Texts) {
+        let mut toggle_now = false;
+        let config = &mut self.config;
+        let valid = config.overlay_hotkey.trim().is_empty()
+            || whirlpool_core::overlay::parse_hotkey(&config.overlay_hotkey).is_some();
+        ui::card(ui, Some(t.get("overlay")), |ui| {
+            ui::row(
+                ui,
+                t.get("overlayShow"),
+                Some(t.get("overlayShowHint")),
+                150.0,
+                |ui| {
+                    if ui::push(ui, t.get("overlayToggle"), None).clicked() {
+                        toggle_now = true;
+                    }
+                },
+            );
+            ui::divider(ui);
+            let hint = if valid {
+                t.get("overlayHotkeyHint")
+            } else {
+                t.get("overlayHotkeyBad")
+            };
+            ui::row(ui, t.get("overlayHotkey"), Some(hint), 190.0, |ui| {
+                ui.add(egui::TextEdit::singleline(&mut config.overlay_hotkey).desired_width(170.0));
+            });
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayPreset"),
+                Some(t.get("overlayPresetHint")),
+                330.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-preset",
+                        &mut config.overlay_preset,
+                        &[
+                            (OverlayPreset::Minimal, t.get("overlayMinimal")),
+                            (OverlayPreset::Detailed, t.get("overlayDetailed")),
+                            (OverlayPreset::Oneline, t.get("overlayOneLine")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayCorner"),
+                Some(t.get("overlayCornerHint")),
+                440.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-corner",
+                        &mut config.overlay_corner,
+                        &[
+                            (OverlayCorner::TopLeft, t.get("cornerTopLeft")),
+                            (OverlayCorner::TopRight, t.get("cornerTopRight")),
+                            (OverlayCorner::BottomLeft, t.get("cornerBottomLeft")),
+                            (OverlayCorner::BottomRight, t.get("cornerBottomRight")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::row(ui, t.get("overlayOpacity"), None, 220.0, |ui| {
+                ui.add(egui::Slider::new(&mut config.overlay_opacity, 30..=100).suffix("%"));
+            });
+            ui::divider(ui);
+            ui::row(ui, t.get("overlaySize"), None, 220.0, |ui| {
+                ui.add(egui::Slider::new(&mut config.overlay_scale, 70..=200).suffix("%"));
+            });
+            ui::divider(ui);
+            ui::row(
+                ui,
+                t.get("overlayInterval"),
+                Some(t.get("overlayIntervalHint")),
+                330.0,
+                |ui| {
+                    ui::choose(
+                        ui,
+                        "overlay-interval",
+                        &mut config.overlay_interval_ms,
+                        &[
+                            (250, t.get("overlayMs250")),
+                            (500, t.get("overlayMs500")),
+                            (1000, t.get("overlayS1")),
+                            (2000, t.get("overlayS2")),
+                            (5000, t.get("overlayS5")),
+                        ],
+                    );
+                },
+            );
+            ui::divider(ui);
+            ui::toggle_row(ui, t.get("overlayMono"), None, &mut config.overlay_mono);
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("overlayClickThrough"),
+                Some(t.get("overlayClickThroughHint")),
+                &mut config.overlay_click_through,
+            );
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
+                t.get("overlayFullscreen"),
+                Some(t.get("overlayFullscreenHint")),
+                &mut config.overlay_over_fullscreen,
+            );
+            ui::divider(ui);
+            ui.label(
+                RichText::new(t.get("overlayAbout"))
+                    .size(12.0)
+                    .color(Palette::of(ui).muted),
+            );
+        });
+        if toggle_now && let Ok(exe) = dock_exe_for_overlay() {
+            let _ = std::process::Command::new(exe)
+                .arg("--overlay-toggle")
+                .spawn();
+        }
+    }
+
     fn system_page(&mut self, ui: &mut Ui, t: &Texts, ctx: &egui::Context) {
+        self.overlay_card(ui, t);
         let mut autostart = self.autostart;
         let mut recheck = false;
         let mut reset_clicked = false;
