@@ -487,14 +487,18 @@ impl Overlay {
             };
             let line_height = measure("Ag").cy + 4;
             let (mut label_width, mut value_width) = (0, 0);
-            for (label, value) in &self.rows {
+            for (label, _) in &self.rows {
                 label_width = label_width.max(measure(label).cx);
+            }
+            // Values are painted in the bold face, so they are measured in it.
+            SelectObject(dc, HGDIOBJ(self.bold.0));
+            for (_, value) in &self.rows {
                 value_width = value_width.max(measure(value).cx);
             }
             SelectObject(dc, old);
             ReleaseDC(Some(hwnd), dc);
             let pad = (10.0 * f64::from(self.config.overlay_scale) / 100.0) as i32 + 4;
-            let gap = if label_width > 0 { pad } else { 0 };
+            let gap = if label_width > 0 { pad * 2 } else { 0 };
             self.label_width = label_width;
             self.size = (
                 label_width + gap + value_width + 2 * pad,

@@ -109,13 +109,15 @@ fn color_rgb(c: Color32) -> [u8; 3] {
     [c.r(), c.g(), c.b()]
 }
 
+/// Linear blend in egui's premultiplied space, so translucent fills keep their meaning.
 fn blend(a: Color32, b: Color32, t: f32) -> Color32 {
-    let m = tint::mix(color_rgb(a), color_rgb(b), t);
-    Color32::from_rgba_unmultiplied(
-        m[0],
-        m[1],
-        m[2],
-        (f32::from(a.a()) + (f32::from(b.a()) - f32::from(a.a())) * t) as u8,
+    let t = t.clamp(0.0, 1.0);
+    let one = |x: u8, y: u8| (f32::from(x) + (f32::from(y) - f32::from(x)) * t).round() as u8;
+    Color32::from_rgba_premultiplied(
+        one(a.r(), b.r()),
+        one(a.g(), b.g()),
+        one(a.b(), b.b()),
+        one(a.a(), b.a()),
     )
 }
 
