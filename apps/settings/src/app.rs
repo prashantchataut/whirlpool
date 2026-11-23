@@ -2216,6 +2216,13 @@ impl Settings {
                     &mut config.update_on_startup,
                 );
                 ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("updateReminders"),
+                    Some(t.get("updateRemindersHint")),
+                    &mut config.update_reminders,
+                );
+                ui::divider(ui);
                 ui::row(
                     ui,
                     t.get("updateEvery"),

@@ -95,15 +95,65 @@ pub fn spawn_check(prereleases: bool) -> mpsc::Receiver<Msg> {
     receive
 }
 
-/// The dock's periodic look: records what it found for Settings, nothing else.
-pub fn background_check(prereleases: bool) {
+/// The dock's periodic look: records what it found for Settings and, when `remind` is on and a
+/// reminder is due (see `State::reminder_due`), shows one Windows notification. It never
+/// downloads or installs anything.
+pub fn background_check(prereleases: bool, remind: bool) {
     thread::spawn(move || match look(prereleases) {
         Ok(Outcome::Available(release)) => {
             whirlpool_shell::log::line(&format!("update available: {}", release.tag));
+            if remind {
+                remind_if_due(&release);
+            }
         }
         Ok(Outcome::UpToDate) => whirlpool_shell::log::line("update check: up to date"),
         Err(error) => whirlpool_shell::log::line(&format!("update check failed: {error}")),
     });
+}
+
+fn remind_if_due(release: &Release) {
+    let mut saved = Saved::load(&dir());
+    let now = Saved::now();
+    if !saved.reminder_due(now) {
+        return;
+    }
+    match toast(&release.version.to_string(), &release.tag) {
+        Ok(()) => {
+            saved.note_reminded(now);
+            saved.save(&dir());
+            whirlpool_shell::log::line(&format!("update reminder shown: {}", release.tag));
+        }
+        Err(why) => whirlpool_shell::log::line(&format!("update reminder failed: {why}")),
+    }
+}
+
+/// Shows the "update available" notification through Windows PowerShell (present on every
+/// supported Windows), hidden, for the second or so it needs. Nothing stays running.
+fn toast(version: &str, tag: &str) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let script =
+        whirlpool_update::remind::toast_script(version, &running().to_string(), tag, REPOSITORY)
+            .ok_or("the version text is not plain")?;
+    let status = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-EncodedCommand",
+            &whirlpool_update::remind::encoded_command(&script),
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|error| error.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("powershell exited with {status}"))
+    }
 }
 
 /// Seconds until the next background look is due, or `None` when none is wanted.
@@ -178,6 +228,22 @@ pub fn cli(flags: &[&str]) -> i32 {
         whirlpool_shell::log::line(&format!("update cli: {text}"));
     };
     let has = |flag: &str| flags.contains(&flag);
+    if has("--remind-test") {
+        // `whirlpool --update --remind-test`: shows the reminder for a made-up version, to prove
+        // the notification script runs on this machine. Records nothing.
+        let code = match toast("99.0.0-test", "v99.0.0-test") {
+            Ok(()) => {
+                say("reminder toast shown");
+                0
+            }
+            Err(why) => {
+                say(&format!("reminder failed: {why}"));
+                1
+            }
+        };
+        whirlpool_shell::log::flush();
+        return code;
+    }
     let code = (|| {
         let client = match Client::new() {
             Ok(client) => client,

@@ -114,6 +114,10 @@ pub struct Config {
     pub update_check_days: u32,
     /// Offer release candidates as well as stable releases.
     pub update_prereleases: bool,
+    /// With `check_updates`: when a background look finds a newer version, show one Windows
+    /// notification (again after three days, three times at most per version). It never
+    /// downloads or installs anything.
+    pub update_reminders: bool,
     /// Change the wallpaper on a timer. Off by default; no timer exists while it is off.
     pub wallpaper_rotation: bool,
     /// Minutes between changes (1 to 1440).
@@ -611,9 +615,10 @@ impl Default for Config {
             mascot: false,
             check_updates: true,
             auto_update: true,
-            update_on_startup: false,
+            update_on_startup: true,
             update_check_days: 7,
             update_prereleases: false,
+            update_reminders: true,
             wallpaper_rotation: false,
             wallpaper_every_minutes: 30,
             wallpaper_shuffle: false,

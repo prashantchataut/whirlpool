@@ -2566,7 +2566,10 @@ impl App {
             return;
         }
         self.update_tried = Some(Instant::now());
-        whirlpool_settings::update::background_check(self.config.update_prereleases);
+        whirlpool_settings::update::background_check(
+            self.config.update_prereleases,
+            self.config.update_reminders,
+        );
         self.schedule_update();
     }
 
