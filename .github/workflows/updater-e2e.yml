@@ -85,6 +85,8 @@ jobs:
         if: always()
         shell: pwsh
         run: |
+          Get-ChildItem "$env:LOCALAPPDATA\Whirlpool\updates" -Recurse -Filter setup.log -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName ("proof\\setup-" + $_.Directory.Name + ".log") }
+          Get-Content "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" -ErrorAction SilentlyContinue | Out-File proof\whirlpool-log-final.txt
           Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           $u = "$env:LOCALAPPDATA\Programs\Whirlpool\unins000.exe"
           if (Test-Path $u) { $q = Start-Process $u -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES' -PassThru; $null = $q.WaitForExit(120000); Start-Sleep 3 }

@@ -14,11 +14,17 @@ impl fmt::Display for InstallError {
 /// current copy keeping the options chosen last time, and starts Whirlpool again (`/relaunch=1`).
 pub fn install(installer: &Path, quiet: bool) -> Result<(), InstallError> {
     let mut command = Command::new(installer);
+    // Setup's own log, next to the installer, so a failed update can be diagnosed.
+    command.arg(format!(
+        "/LOG={}",
+        installer.with_file_name("setup.log").display()
+    ));
     command.args([
         if quiet { "/VERYSILENT" } else { "/SILENT" },
         "/SUPPRESSMSGBOXES",
         "/NORESTART",
         "/CLOSEAPPLICATIONS",
+        "/FORCECLOSEAPPLICATIONS",
         "/relaunch=1",
     ]);
     #[cfg(windows)]

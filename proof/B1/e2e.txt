@@ -1,0 +1,8 @@
+installed: 4.2.0-rc1
+updater exit code: 0
+installed after update: 4.2.0-rc2 (wanted 4.2.0-rc2)
+whirlpool running after update (relaunch): True
+check after update, exit code: 0 (0 = up to date)
+rollback exit code: 0
+installed after rollback: 4.2.0-rc2 (wanted 4.2.0-rc1)
+uninstalled, folder left behind: False

@@ -1,0 +1,10 @@
+2026-11-23 00:35:08.256 update cli: running 4.2.0-rc1
+2026-11-23 00:35:08.550 update cli: available v4.2.0-rc2
+2026-11-23 00:35:09.079 update cli: downloading 89%
+2026-11-23 00:35:09.088 update cli: downloading 100%
+2026-11-23 00:35:09.089 update cli: verifying sha-256
+2026-11-23 00:35:09.100 update: starting C:\Users\runneradmin\AppData\Local\Whirlpool\updates\v4.2.0-rc2\Whirlpool-Setup.exe
+2026-11-23 00:35:09.291 update cli: sha-256 verified; setup started
+2026-11-23 00:35:10.998 proceso iniciado, versión 4.2.0-rc2
+2026-11-23 00:35:11.002 inicio, versión 4.2.0-rc2
+2026-11-23 00:35:11.244 interfaz inicializada en 242 ms desde app::run; comienza el bucle de mensajes
