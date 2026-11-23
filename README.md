@@ -1,5 +1,3 @@
-<p align="center"><img src="assets/brand/whirlpool-256.png" width="96" alt="Whirlpool"></p>
-
 # Whirlpool
 
 **The Windows taskbar, rebuilt as a dock.** A glass dock and a menu bar you can restyle, in one small native program.
@@ -33,6 +31,7 @@ The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. Mor
 - **System overlay** (hotkey, default Ctrl+Shift+F10): CPU, memory, GPU load, video memory, network, battery and the desktop's frame rate. Three layouts, snaps to corners, drags, click-through. A separate process, so nothing runs while it is hidden. Its frame rate is the compositor's, not the focused game's.
 - **Wallpaper rotation**: every 5 minutes to 1 day, in order or shuffled, from a folder or the bundled photographs, a different folder for dark mode, a different picture per display. Off by default.
 - **Updates that install**: Settings > System > Updates downloads the release for your CPU, checks its SHA-256, installs and restarts; it can roll back one version. `whirlpool --update` does the same from a terminal.
+- **Update reminders**: one Windows notification when a newer release exists, again after three days, three times at most per version. It never downloads or installs on its own, and one switch turns it off.
 - **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing: builds are currently unsigned**, see [SIGNING.md](SIGNING.md).
 - **Settings are built in**: `whirlpool.exe --settings`, or launch Whirlpool again while it runs. If OpenGL cannot start, it retries with DirectX.
 
@@ -54,6 +53,13 @@ The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. Mor
 | ![Surge](docs/renders/charging-surge.jpg) | ![Halo](docs/renders/charging-halo.jpg) | ![Edge](docs/renders/charging-edge.jpg) |
 | **Tide** | **Bloom** | **Aurora** |
 | ![Tide](docs/renders/charging-tide.jpg) | ![Bloom](docs/renders/charging-bloom.jpg) | ![Aurora](docs/renders/charging-aurora.jpg) |
+
+### The website
+
+![The new site hero](docs/renders/site-4.2-hero.jpg)
+![What is new in 4.2, and the roadmap](docs/renders/site-4.2-whats-new.jpg)
+
+These two are renders of the built site in headless Chromium, not captures of the Windows program.
 
 ## Install
 
@@ -88,7 +94,7 @@ Needs Rust (MSVC) and the Visual Studio C++ build tools. The site is in `site/` 
 
 ## Status
 
-See [continuity.md](continuity.md) for what is verified, what is not, and what is next. The bottom bar standing above the dock is confirmed in a runner capture; popups on a bottom bar and multi-monitor are still untested. An FPS and system-info overlay, a full dynamic island with presets and motion for dragged windows are planned, not shipped.
+See [STATUS.md](STATUS.md) for the item-by-item table and [continuity.md](continuity.md) for the hand-off. In short: the updater installs and rolls back (run on a clean Windows runner), the overlay and wallpaper rotation ship, and the bottom bar stands above the dock. Written and unit-tested but **not yet connected to the shell**: dynamic island presets, motion for dragged windows and the Launchpad-style Start grid. Unsigned builds and an ARM64 build that has not run on ARM hardware are listed openly in [SIGNING.md](SIGNING.md) and above.
 
 ## License
 
