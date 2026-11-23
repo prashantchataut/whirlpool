@@ -38,6 +38,15 @@ impl State {
     }
 }
 
+impl State {
+    /// Moves `steps` further along, for scripted runs (`whirlpool --wallpaper-next 3`).
+    #[must_use]
+    pub const fn skipping(mut self, steps: u64) -> Self {
+        self.tick = self.tick.wrapping_add(steps);
+        self
+    }
+}
+
 #[must_use]
 pub const fn fit(config: WallpaperFit) -> Fit {
     match config {

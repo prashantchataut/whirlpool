@@ -5,7 +5,7 @@ name: Captures
 on:
   workflow_dispatch:
   push:
-    branches: [design-pass-4.2]
+    branches: [design-pass-4.2, release-pipeline-4.2]
     paths: [".github/workflows/captures.yml"]
 
 jobs:
@@ -74,6 +74,69 @@ jobs:
             Start-Sleep 2
           }
           Copy-Item "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" out/whirlpool.log -ErrorAction SilentlyContinue
+      - name: Overlay, wallpaper rotation, overhead
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function KillAll { Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2 }
+          function Shot($name) {
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("out/$name.png")
+          }
+          $exe = (Resolve-Path target/release/whirlpool.exe).Path
+          $dir = Join-Path $env:APPDATA "Whirlpool"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $log = "out/overlay-and-rotation.txt"
+
+          # Overlay: each layout, the hotkey path (--overlay-toggle), and its own cost.
+          foreach ($preset in 'minimal','detailed','oneline') {
+            Set-Content (Join-Path $dir 'config.json') "{`"overlayPreset`":`"$preset`",`"overlayCorner`":`"topright`"}"
+            KillAll
+            & $exe --overlay-toggle
+            Start-Sleep 5
+            $o = Get-Process whirlpool -ErrorAction SilentlyContinue
+            "overlay $preset : running=$([bool]$o)" | Tee-Object -Append $log
+            Shot "overlay-$preset"
+            & $exe --overlay-toggle
+            Start-Sleep 3
+            "overlay $preset after toggle off: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))" | Tee-Object -Append $log
+          }
+          Set-Content (Join-Path $dir 'config.json') '{"overlayPreset":"detailed","overlayIntervalMs":1000}'
+          KillAll
+          & $exe --overlay-toggle
+          Start-Sleep 6
+          $p = Get-Process whirlpool
+          $c0 = $p.TotalProcessorTime.TotalSeconds; $t0 = Get-Date
+          Start-Sleep 30
+          $p.Refresh()
+          $cpu = ($p.TotalProcessorTime.TotalSeconds - $c0) / ((Get-Date) - $t0).TotalSeconds / [Environment]::ProcessorCount * 100
+          "overlay cost, detailed @1s over 30s: cpu=$([math]::Round($cpu,3))% of the whole machine ($([Environment]::ProcessorCount) logical cores), working set=$([math]::Round($p.WorkingSet64/1MB,1)) MB, private=$([math]::Round($p.PrivateMemorySize64/1MB,1)) MB" | Tee-Object -Append $log
+          & $exe --overlay-toggle
+          Start-Sleep 2
+
+          # Wallpaper rotation: a folder of three generated pictures, three steps.
+          $pics = Join-Path $env:RUNNER_TEMP 'rotation-test'
+          New-Item -ItemType Directory -Force $pics | Out-Null
+          $i = 0
+          foreach ($color in 'DarkSlateBlue','Firebrick','SeaGreen') {
+            $bmp = New-Object System.Drawing.Bitmap 1280, 720
+            [System.Drawing.Graphics]::FromImage($bmp).Clear([System.Drawing.Color]::$color)
+            $bmp.Save((Join-Path $pics "pic$i.png")); $i++
+          }
+          $json = @{ wallpaperFolder = $pics; wallpaperEveryMinutes = 5; wallpaperShuffle = $false } | ConvertTo-Json
+          Set-Content (Join-Path $dir 'config.json') $json
+          foreach ($step in 0,1,2) {
+            $r = Start-Process $exe -ArgumentList '--wallpaper-next', "$step" -Wait -PassThru
+            Start-Sleep 2
+            $now = (Get-ItemProperty 'HKCU:\Control Panel\Desktop').WallPaper
+            "rotation step ${step}: exit=$($r.ExitCode) wallpaper=$now" | Tee-Object -Append $log
+            Shot "rotation-$step"
+          }
+          Copy-Item "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" out/whirlpool-overlay.log -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         if: always()
         with:
