@@ -21,6 +21,8 @@ public static class U {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
 }
 "@
 [void][U]::SetProcessDPIAware()
@@ -71,6 +73,12 @@ function Scenario($name, [scriptblock]$body) {
 # The runner shows its agent console over the desktop; get it out of the frame.
 (New-Object -ComObject Shell.Application).MinimizeAll()
 Start-Sleep 2
+# Dialogs the runner image raises on its own (the paging-file notice) are not part of the app.
+foreach ($title in 'System Properties') {
+    $h = [U]::FindWindow($null, $title)
+    if ($h -ne [IntPtr]::Zero) { [void][U]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero); Log "closed runner dialog '$title'" }
+}
+Start-Sleep 1
 Shot '00-runner-desktop'
 
 Scenario 'bar and dock, top bar' {

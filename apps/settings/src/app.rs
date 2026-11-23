@@ -1732,6 +1732,46 @@ impl Settings {
         );
         let config = &mut self.config;
         let mut open_animation_settings = false;
+        ui::card(ui, Some(t.get("groupLaunchpad")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("launchpadOn"),
+                Some(t.get("launchpadOnHint")),
+                &mut config.launchpad,
+            );
+            if config.launchpad {
+                ui::divider(ui);
+                let valid = config.launchpad_hotkey.trim().is_empty()
+                    || whirlpool_core::overlay::parse_hotkey(&config.launchpad_hotkey).is_some();
+                ui::row(
+                    ui,
+                    t.get("launchpadHotkey"),
+                    Some(t.get("launchpadHotkeyHint")),
+                    200.0,
+                    |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut config.launchpad_hotkey)
+                                .desired_width(170.0),
+                        );
+                    },
+                );
+                if !valid {
+                    ui.label(
+                        RichText::new(t.get("hotkeyInvalid"))
+                            .size(12.0)
+                            .color(ui::DANGER),
+                    );
+                }
+            }
+        });
+        ui::card(ui, Some(t.get("groupDragging")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("dragMotion"),
+                Some(t.get("dragMotionHint")),
+                &mut config.drag_motion,
+            );
+        });
         ui::card(ui, Some(t.get("groupMinimize")), |ui| {
             ui::toggle_row(
                 ui,
