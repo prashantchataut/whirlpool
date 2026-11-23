@@ -20,7 +20,7 @@ use eframe::egui::{
 use serde_json::{Map, Value};
 use whirlpool_config::{
     AnimationStyle, BarAlign, BarPosition, BarSize, BarStyle, BarTint, ChargingStyle, Config,
-    DockPosition, GenieSpeed, IslandStyle, Language, StartupAnimation, WallpaperFit,
+    DockPosition, GenieSpeed, IslandPreset, IslandStyle, Language, StartupAnimation, WallpaperFit,
 };
 use whirlpool_config::{OverlayCorner, OverlayPreset};
 use whirlpool_shell::{autostart, dock_link, folder, imagery, launcher, system};
@@ -1862,6 +1862,35 @@ impl Settings {
                         },
                     ];
                     ui::visual_choices(ui, &mut config.menu_bar_island_style, &backdrop, &options);
+                    ui::divider(ui);
+                    ui.add_space(10.0);
+                    ui.label(RichText::new(t.get("islandPreset")).size(14.0));
+                    ui.label(
+                        RichText::new(t.get("islandPresetHint"))
+                            .size(12.0)
+                            .color(Palette::of(ui).muted),
+                    );
+                    let presets = [
+                        (IslandPreset::Compact, "islandPresetCompact"),
+                        (IslandPreset::Classic, "islandPresetClassic"),
+                        (IslandPreset::Wide, "islandPresetWide"),
+                        (IslandPreset::Expressive, "islandPresetExpressive"),
+                    ]
+                    .map(|(value, key)| Choice {
+                        value,
+                        label: t.get(key),
+                        detail: None,
+                        preview: ui::preview_island_preset,
+                    });
+                    ui::visual_choices(ui, &mut config.menu_bar_island_preset, &backdrop, &presets);
+                    ui.label(
+                        RichText::new(t.get("islandPresetLive"))
+                            .size(12.0)
+                            .color(Palette::of(ui).muted),
+                    );
+                    ui.add_space(6.0);
+                    ui::island_live_preview(ui, config.menu_bar_island_preset, &backdrop);
+                    ui.add_space(6.0);
                 }
                 ui::divider(ui);
                 ui::toggle_row(

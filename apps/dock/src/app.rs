@@ -224,6 +224,7 @@ const UPDATE_TIMER: usize = 12;
 const WALLPAPER_TIMER: usize = 41;
 /// Id of the global hotkey that shows and hides the system overlay.
 const OVERLAY_HOTKEY: i32 = 0x5750;
+const LAUNCHPAD_HOTKEY: i32 = 0x5751;
 const PREVIEW_TIMER: usize = 13;
 /// While the crab is out (a few seconds): is its act over, is the pointer on it.
 const MASCOT_TIMER: usize = 14;
@@ -2466,6 +2467,39 @@ impl App {
         }
     }
 
+    /// (Re)registers the Launchpad hotkey; off, empty or invalid means none.
+    fn register_launchpad_hotkey(&self) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey,
+        };
+        const NO_REPEAT: u32 = 0x4000;
+        // SAFETY: Hotkey calls on our own window; unregistering one that is not set is harmless.
+        unsafe {
+            let _ = UnregisterHotKey(Some(self.input), LAUNCHPAD_HOTKEY);
+            if !self.config.launchpad {
+                return;
+            }
+            let Some((modifiers, key)) =
+                whirlpool_core::overlay::parse_hotkey(&self.config.launchpad_hotkey)
+            else {
+                return;
+            };
+            if RegisterHotKey(
+                Some(self.input),
+                LAUNCHPAD_HOTKEY,
+                HOT_KEY_MODIFIERS(modifiers | NO_REPEAT),
+                key,
+            )
+            .is_err()
+            {
+                whirlpool_shell::log::line(&format!(
+                    "launchpad hotkey {} is taken by another program",
+                    self.config.launchpad_hotkey
+                ));
+            }
+        }
+    }
+
     /// Arms the wallpaper timer, or removes it: with rotation off no timer exists at all.
     fn schedule_wallpaper(&self) {
         // SAFETY: Timers on our own window; setting one again replaces it.
@@ -3962,6 +3996,7 @@ impl App {
         self.schedule_update();
         self.schedule_wallpaper();
         self.register_overlay_hotkey();
+        self.register_launchpad_hotkey();
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
         self.update_menu_bar_app()?;
@@ -4354,6 +4389,7 @@ impl App {
             bluetooth: self.config.menu_bar_bluetooth,
             battery_percent: self.config.menu_bar_battery_percent,
             island_style: self.config.menu_bar_island_style,
+            island_preset: self.config.menu_bar_island_preset,
             opacity: self.config.menu_bar_opacity,
             size: self.config.menu_bar_size,
             floating: self.config.menu_bar_style == whirlpool_config::BarStyle::Floating,
@@ -5078,6 +5114,18 @@ pub fn drop_files(x: i32, y: i32) -> DROPEFFECT {
     with_app_value("soltar archivos", |app| app.on_drop(POINT { x, y }))
 }
 
+/// Starts the Launchpad process, or closes it if it is already open (`--launchpad` toggles).
+fn open_launchpad() {
+    use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
+    // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
+    unsafe {
+        let _ = AllowSetForegroundWindow(ASFW_ANY);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).arg("--launchpad").spawn();
+    }
+}
+
 /// Checks the recycle bin on a background thread by scanning each drive
 /// (measured at 50–75 ms), so the UI is not blocked. The result arrives via
 /// `BIN_STATE`.
@@ -5132,7 +5180,18 @@ fn run_outside(outside: Outside) {
     };
     match outside {
         Outside::Open(id) => submit(ShellAction::Open { id }),
-        Outside::OpenStart => launcher::open_start_menu(),
+        Outside::OpenStart => {
+            // The Launchpad replaces the Windows Start menu unless the user turned it off.
+            let launchpad = whirlpool_config::load(&whirlpool_config::default_path())
+                .ok()
+                .flatten()
+                .is_none_or(|config| config.launchpad);
+            if launchpad {
+                open_launchpad();
+            } else {
+                launcher::open_start_menu();
+            }
+        }
         Outside::Activate(windows) => launcher::activate(&windows),
         Outside::Minimize(windows) => launcher::minimize(&windows),
         Outside::Reveal(path) => submit(ShellAction::Reveal { path }),
@@ -5381,6 +5440,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             if let Ok(exe) = std::env::current_exe() {
                 crate::overlay::toggle(&exe);
             }
+        }
+        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == LAUNCHPAD_HOTKEY => {
+            open_launchpad();
         }
         WM_TIMER if w.0 == WALLPAPER_TIMER => {
             with_app("fondo de pantalla", |app| {
@@ -5837,6 +5899,7 @@ pub fn run() -> Result<()> {
         app.schedule_update();
         app.schedule_wallpaper();
         app.register_overlay_hotkey();
+        app.register_launchpad_hotkey();
         APP.set(Some(app));
     }
 

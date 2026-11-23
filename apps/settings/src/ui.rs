@@ -695,3 +695,177 @@ pub fn preview_scene(
         Color32::from_rgb(0x1d, 0xd1, 0xa1),
     );
 }
+
+/// Miniature of the island at the real proportions of a preset: `open` is 0 for the collapsed island,
+/// 1 for the opened usage panel. One logical pixel of the real bar is `k` pixels here.
+fn draw_island_scene(
+    painter: &Painter,
+    rect: Rect,
+    backdrop: &Backdrop,
+    preset: whirlpool_config::IslandPreset,
+    open: f32,
+    k: f32,
+    detailed: bool,
+) {
+    use whirlpool_config::IslandPreset;
+    use whirlpool_core::island::Preset;
+    let metrics = match preset {
+        IslandPreset::Compact => Preset::Compact,
+        IslandPreset::Classic => Preset::Classic,
+        IslandPreset::Wide => Preset::Wide,
+        IslandPreset::Expressive => Preset::Expressive,
+    }
+    .metrics();
+    desktop(painter, rect, backdrop);
+    let bar_height = 28.0 * k;
+    painter.rect_filled(
+        Rect::from_min_size(rect.min, vec2(rect.width(), bar_height)),
+        CornerRadius {
+            nw: 10,
+            ne: 10,
+            sw: 0,
+            se: 0,
+        },
+        Color32::from_rgba_unmultiplied(0, 0, 0, 120),
+    );
+    let ink = Color32::from_rgb(0x0b, 0x0b, 0x0e);
+    let rows = 2;
+    let (width, _) = metrics.opening(open, bar_height / k, rows);
+    let width = width * k;
+    // The collapsed island hangs from the bar like the notch; the panel opens below it on the same
+    // ease as the width.
+    let eased = open * open * (3.0 - 2.0 * open);
+    let panel = (74.0 + metrics.row_height * rows as f32) * k;
+    let height = bar_height + (panel - bar_height) * eased;
+    let island = Rect::from_min_size(
+        pos2(rect.center().x - width / 2.0, rect.top()),
+        vec2(width, height),
+    );
+    let radius = ((metrics.corner_radius * k).round() as u8).max(4);
+    painter.rect_filled(
+        island,
+        CornerRadius {
+            nw: 0,
+            ne: 0,
+            sw: radius,
+            se: radius,
+        },
+        ink,
+    );
+    let mint = Color32::from_rgb(0x1d, 0xd1, 0xa1);
+    if open < 0.35 {
+        painter.circle_filled(
+            pos2(
+                island.left() + 11.0 * k.max(0.5),
+                island.top() + bar_height / 2.0,
+            ),
+            (3.0 * k.max(0.6)).max(2.0),
+            mint,
+        );
+        return;
+    }
+    if !detailed {
+        return;
+    }
+    let fade = ((open - 0.35) / 0.65).clamp(0.0, 1.0);
+    let ink_text = Color32::from_white_alpha((230.0 * fade) as u8);
+    let muted = Color32::from_white_alpha((130.0 * fade) as u8);
+    for (index, (name, used)) in [("Claude", 0.42_f32), ("Codex", 0.67)]
+        .into_iter()
+        .enumerate()
+    {
+        let top = island.top() + (bar_height + 6.0 * k) + index as f32 * metrics.row_height * k;
+        let left = island.left() + 18.0 * k;
+        let right = island.right() - 18.0 * k;
+        painter.text(
+            pos2(left, top),
+            Align2::LEFT_TOP,
+            name,
+            FontId::proportional((15.0 * k).clamp(8.0, 13.0)),
+            ink_text,
+        );
+        painter.text(
+            pos2(right, top),
+            Align2::RIGHT_TOP,
+            format!("{}%", (used * 100.0) as u32),
+            FontId::proportional((15.0 * k).clamp(8.0, 13.0)),
+            muted,
+        );
+        let track = Rect::from_min_size(
+            pos2(left, top + 22.0 * k),
+            vec2((right - left).max(1.0), (6.0 * k).max(3.0)),
+        );
+        painter.rect_filled(
+            track,
+            CornerRadius::same(3),
+            Color32::from_white_alpha((36.0 * fade) as u8),
+        );
+        let mut filled = track;
+        filled.set_right(track.left() + track.width() * used);
+        painter.rect_filled(
+            filled,
+            CornerRadius::same(3),
+            Color32::from_rgba_unmultiplied(0x1d, 0xd1, 0xa1, (255.0 * fade) as u8),
+        );
+    }
+}
+
+/// A picker card: the island of that preset, opened, at the same scale for all four so the
+/// differences in width, height and corner are visible side by side.
+pub fn preview_island_preset(
+    painter: &Painter,
+    rect: Rect,
+    backdrop: &Backdrop,
+    preset: whirlpool_config::IslandPreset,
+) {
+    draw_island_scene(
+        painter,
+        rect,
+        backdrop,
+        preset,
+        1.0,
+        rect.width() / 1280.0,
+        false,
+    );
+}
+
+/// The island as it will look with the chosen preset: it opens and closes on a slow loop, drawn from
+/// the same numbers the menu bar uses. Repaints only while this page is on screen.
+pub fn island_live_preview(
+    ui: &mut Ui,
+    preset: whirlpool_config::IslandPreset,
+    backdrop: &Backdrop,
+) {
+    let palette = Palette::of(ui);
+    let width = ui.available_width().min(640.0);
+    let (rect, _) = ui.allocate_exact_size(vec2(width, 200.0), Sense::hover());
+    let time = ui.input(|input| input.time) as f32;
+    // 1.2 s closed, 0.45 s opening, 2.6 s open, 0.45 s closing.
+    let phase = time % 4.7;
+    let open = if phase < 1.2 {
+        0.0
+    } else if phase < 1.65 {
+        (phase - 1.2) / 0.45
+    } else if phase < 4.25 {
+        1.0
+    } else {
+        1.0 - (phase - 4.25) / 0.45
+    };
+    draw_island_scene(
+        ui.painter(),
+        rect,
+        backdrop,
+        preset,
+        open,
+        width / 1280.0 * 1.12,
+        true,
+    );
+    ui.painter().rect_stroke(
+        rect,
+        CornerRadius::same(10),
+        Stroke::new(1.0, palette.border),
+        StrokeKind::Inside,
+    );
+    ui.ctx()
+        .request_repaint_after(std::time::Duration::from_millis(16));
+}

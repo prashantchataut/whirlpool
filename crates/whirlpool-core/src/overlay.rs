@@ -97,6 +97,9 @@ pub fn parse_hotkey(text: &str) -> Option<(u32, u32)> {
 
 fn virtual_key(name: &str) -> Option<u32> {
     let bytes = name.as_bytes();
+    if name == "space" {
+        return Some(0x20);
+    }
     match bytes {
         [c @ b'a'..=b'z'] => Some(u32::from(c.to_ascii_uppercase())),
         [c @ b'0'..=b'9'] => Some(u32::from(*c)),
@@ -159,6 +162,10 @@ mod tests {
         );
         assert_eq!(parse_hotkey("alt + g"), Some((MOD_ALT, 0x47)));
         assert_eq!(parse_hotkey("Win+1"), Some((MOD_WIN, 0x31)));
+        assert_eq!(
+            parse_hotkey("Ctrl+Alt+Space"),
+            Some((MOD_CONTROL | MOD_ALT, 0x20))
+        );
         assert_eq!(parse_hotkey("F10"), None);
         assert_eq!(parse_hotkey("Ctrl+Shift"), None);
         assert_eq!(parse_hotkey("Ctrl+F25"), None);
