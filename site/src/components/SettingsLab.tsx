@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import logo from "../assets/logo.png";
 import { Desktop, DEFAULT_BAR, DEFAULT_DOCK, type BarCfg, type DockCfg } from "./Desktop";
 import { Bar, Cpu, Grid, Palette, Windows } from "./Icons";
 import { CHARGE_STYLES, TINTS, WALLS, type ChargeStyle, type Tint } from "../lib/theme";
@@ -136,7 +135,6 @@ export function SettingsLab() {
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0b1214] shadow-[0_40px_90px_-30px_rgba(0,0,0,0.9)]">
         <div className="flex h-9 items-center justify-between border-b border-white/[0.06] bg-[#091012] pl-3">
           <div className="flex items-center gap-2 text-[12px] text-mute">
-            <img src={logo} alt="" className="h-4 w-4" />
             Whirlpool
           </div>
           <div className="flex h-full text-mute" aria-hidden="true">

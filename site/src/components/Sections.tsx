@@ -10,7 +10,6 @@ import {
   Shield,
 } from "./Icons";
 import { RELEASES_URL, REPO, SETUP_URL, VERSION, WALLS, ZIP_URL } from "../lib/theme";
-import logo from "../assets/logo.png";
 import { PACK } from "../lib/pack";
 
 
@@ -30,8 +29,7 @@ export function Nav() {
         aria-label="Primary"
         className="glass flex w-full max-w-[880px] items-center justify-between rounded-full py-2 pl-4 pr-2"
       >
-        <a href="#top" className="flex items-center gap-2.5 font-display text-[17px] font-extrabold tracking-tight">
-          <img src={logo} alt="" width={26} height={26} className="h-[26px] w-[26px]" />
+        <a href="#top" className="font-display text-[17px] font-extrabold tracking-tight">
           Whirlpool
         </a>
         <ul className="hidden items-center gap-1 md:flex">
@@ -402,21 +400,20 @@ export function Install() {
 
 export function WhatsNew() {
   const rows: [string, string][] = [
-    ["A Settings window that fits", "The window sizes itself from the monitor Windows reports, so it no longer opens larger than the screen. Wide windows get a live preview column; narrow ones fold the sidebar to icons."],
-    ["Search and an About page", "Search finds a setting from any page. About shows the version, the author and the MIT license text."],
-    ["Fourteen wallpaper photographs", "The generated wallpapers are gone from Settings. The pack is real photographs from Pexels, stored in the program and set as Fill."],
-    ["A floating bar that auto-hide can reach", "The reveal strip used to sit where the floating gap is, so a pointer pressed against the screen edge never touched it. It now spans the gap."],
-    ["A bottom bar above the dock", "With the dock on the bottom edge the bar now stands above it instead of underneath."],
-    ["Quick settings panel", "The network and volume area opens a panel with real Wi-Fi and Bluetooth switches, Airplane mode, a volume slider, and shortcuts to Cast, Night light and Battery saver."],
+    ["Update reminders", "When a newer release exists, Windows shows one notification. It repeats after three days, three times at most per version, and never downloads anything on its own. One switch turns it off."],
+    ["Updates that install, and roll back", "Settings downloads the release for your CPU, checks its SHA-256 against the published sums, installs and restarts. Rolling back to the previous version was run end to end on a clean Windows runner."],
+    ["System overlay", "CPU, memory, GPU, network, battery and the desktop frame rate behind one hotkey. It is a separate process, so nothing runs while it is hidden."],
+    ["Wallpaper rotation", "Every five minutes to a day, in order or shuffled, from a folder or the bundled photographs, with a different folder for dark mode and a different picture per display."],
+    ["Quick settings that follow your wallpaper", "The panel takes its colours from the picture and the Windows theme, with real Wi-Fi and Bluetooth switches, volume, Cast, Night light and Battery saver."],
+    ["Bottom bar above the dock", "With the dock on the bottom edge, the menu bar now stands clear of it instead of underneath."],
+    ["ARM64 installer", "Built in CI for Windows on ARM. The x64 installer also runs there through emulation."],
   ];
-  const next = [
-    "FPS and system info overlay",
-    "A full dynamic island with presets",
-    "Motion for windows you drag",
-    "Wallpaper rotation, per-monitor wallpapers",
-    "Launchpad-style start grid",
-    "Code signing (needs a certificate; see SIGNING.md)",
-    "An ARM64 build",
+  const next: [string, string][] = [
+    ["Dynamic island presets", "Compact, Classic, Wide and Expressive sizes. The geometry is written and tested; it is not yet connected to the menu bar."],
+    ["Motion for dragged windows", "A spring model that trails, leans and settles. Written and tested; not yet connected to the shell."],
+    ["Launchpad-style Start grid", "Paged icon grid with search. The layout engine is written and tested; the window is next."],
+    ["Verified on ARM hardware", "The ARM64 build has not been run on an ARM device by the maintainer yet."],
+    ["Signed installers", "Needs a code-signing certificate. Until then each release publishes SHA-256 sums and build provenance."],
   ];
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -431,13 +428,13 @@ export function WhatsNew() {
           </li>
         ))}
       </ol>
-      <div className="rounded-2xl border border-dashed border-white/15 p-6">
-        <h3 className="eyebrow">Not done yet</h3>
-        <ul className="mt-4 grid gap-3 text-[14px] leading-relaxed text-mute">
-          {next.map((n) => (
-            <li key={n} className="flex gap-3">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-faint" />
-              {n}
+      <div className="self-start rounded-2xl border border-white/10 p-6">
+        <h3 className="eyebrow">Roadmap</h3>
+        <ul className="mt-4 grid gap-4">
+          {next.map(([h, p]) => (
+            <li key={h}>
+              <h4 className="text-[14.5px] font-semibold text-foam">{h}</h4>
+              <p className="mt-1 text-[13.5px] leading-relaxed text-mute">{p}</p>
             </li>
           ))}
         </ul>
@@ -453,8 +450,7 @@ export function Footer() {
     <footer className="mx-auto mt-32 max-w-[1180px] px-5 pb-14">
       <div className="flex flex-col justify-between gap-8 border-t border-white/10 pt-10 sm:flex-row">
         <div>
-          <div className="flex items-center gap-2.5 font-display text-xl font-extrabold tracking-tight">
-            <img src={logo} alt="" width={28} height={28} className="h-7 w-7" />
+          <div className="font-display text-xl font-extrabold tracking-tight">
             Whirlpool
           </div>
           <p className="mt-3 max-w-[340px] text-[13px] leading-relaxed text-faint">

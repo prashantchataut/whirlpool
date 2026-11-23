@@ -17,7 +17,17 @@ pub struct State {
     pub available: Option<String>,
     /// The version that was installed before the last update; the rollback target.
     pub previous: Option<String>,
+    /// The version the last reminder was about.
+    pub reminded: Option<String>,
+    /// Unix seconds of the last reminder.
+    pub reminded_at: u64,
+    /// How many reminders that version has had.
+    pub reminder_count: u32,
 }
+
+/// A version is announced when found, then again after this long, up to [`MAX_REMINDERS`] times.
+pub const REMIND_AFTER_SECS: u64 = 3 * 86_400;
+pub const MAX_REMINDERS: u32 = 3;
 
 impl State {
     const FILE: &'static str = "state.json";
@@ -43,6 +53,36 @@ impl State {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_secs())
+    }
+
+    /// Whether a reminder about `available` should be shown now: at once for a version not yet
+    /// announced, then every three days, at most three times per version. Never when nothing is
+    /// available. A clock set back does not postpone it forever.
+    #[must_use]
+    pub fn reminder_due(&self, now: u64) -> bool {
+        let Some(available) = &self.available else {
+            return false;
+        };
+        if self.reminded.as_ref() != Some(available) {
+            return true;
+        }
+        let since = if self.reminded_at > now {
+            REMIND_AFTER_SECS
+        } else {
+            now - self.reminded_at
+        };
+        self.reminder_count < MAX_REMINDERS && since >= REMIND_AFTER_SECS
+    }
+
+    /// Records that a reminder about the available version was shown.
+    pub fn note_reminded(&mut self, now: u64) {
+        if self.reminded == self.available {
+            self.reminder_count += 1;
+        } else {
+            self.reminded.clone_from(&self.available);
+            self.reminder_count = 1;
+        }
+        self.reminded_at = now;
     }
 
     /// Seconds until the next background look is due; zero when it is due now.
@@ -86,9 +126,57 @@ mod tests {
             last_checked: 5,
             available: Some("4.3.0".into()),
             previous: Some("4.2.0".into()),
+            ..State::default()
         };
         state.save(&dir);
         assert_eq!(State::load(&dir), state);
         assert_eq!(State::load(&dir.join("nope")), State::default());
+    }
+
+    #[test]
+    fn a_new_version_is_announced_at_once_then_three_times_at_most() {
+        let day = 86_400;
+        let mut state = State {
+            available: Some("4.3.0".into()),
+            ..State::default()
+        };
+        assert!(state.reminder_due(100));
+        state.note_reminded(100);
+        assert!(!state.reminder_due(100 + day), "not again the next day");
+        assert!(state.reminder_due(100 + 3 * day));
+        state.note_reminded(100 + 3 * day);
+        state.note_reminded(100 + 6 * day);
+        assert_eq!(state.reminder_count, 3);
+        assert!(!state.reminder_due(100 + 99 * day), "three is the limit");
+        state.available = Some("4.4.0".into());
+        assert!(
+            state.reminder_due(100 + 99 * day),
+            "a newer version starts over"
+        );
+        state.note_reminded(100 + 99 * day);
+        assert_eq!(state.reminder_count, 1);
+    }
+
+    #[test]
+    fn nothing_available_means_no_reminder() {
+        assert!(!State::default().reminder_due(1_000_000));
+        let state = State {
+            available: None,
+            reminded: Some("4.3.0".into()),
+            ..State::default()
+        };
+        assert!(!state.reminder_due(1_000_000));
+    }
+
+    #[test]
+    fn a_clock_set_back_does_not_silence_reminders() {
+        let state = State {
+            available: Some("4.3.0".into()),
+            reminded: Some("4.3.0".into()),
+            reminded_at: 9_000_000,
+            reminder_count: 1,
+            ..State::default()
+        };
+        assert!(state.reminder_due(1_000));
     }
 }

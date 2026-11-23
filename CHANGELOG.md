@@ -6,6 +6,24 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## [4.2.0-rc3]
+
+### Added
+- **Update reminders.** When a background look finds a newer release, Windows shows one notification. It repeats after three days, three times at most per version, and never downloads or installs anything. Settings > System > Updates has a switch for it. "Also check when Whirlpool starts" is now on for new installs (existing settings keep their value). `whirlpool --update --remind-test` shows the notification for a made-up version, to prove it works on a machine.
+- Tested engines in `whirlpool-core`, not yet connected to the shell: dynamic island presets (`island`), a Launchpad-style paged grid with search (`launchpad`) and spring motion for dragged windows (`dragmotion`).
+
+### Changed
+- The website no longer shows any logo image; the wordmark is plain text. "Not done yet" became a Roadmap that says what is written, tested and connected.
+- Updater rollback is recorded as verified: rc2 rolled back to rc1 on a clean runner (run 45090235367).
+
+### Not changed, and said plainly
+- Builds are unsigned (SIGNING.md). The ARM64 build has not run on ARM hardware. The reminder notification has not been seen on a real desktop; its logic is unit-tested and the script is checked for injection.
+
+### Añadido (resumen)
+- **Recordatorios de actualización:** una notificación de Windows cuando hay una versión nueva; se repite a los tres días, como máximo tres veces por versión. Nunca descarga ni instala sola. Se desactiva en Ajustes > Sistema > Actualizaciones.
+- Motores probados en `whirlpool-core`, aún sin conectar: presets de la isla, cuadrícula tipo Launchpad y movimiento de ventanas arrastradas.
+- El sitio web ya no muestra ningún logotipo.
+
 ## [4.2.0]
 
 ### Fixed

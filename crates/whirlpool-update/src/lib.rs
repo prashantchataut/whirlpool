@@ -10,6 +10,7 @@ mod install;
 #[cfg(windows)]
 mod net;
 mod release;
+pub mod remind;
 mod state;
 mod version;
 

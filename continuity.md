@@ -13,6 +13,18 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Version 4.2.0-rc3: what changed
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Updates | Reminder toast through hidden Windows PowerShell with its own notification identity (`HKCU\\Software\\Classes\\AppUserModelId\\Whirlpool`). Cadence lives in `State::reminder_due` / `note_reminded` (`reminded`, `reminded_at`, `reminder_count` in `updates\\state.json`). Config `updateReminders` (default on); `updateOnStartup` default now on. | `crates/whirlpool-update/src/{remind,state}.rs`, `apps/settings/src/update.rs`, `apps/dock/src/app.rs` |
+| Core | `island`, `launchpad`, `dragmotion`: pure, tested, not wired. | `crates/whirlpool-core/src/` |
+| Site | No logo images; Roadmap replaces "Not done yet"; version 4.2.0-rc3. | `site/` |
+
+### Next (ranked)
+
+1. Wire `island::Preset` into `menubar.rs` (`ISLAND_SINGLE_WIDTH`, `ISLAND_EXPANDED_WIDTH`, `ISLAND_ROW_HEIGHT`, `trigger_layout`) and add a Settings row; update the layout tests. 2. Launchpad window (separate process like the overlay; use `launchpad::{fit, hit, search}`). 3. Decide the drag-motion shell design. 4. Run the reminder on a real desktop. 5. Signing (SIGNING.md).
+
 ## Version 4.1.0: what changed
 
 | Area | Change | Where |

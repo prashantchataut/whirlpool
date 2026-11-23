@@ -50,3 +50,8 @@ seconds, do not keep threads alive between uses, and prefer Windows change notif
 ## Rule 6: secrets never go in the repo
 
 No tokens, keys or personal data in code, docs, commit messages or CI logs.
+
+## Rule 7: the owner's standing brief (do not ask again)
+
+Recorded so it is not repeated in every prompt. The owner wants, in the same session and without questions: professional tone everywhere public (no logo images or mascots on the website, no to-do-list copy; the wordmark is text); decisions made for them and explained afterwards; a pull request that includes renders; releases cut from the tag workflow (pre-release unless the gate in STATUS.md is passed); the app reminding users of updates; README, STATUS.md, CHANGELOG.md and continuity.md updated with the work. Nothing in them may claim more than was verified (Rule 4). Never write the owner's tokens anywhere (Rule 6); use them only through a per-command header.
+

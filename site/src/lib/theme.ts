@@ -8,7 +8,7 @@ import dunes from "../assets/wall-dunes.jpg";
 import sunset from "../assets/wall-sunset.jpg";
 
 export const REPO = "https://github.com/prashantchataut/whirlpool";
-export const VERSION = "4.2.0";
+export const VERSION = "4.2.0-rc3";
 export const SETUP_URL = `${REPO}/releases/latest/download/Whirlpool-Setup.exe`;
 export const ZIP_URL = `${REPO}/releases/latest/download/Whirlpool-x64.zip`;
 export const RELEASES_URL = `${REPO}/releases/latest`;
