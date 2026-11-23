@@ -1,0 +1,17 @@
+[package]
+name = "whirlpool-update"
+description = "Update engine: GitHub Releases check, SHA-256 verified download, install, rollback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json = "1"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "system-proxy"] }

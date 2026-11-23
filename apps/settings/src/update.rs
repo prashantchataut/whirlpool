@@ -1,19 +1,22 @@
-//! Update check against GitHub Releases. This is the only network access in
-//! the settings app, and it runs only when the user allows it.
+//! The updater as Settings and the command line use it: background threads around
+//! `whirlpool-update`. This is the only network access in Whirlpool; it goes to
+//! api.github.com and github.com, only when the user allows it or asks for it.
 
-use std::{sync::mpsc, thread};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    thread,
+};
 
-use serde::Deserialize;
-use windows_future as _;
-
-pub const REPOSITORY: &str = "https://github.com/prashantchataut/whirlpool";
-const LATEST: &str = "https://api.github.com/repos/prashantchataut/whirlpool/releases/latest";
-
-#[derive(Clone, Debug)]
-pub struct Release {
-    pub version: String,
-    pub page: String,
-}
+use whirlpool_update::{
+    Arch, CheckError, Client, Http, Outcome, State as Saved, Version, check, check_tag,
+    download_and_verify, install,
+};
+pub use whirlpool_update::{Channel, Progress, REPOSITORY, Release};
 
 #[derive(Clone, Debug)]
 pub enum State {
@@ -21,73 +24,230 @@ pub enum State {
     Checking,
     Current,
     Available(Release),
-    Failed,
+    Working(Progress),
+    Restarting,
+    Failed(String),
 }
 
-#[derive(Deserialize)]
-struct Latest {
-    tag_name: String,
-    html_url: String,
+pub enum Msg {
+    Checked(Result<Outcome, CheckError>),
+    Progress(Progress),
+    Launched,
+    Failed(String),
 }
 
-/// Starts a check on its own thread; the result arrives on the receiver.
-pub fn check() -> mpsc::Receiver<Option<Release>> {
+/// `%LOCALAPPDATA%\Whirlpool\updates`.
+#[must_use]
+pub fn dir() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map_or_else(std::env::temp_dir, PathBuf::from)
+        .join("Whirlpool")
+        .join("updates")
+}
+
+#[must_use]
+pub fn running() -> Version {
+    Version::parse(env!("CARGO_PKG_VERSION"))
+        .unwrap_or_else(|| Version::parse("0.0.0").expect("literal"))
+}
+
+#[must_use]
+pub const fn channel(prereleases: bool) -> Channel {
+    if prereleases {
+        Channel::Beta
+    } else {
+        Channel::Stable
+    }
+}
+
+/// The version installed before the last update, if it differs from the running one.
+#[must_use]
+pub fn rollback_target() -> Option<String> {
+    let previous = Saved::load(&dir()).previous?;
+    (Version::parse(&previous)? != running()).then_some(previous)
+}
+
+fn record_check(outcome: &Result<Outcome, CheckError>) {
+    let mut saved = Saved::load(&dir());
+    saved.last_checked = Saved::now();
+    if let Ok(found) = outcome {
+        saved.available = match found {
+            Outcome::Available(release) => Some(release.version.to_string()),
+            Outcome::UpToDate => None,
+        };
+    }
+    saved.save(&dir());
+}
+
+fn look(prereleases: bool) -> Result<Outcome, CheckError> {
+    let client = Client::new().map_err(|_| CheckError::Offline)?;
+    let outcome = check(&client, &running(), channel(prereleases));
+    record_check(&outcome);
+    outcome
+}
+
+/// Checks on a thread; one message arrives on the receiver.
+pub fn spawn_check(prereleases: bool) -> mpsc::Receiver<Msg> {
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
-        let _ = send.send(fetch());
+        let _ = send.send(Msg::Checked(look(prereleases)));
     });
     receive
 }
 
-fn fetch() -> Option<Release> {
-    // Windows' own HTTP client: system proxy and certificates, no extra TLS
-    // library in the executable.
-    use windows::{Foundation::Uri, Web::Http::HttpClient, core::HSTRING};
-    let client = HttpClient::new().ok()?;
-    let headers = client.DefaultRequestHeaders().ok()?;
-    headers
-        .UserAgent()
-        .ok()?
-        .TryParseAdd(&HSTRING::from(concat!(
-            "whirlpool-settings/",
-            env!("CARGO_PKG_VERSION")
-        )))
-        .ok()?;
-    headers
-        .Accept()
-        .ok()?
-        .TryParseAdd(&HSTRING::from("application/vnd.github+json"))
-        .ok()?;
-    let uri = Uri::CreateUri(&HSTRING::from(LATEST)).ok()?;
-    let body = client.GetStringAsync(&uri).ok()?.join().ok()?;
-    let latest: Latest = serde_json::from_str(&body.to_string()).ok()?;
-    let page = latest.html_url;
-    // Only ever open a release page of this repository.
-    page.starts_with(REPOSITORY).then(|| Release {
-        version: latest.tag_name.trim_start_matches('v').to_owned(),
-        page,
+/// The dock's periodic look: records what it found for Settings, nothing else.
+pub fn background_check(prereleases: bool) {
+    thread::spawn(move || match look(prereleases) {
+        Ok(Outcome::Available(release)) => {
+            whirlpool_shell::log::line(&format!("update available: {}", release.tag));
+        }
+        Ok(Outcome::UpToDate) => whirlpool_shell::log::line("update check: up to date"),
+        Err(error) => whirlpool_shell::log::line(&format!("update check failed: {error}")),
+    });
+}
+
+/// Seconds until the next background look is due, or `None` when none is wanted.
+#[must_use]
+pub fn background_due_in(days: u32) -> Option<u64> {
+    Saved::load(&dir()).due_in(days, Saved::now())
+}
+
+fn fetch_and_start(
+    http: &dyn Http,
+    release: &Release,
+    cancel: &AtomicBool,
+    quiet: bool,
+    report: &mut dyn FnMut(Progress),
+) -> Result<(), String> {
+    let path = download_and_verify(http, release, Arch::current(), &dir(), &mut |progress| {
+        report(progress);
+        !cancel.load(Ordering::Relaxed)
     })
+    .map_err(|error| error.to_string())?;
+    let mut saved = Saved::load(&dir());
+    saved.previous = Some(running().to_string());
+    saved.available = None;
+    saved.save(&dir());
+    whirlpool_shell::log::line(&format!("update: starting {}", path.display()));
+    install(&path, quiet).map_err(|error| error.to_string())
 }
 
-/// Whether `candidate` is a higher dotted version than the running one.
-pub fn is_newer(candidate: &str) -> bool {
-    fn parts(version: &str) -> Vec<u32> {
-        version
-            .split(['.', '-'])
-            .map_while(|part| part.parse().ok())
-            .collect()
-    }
-    parts(candidate) > parts(env!("CARGO_PKG_VERSION"))
+fn spawn_fetch(
+    release: Option<Release>,
+    tag: Option<String>,
+    cancel: Arc<AtomicBool>,
+) -> mpsc::Receiver<Msg> {
+    let (send, receive) = mpsc::channel();
+    thread::spawn(move || {
+        let result = (|| {
+            let client = Client::new().map_err(|_| CheckError::Offline.to_string())?;
+            let release = match (release, tag) {
+                (Some(release), _) => release,
+                (None, Some(tag)) => check_tag(&client, &tag).map_err(|error| error.to_string())?,
+                (None, None) => return Err(CheckError::NoRelease.to_string()),
+            };
+            fetch_and_start(&client, &release, &cancel, false, &mut |progress| {
+                let _ = send.send(Msg::Progress(progress));
+            })
+        })();
+        let _ = send.send(match result {
+            Ok(()) => Msg::Launched,
+            Err(why) => Msg::Failed(why),
+        });
+    });
+    receive
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Downloads, verifies and starts Setup for `release`. `Msg::Launched` means Setup is running and
+/// this process should exit.
+pub fn spawn_install(release: Release, cancel: Arc<AtomicBool>) -> mpsc::Receiver<Msg> {
+    spawn_fetch(Some(release), None, cancel)
+}
 
-    #[test]
-    fn newer_versions_compare_numerically() {
-        assert!(is_newer("99.0.0"));
-        assert!(!is_newer("0.0.1"));
-        assert!(!is_newer(env!("CARGO_PKG_VERSION")));
-    }
+/// Same for an earlier release, by tag.
+pub fn spawn_rollback(version: &str, cancel: Arc<AtomicBool>) -> mpsc::Receiver<Msg> {
+    spawn_fetch(None, Some(format!("v{version}")), cancel)
+}
+
+/// `whirlpool --update [--check-only] [--beta] [--rollback]`. Prints to stdout and the log, and
+/// returns the process exit code: 0 done or up to date, 10 an update exists (`--check-only`), 1 failure.
+#[must_use]
+pub fn cli(flags: &[&str]) -> i32 {
+    let say = |text: &str| {
+        println!("{text}");
+        whirlpool_shell::log::line(&format!("update cli: {text}"));
+    };
+    let has = |flag: &str| flags.contains(&flag);
+    let code = (|| {
+        let client = match Client::new() {
+            Ok(client) => client,
+            Err(_) => {
+                say("could not start the network client");
+                return 1;
+            }
+        };
+        say(&format!("running {}", running()));
+        let cancel = AtomicBool::new(false);
+        let release = if has("--rollback") {
+            let Some(previous) = rollback_target() else {
+                say("nothing to roll back to");
+                return 1;
+            };
+            match check_tag(&client, &format!("v{previous}")) {
+                Ok(release) => release,
+                Err(error) => {
+                    say(&format!("failed: {error}"));
+                    return 1;
+                }
+            }
+        } else {
+            let outcome = check(&client, &running(), channel(has("--beta")));
+            record_check(&outcome);
+            match outcome {
+                Ok(Outcome::UpToDate) => {
+                    say("up to date");
+                    return 0;
+                }
+                Ok(Outcome::Available(release)) => {
+                    say(&format!("available {}", release.tag));
+                    release
+                }
+                Err(error) => {
+                    say(&format!("failed: {error}"));
+                    return 1;
+                }
+            }
+        };
+        if has("--check-only") {
+            return 10;
+        }
+        let mut last = 0;
+        let result = fetch_and_start(&client, &release, &cancel, true, &mut |progress| {
+            if let Progress::Downloading {
+                done,
+                total: Some(total),
+            } = progress
+            {
+                let percent = done * 100 / total.max(1);
+                if percent >= last + 10 {
+                    last = percent;
+                    say(&format!("downloading {percent}%"));
+                }
+            } else if progress == Progress::Verifying {
+                say("verifying sha-256");
+            }
+        });
+        match result {
+            Ok(()) => {
+                say("sha-256 verified; setup started");
+                0
+            }
+            Err(why) => {
+                say(&format!("failed: {why}"));
+                1
+            }
+        }
+    })();
+    whirlpool_shell::log::flush();
+    code
 }

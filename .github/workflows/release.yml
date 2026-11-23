@@ -1,7 +1,8 @@
 name: Release
 
-# Push a tag such as v2.0.0 to build the program and its installer on Windows, write checksums and a
-# build-provenance attestation, and attach everything to a GitHub release.
+# Push a tag such as v4.2.0 (or v4.2.0-rc1 for a pre-release). The tag becomes the version of the
+# build. Windows x64 and ARM64 are built, installers packaged, SHA256SUMS.txt written and a GitHub
+# Release published with notes generated from the commits since the previous tag.
 on:
   push:
     tags: ['v*']
@@ -13,122 +14,174 @@ permissions:
   attestations: write
 
 jobs:
-  windows:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+            installer: Whirlpool-Setup.exe
+            zip: Whirlpool-x64.zip
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+            installer: Whirlpool-Setup-arm64.exe
+            zip: Whirlpool-arm64.zip
+    # ARM64 is cross-compiled on the x64 runner; it is not run on ARM hardware here.
     runs-on: windows-latest
-    env:
-      CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
-      CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - name: Test
-        run: cargo test --workspace
-      - name: Build
-        run: cargo build --release -p whirlpool
-      - name: Sign (only when a certificate is configured)
-        if: env.CERT_PFX != ''
+        with:
+          key: ${{ matrix.target }}
+      - name: Version from the tag
+        id: version
         shell: pwsh
         run: |
-          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:CERT_PFX))
-          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
-          & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD "target/release/whirlpool.exe"
-          if ($LASTEXITCODE -ne 0) { throw "signing whirlpool.exe failed" }
-          Remove-Item "$env:RUNNER_TEMP\cert.pfx"
+          $version = if ($env:GITHUB_REF -match '^refs/tags/v(.+)$') { $Matches[1] } else { '0.0.0-dev' }
+          if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)') { throw "bad version $version" }
+          $numeric = "$($Matches[1]).$($Matches[2]).$($Matches[3]).0"
+          $toml = Get-Content Cargo.toml -Raw
+          $toml = [regex]::Replace($toml, '(?m)^version = "[^"]+"', "version = `"$version`"", 1)
+          Set-Content Cargo.toml $toml -NoNewline
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "numeric=$numeric" >> $env:GITHUB_OUTPUT
+          Write-Host "Building $version ($numeric)"
+      - name: Test
+        if: matrix.arch == 'x64'
+        run: cargo test --workspace
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} -p whirlpool
+      - name: Stage
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/whirlpool.exe" "dist/whirlpool-${{ matrix.arch }}.exe"
+      - name: Sign the program
+        id: sign_exe
+        uses: ./.github/actions/sign
+        with:
+          files: dist/whirlpool-${{ matrix.arch }}.exe
+          pfx-base64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          pfx-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          azure-endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          azure-account: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          azure-profile: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          signpath-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          signpath-org-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
       - name: Build the installer
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF_NAME -match '^v(.+)$') { $Matches[1] } else { '0.0.0' }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
-          New-Item -ItemType Directory -Force dist | Out-Null
-          & $iscc "/DAppVersion=$version" installer\whirlpool.iss
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          Copy-Item "dist/whirlpool-${{ matrix.arch }}.exe" dist/whirlpool.exe
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DNumericVersion=${{ steps.version.outputs.numeric }}" "/DArch=${{ matrix.arch }}" "/DSourceExe=..\dist\whirlpool.exe" installer\whirlpool.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
-      - name: Sign the installer (only when a certificate is configured)
-        if: env.CERT_PFX != ''
-        shell: pwsh
-        run: |
-          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:CERT_PFX))
-          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
-          & $signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f "$env:RUNNER_TEMP\cert.pfx" /p $env:CERT_PASSWORD dist/Whirlpool-Setup.exe
-          Remove-Item "$env:RUNNER_TEMP\cert.pfx"
+          Remove-Item dist/whirlpool.exe
+      - name: Sign the installer
+        id: sign_setup
+        uses: ./.github/actions/sign
+        with:
+          files: dist/${{ matrix.installer }}
+          pfx-base64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          pfx-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          azure-endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          azure-account: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          azure-profile: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          signpath-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          signpath-org-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
       - name: Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item target/release/whirlpool.exe dist/
-          Copy-Item scripts/install.ps1 dist/
-          Compress-Archive -Path dist/whirlpool.exe, LICENSE, NOTICE, THIRD_PARTY_LICENSES.md -DestinationPath dist/Whirlpool-x64.zip
-          Push-Location dist
-          Get-FileHash whirlpool.exe, Whirlpool-Setup.exe, Whirlpool-x64.zip -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS.txt
-          Pop-Location
-          # Release notes: the CHANGELOG section of this version, English part first.
-          $version = ($env:GITHUB_REF_NAME -replace '^v', '')
-          $text = Get-Content CHANGELOG.md -Raw
-          $m = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($version))\]\s*(.*?)(?=^## \[|\z)")
-          $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Whirlpool $version" }
-          $notes += "`n`n---`nVerify: see [docs/TRUST.md](https://github.com/$env:GITHUB_REPOSITORY/blob/main/docs/TRUST.md). SHA-256 sums are in SHA256SUMS.txt."
-          Set-Content dist/notes.md $notes
-      - name: Attest build provenance
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: |
-            dist/whirlpool.exe
-            dist/Whirlpool-Setup.exe
-            dist/Whirlpool-x64.zip
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Whirlpool ${{ github.ref_name }}
-          body_path: dist/notes.md
-          files: |
-            dist/whirlpool.exe
-            dist/Whirlpool-Setup.exe
-            dist/Whirlpool-x64.zip
-            dist/install.ps1
-            dist/SHA256SUMS.txt
+          Compress-Archive -Path dist/whirlpool-${{ matrix.arch }}.exe, LICENSE, NOTICE, THIRD_PARTY_LICENSES.md -DestinationPath dist/${{ matrix.zip }}
+          "${{ steps.sign_setup.outputs.signed }}" | Set-Content dist/signed-${{ matrix.arch }}.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: whirlpool-x64
-          path: dist/*
+          name: dist-${{ matrix.arch }}
+          path: |
+            dist/whirlpool-${{ matrix.arch }}.exe
+            dist/${{ matrix.installer }}
+            dist/${{ matrix.zip }}
+            dist/signed-${{ matrix.arch }}.txt
 
-  arm64:
-    # Native Windows on ARM build. The x64 installer also runs on ARM through
-    # Windows' x64 emulation; this zip is the native program.
-    needs: windows
-    runs-on: windows-latest
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-pc-windows-msvc
-      - uses: Swatinem/rust-cache@v2
-      - name: Build
-        run: cargo build --release --target aarch64-pc-windows-msvc -p whirlpool
-      - name: Package
-        shell: pwsh
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item target/aarch64-pc-windows-msvc/release/whirlpool.exe dist/whirlpool-arm64.exe
-          Compress-Archive -Path dist/whirlpool-arm64.exe, LICENSE, NOTICE, THIRD_PARTY_LICENSES.md -DestinationPath dist/Whirlpool-arm64.zip
-          Push-Location dist
-          Get-FileHash whirlpool-arm64.exe, Whirlpool-arm64.zip -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content SHA256SUMS-arm64.txt
-          Pop-Location
+          cd dist
+          cp ../scripts/install.ps1 .
+          sha256sum whirlpool-x64.exe whirlpool-arm64.exe Whirlpool-Setup.exe Whirlpool-Setup-arm64.exe Whirlpool-x64.zip Whirlpool-arm64.zip install.ps1 > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Release notes from commits
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          PREV=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | while read t; do
+                   if git merge-base --is-ancestor "$t" "$TAG" 2>/dev/null; then echo "$t"; break; fi; done)
+          RANGE="${PREV:+$PREV..}$TAG"
+          {
+            if [ -f CHANGELOG.md ]; then
+              awk -v v="$VERSION" '$0 ~ "^## \\["v"\\]" {on=1; next} on && /^## \[/ {exit} on {print}' CHANGELOG.md
+            fi
+            echo
+            echo "## Commits since ${PREV:-the start}"
+            git log "$RANGE" --no-merges --pretty='- %s (%h)'
+            echo
+            echo "## Install"
+            echo "- **Windows x64:** \`Whirlpool-Setup.exe\`. **Windows on ARM:** \`Whirlpool-Setup-arm64.exe\` (cross-compiled, not yet run on ARM hardware by the maintainer)."
+            echo "- Per-user install, no administrator rights. The in-app updater can install this release over an older one."
+            echo
+            echo "## Verify"
+            if grep -q true dist/signed-x64.txt; then
+              echo "These binaries are code-signed."
+            else
+              echo "**These builds are not code-signed yet**, so Windows SmartScreen may warn. Check the download against \`SHA256SUMS.txt\`:"
+            fi
+            echo '```powershell'
+            echo 'Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256   # compare with SHA256SUMS.txt'
+            echo '```'
+            echo "Build provenance: \`gh attestation verify Whirlpool-Setup.exe --repo ${GITHUB_REPOSITORY}\`."
+            echo "VirusTotal: https://www.virustotal.com/gui/search/$(sha256sum dist/Whirlpool-Setup.exe | cut -d' ' -f1)"
+          } > notes.md
+          cat notes.md
       - name: Attest build provenance
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
+            dist/Whirlpool-Setup.exe
+            dist/Whirlpool-Setup-arm64.exe
+            dist/whirlpool-x64.exe
             dist/whirlpool-arm64.exe
-            dist/Whirlpool-arm64.zip
-      - name: Publish
+      - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/Whirlpool-arm64.zip
-            dist/SHA256SUMS-arm64.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          FLAGS=""
+          case "$TAG" in *-*) FLAGS="--prerelease" ;; esac
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" $FLAGS --verify-tag --title "Whirlpool $TAG" --notes-file notes.md \
+            dist/Whirlpool-Setup.exe dist/Whirlpool-Setup-arm64.exe dist/whirlpool-x64.exe dist/whirlpool-arm64.exe \
+            dist/Whirlpool-x64.zip dist/Whirlpool-arm64.zip dist/install.ps1 dist/SHA256SUMS.txt

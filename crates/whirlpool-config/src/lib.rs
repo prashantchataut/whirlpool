@@ -104,9 +104,16 @@ pub struct Config {
     /// Settings asks GitHub Releases for a newer version when it opens. The
     /// only network access in Whirlpool, so it can be turned off.
     pub check_updates: bool,
-    /// With `check_updates`: once a day, while the user is away from the
-    /// computer, new versions are downloaded and installed without asking.
+    /// With `check_updates`: the dock looks in the background every
+    /// `update_check_days` days. It only records that a version exists; it
+    /// never downloads or installs without a click in Settings.
     pub auto_update: bool,
+    /// With `check_updates`: also look a couple of minutes after the dock starts.
+    pub update_on_startup: bool,
+    /// Days between background looks. 0 turns the periodic look off.
+    pub update_check_days: u32,
+    /// Offer release candidates as well as stable releases.
+    pub update_prereleases: bool,
     pub language: Language,
     /// A folder shown at the right of the dock whose contents open as a
     /// menu, with a submenu for each folder inside, like a Windows 10 taskbar
@@ -526,6 +533,9 @@ impl Default for Config {
             mascot: false,
             check_updates: true,
             auto_update: true,
+            update_on_startup: false,
+            update_check_days: 7,
+            update_prereleases: false,
             language: Language::Auto,
             shortcuts_folder: None,
             animation_style: AnimationStyle::Smooth,

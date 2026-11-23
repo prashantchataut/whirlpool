@@ -1,0 +1,87 @@
+name: Updater end to end
+
+# Installs an older published release on a clean Windows runner, then runs the real in-app updater
+# (`whirlpool --update`) against GitHub Releases: check, download, SHA-256 check, install, relaunch.
+# Finally rolls back and uninstalls. Logs and a desktop screenshot are uploaded.
+on:
+  workflow_dispatch:
+    inputs:
+      from_tag:
+        description: Release to install first
+        required: true
+        default: v4.2.0-rc1
+      to_tag:
+        description: Release the updater must find and install
+        required: true
+        default: v4.2.0-rc2
+
+jobs:
+  e2e:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install the older release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force proof | Out-Null
+          gh release download "${{ inputs.from_tag }}" --repo $env:GITHUB_REPOSITORY -p Whirlpool-Setup.exe -p SHA256SUMS.txt
+          $want = (Select-String -Path SHA256SUMS.txt -Pattern ' Whirlpool-Setup.exe$').Line.Split(' ')[0]
+          $got = (Get-FileHash Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          if ($want -ne $got) { throw "installer hash mismatch" }
+          Start-Process .\Whirlpool-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
+          if (-not (Test-Path $exe)) { throw "not installed at $exe" }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
+          "installed: $((Get-ItemProperty $key).DisplayVersion)" | Tee-Object proof\e2e.txt -Append
+      - name: Run the updater
+        shell: pwsh
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
+          $p = Start-Process $exe -ArgumentList '--update','--beta' -Wait -PassThru
+          "updater exit code: $($p.ExitCode)" | Tee-Object proof\e2e.txt -Append
+          $deadline = (Get-Date).AddMinutes(4)
+          $want = '${{ inputs.to_tag }}'.TrimStart('v')
+          do { Start-Sleep 3; $now = (Get-ItemProperty $key -ErrorAction SilentlyContinue).DisplayVersion } until ($now -eq $want -or (Get-Date) -gt $deadline)
+          "installed after update: $now (wanted $want)" | Tee-Object proof\e2e.txt -Append
+          if ($now -ne $want) { throw "update did not install" }
+          Start-Sleep 8
+          $running = Get-Process whirlpool -ErrorAction SilentlyContinue
+          "whirlpool running after update (relaunch): $([bool]$running)" | Tee-Object proof\e2e.txt -Append
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [Windows.Forms.SystemInformation]::VirtualScreen
+          $bmp = New-Object Drawing.Bitmap $b.Width, $b.Height
+          [Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\proof\after-update.png")
+          Get-Content "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" -ErrorAction SilentlyContinue | Out-File proof\whirlpool-log-update.txt
+          if (-not $running) { throw "Whirlpool did not relaunch" }
+      - name: Second run says up to date, then roll back
+        shell: pwsh
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe"
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}_is1'
+          $p = Start-Process $exe -ArgumentList '--update','--beta','--check-only' -Wait -PassThru
+          "check after update, exit code: $($p.ExitCode) (0 = up to date)" | Tee-Object proof\e2e.txt -Append
+          if ($p.ExitCode -ne 0) { throw "still sees an update" }
+          Start-Process $exe -ArgumentList '--update','--rollback' -Wait
+          $want = '${{ inputs.from_tag }}'.TrimStart('v')
+          $deadline = (Get-Date).AddMinutes(4)
+          do { Start-Sleep 3; $now = (Get-ItemProperty $key -ErrorAction SilentlyContinue).DisplayVersion } until ($now -eq $want -or (Get-Date) -gt $deadline)
+          "installed after rollback: $now (wanted $want)" | Tee-Object proof\e2e.txt -Append
+          if ($now -ne $want) { throw "rollback did not install" }
+          Get-Content "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" -ErrorAction SilentlyContinue | Out-File proof\whirlpool-log-rollback.txt
+      - name: Uninstall
+        if: always()
+        shell: pwsh
+        run: |
+          Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          $u = "$env:LOCALAPPDATA\Programs\Whirlpool\unins000.exe"
+          if (Test-Path $u) { Start-Process $u -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES' -Wait; Start-Sleep 3 }
+          "uninstalled, folder left behind: $(Test-Path "$env:LOCALAPPDATA\Programs\Whirlpool\whirlpool.exe")" | Tee-Object proof\e2e.txt -Append
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: updater-e2e-proof
+          path: proof

@@ -3,6 +3,17 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
+; Four numbers for the file version resource (4.2.0-rc1 -> 4.2.0.0).
+#ifndef NumericVersion
+  #define NumericVersion "0.0.0.0"
+#endif
+; x64 (default) or arm64. CI passes /DArch=arm64 /DSourceExe=... for the ARM64 build.
+#ifndef Arch
+  #define Arch "x64"
+#endif
+#ifndef SourceExe
+  #define SourceExe "..\target\release\whirlpool.exe"
+#endif
 
 [Setup]
 AppId={{B7D0A2F4-5C1E-4C55-9E4B-3F1A6A0C7A11}
@@ -13,7 +24,7 @@ AppPublisher=Whirlpool
 AppPublisherURL=https://github.com/prashantchataut/whirlpool
 AppSupportURL=https://github.com/prashantchataut/whirlpool/issues
 AppUpdatesURL=https://github.com/prashantchataut/whirlpool/releases
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#NumericVersion}
 VersionInfoProductName=Whirlpool
 VersionInfoDescription=Whirlpool Setup
 DefaultDirName={autopf}\Whirlpool
@@ -21,7 +32,11 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\dist
+#if Arch == "arm64"
+OutputBaseFilename=Whirlpool-Setup-arm64
+#else
 OutputBaseFilename=Whirlpool-Setup
+#endif
 SetupIconFile=..\assets\brand\whirlpool.ico
 UninstallDisplayIcon={app}\whirlpool.exe
 UninstallDisplayName=Whirlpool
@@ -29,8 +44,13 @@ LicenseFile=..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+#if Arch == "arm64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
+#else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 MinVersion=10.0.18362
 
 [Tasks]
@@ -38,7 +58,7 @@ Name: "autostart"; Description: "Start Whirlpool when I sign in"; GroupDescripti
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Options:"; Flags: unchecked
 
 [Files]
-Source: "..\target\release\whirlpool.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_LICENSES.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -50,6 +70,8 @@ Name: "{autodesktop}\Whirlpool"; Filename: "{app}\whirlpool.exe"; IconFilename: 
 
 [Run]
 Filename: "{app}\whirlpool.exe"; Parameters: "--autostart on"; Flags: runhidden; Tasks: autostart
+; The in-app updater passes /relaunch=1 so Whirlpool comes back after a silent update.
+Filename: "{app}\whirlpool.exe"; Flags: nowait; Check: RelaunchRequested
 Filename: "{app}\whirlpool.exe"; Description: "Start Whirlpool now"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
@@ -57,6 +79,11 @@ Filename: "{app}\whirlpool.exe"; Parameters: "--autostart off"; Flags: runhidden
 Filename: "{app}\whirlpool.exe"; Parameters: "--restore"; Flags: runhidden; RunOnceId: "RestoreTaskbar"
 
 [Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;
+
 // Quit a running copy first so its file can be replaced.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var

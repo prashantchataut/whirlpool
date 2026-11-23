@@ -10,7 +10,7 @@ mod photos;
 mod quick;
 mod text;
 mod ui;
-mod update;
+pub mod update;
 
 use eframe::egui;
 

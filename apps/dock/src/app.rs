@@ -2419,53 +2419,60 @@ impl App {
         self.render()
     }
 
-    /// Aims the update timer at the next look: a day after the last one,
-    /// which survives restarts, and never sooner than two minutes after the
-    /// dock starts. So the dock wakes for it once a day, not on a schedule.
+    /// Aims the update timer at the next background look: `update_check_days` after the last
+    /// one (remembered in `updates\state.json`, so restarts do not reset it), plus one look a few
+    /// minutes after the dock starts when "check on startup" is on. Never sooner than
+    /// `UPDATE_AFTER_START` after launch. With checks off there is no timer at all.
     fn schedule_update(&self) {
         // SAFETY: Timers on our own window; setting one again replaces it.
         unsafe {
-            if !self.config.check_updates || !self.config.auto_update {
+            if !self.config.check_updates {
                 let _ = KillTimer(Some(self.input), UPDATE_TIMER);
                 return;
             }
-            // Also counted from the last try in this session: if the date
-            // could not be saved, the registry would call it due again at
-            // once, and the dock would start one update after another.
+            let due = whirlpool_settings::update::background_due_in(self.config.update_check_days);
+            let startup = self.config.update_on_startup && self.update_tried.is_none();
+            let seconds = match (startup, due) {
+                (true, _) => 0,
+                (false, Some(seconds)) => seconds,
+                (false, None) => {
+                    let _ = KillTimer(Some(self.input), UPDATE_TIMER);
+                    return;
+                }
+            };
+            // Also counted from the last try in this session: if the date could not be saved,
+            // the state would call it due again at once.
             let since_try = self
                 .update_tried
                 .map_or(std::time::Duration::ZERO, |tried| {
                     UPDATE_EVERY.saturating_sub(tried.elapsed())
                 });
-            let wait = whirlpool_shell::updates::due_in(UPDATE_EVERY)
+            let wait = std::time::Duration::from_secs(seconds)
                 .max(UPDATE_AFTER_START.saturating_sub(self.launched.elapsed()))
                 .max(since_try);
             SetTimer(Some(self.input), UPDATE_TIMER, millis(wait), None);
         }
     }
 
-    /// Starts the background update: Settings without a window, which does
-    /// the network part and exits when there is nothing to install. The
-    /// dock itself never touches the network.
+    /// The background look: asks GitHub on a thread and records what it found. It never
+    /// downloads or installs; that needs a click in Settings.
     fn update_now(&mut self) {
         // SAFETY: Our own timer.
         unsafe {
             let _ = KillTimer(Some(self.input), UPDATE_TIMER);
         }
-        if !self.config.check_updates || !self.config.auto_update {
+        if !self.config.check_updates {
             return;
         }
-        // Installing restarts the dock: not in the middle of a game.
+        // Not in the middle of a game.
         if self.fullscreen {
             // SAFETY: Our own timer.
             unsafe { SetTimer(Some(self.input), UPDATE_TIMER, millis(UPDATE_RETRY), None) };
             return;
         }
-        // Recorded first: whatever happens, the next look is tomorrow.
-        whirlpool_shell::updates::mark_checked();
         self.update_tried = Some(Instant::now());
+        whirlpool_settings::update::background_check(self.config.update_prereleases);
         self.schedule_update();
-        // Updates are installed by Setup; the dock never touches the network.
     }
 
     /// The crab plays `act` (see `mascot`), unless it is out already, it is

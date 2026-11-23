@@ -95,11 +95,22 @@ fn main() -> Result<()> {
         [accessories::FLAG, visibility] => accessories::worker_main(Some(visibility)),
         [accessories::USB_FLAG] => accessories::usb_worker_main(),
         [shell_work::FLAG] => shell_work::worker_main(),
+        ["--version"] => {
+            whirlpool_shell::log::line(concat!("whirlpool ", env!("CARGO_PKG_VERSION")));
+            whirlpool_shell::log::flush();
+            Ok(())
+        }
+        ["--update", flags @ ..] => {
+            let code = whirlpool_settings::update::cli(flags);
+            std::process::exit(code)
+        }
         ["--settings"] => open_settings(false),
         ["--settings-compat"] => open_settings(true),
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
-        _ => bail!("usage: whirlpool [--settings | --quit | --restore | --autostart on|off]"),
+        _ => bail!(
+            "usage: whirlpool [--settings | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+        ),
     }
 }
 

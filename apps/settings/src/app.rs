@@ -4,7 +4,11 @@ use std::{
     env,
     path::PathBuf,
     rc::Rc,
-    sync::mpsc::{self, Receiver, Sender},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, Sender},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -64,7 +68,9 @@ pub struct Settings {
     wallpaper: Option<TextureHandle>,
     folder_rx: Option<Receiver<Option<String>>>,
     update_state: State,
-    update_rx: Option<Receiver<Option<update::Release>>>,
+    update_rx: Option<Receiver<update::Msg>>,
+    update_cancel: Arc<AtomicBool>,
+    rollback: Option<String>,
     reset_armed: Option<Instant>,
     banner_dismissed: bool,
     wall_thumbs: Vec<(&'static str, TextureHandle)>,
@@ -190,6 +196,8 @@ impl Settings {
             wallpaper: None,
             folder_rx: None,
             update_rx: None,
+            update_cancel: Arc::new(AtomicBool::new(false)),
+            rollback: update::rollback_target(),
             reset_armed: None,
             banner_dismissed: false,
             wall_thumbs: Vec::new(),
@@ -226,8 +234,32 @@ impl Settings {
             return;
         }
         self.update_state = State::Checking;
-        self.update_rx = Some(update::check());
+        self.update_rx = Some(update::spawn_check(self.config.update_prereleases));
         ctx.request_repaint_after(Duration::from_millis(250));
+    }
+
+    fn start_install(&mut self, release: update::Release) {
+        self.update_cancel.store(false, Ordering::Relaxed);
+        self.update_state = State::Working(update::Progress::Downloading {
+            done: 0,
+            total: None,
+        });
+        self.update_rx = Some(update::spawn_install(
+            release,
+            Arc::clone(&self.update_cancel),
+        ));
+    }
+
+    fn start_rollback(&mut self, version: &str) {
+        self.update_cancel.store(false, Ordering::Relaxed);
+        self.update_state = State::Working(update::Progress::Downloading {
+            done: 0,
+            total: None,
+        });
+        self.update_rx = Some(update::spawn_rollback(
+            version,
+            Arc::clone(&self.update_cancel),
+        ));
     }
 
     /// Collects what the background threads have finished.
@@ -251,23 +283,46 @@ impl Settings {
             }
         }
         if let Some(receive) = &self.update_rx {
-            match receive.try_recv() {
-                Ok(found) => {
-                    self.update_state = match found {
-                        Some(release) if update::is_newer(&release.version) => {
-                            State::Available(release)
+            loop {
+                match receive.try_recv() {
+                    Ok(update::Msg::Checked(result)) => {
+                        self.update_state = match result {
+                            Ok(whirlpool_update::Outcome::Available(release)) => {
+                                State::Available(release)
+                            }
+                            Ok(whirlpool_update::Outcome::UpToDate) => State::Current,
+                            Err(error) => State::Failed(error.to_string()),
+                        };
+                        self.update_rx = None;
+                        break;
+                    }
+                    Ok(update::Msg::Progress(progress)) => {
+                        self.update_state = State::Working(progress);
+                    }
+                    Ok(update::Msg::Launched) => {
+                        // Setup replaces this program's file: leave it free.
+                        self.update_state = State::Restarting;
+                        ctx.request_repaint();
+                        std::process::exit(0);
+                    }
+                    Ok(update::Msg::Failed(why)) => {
+                        self.update_state = State::Failed(why);
+                        self.update_rx = None;
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Empty) => {
+                        ctx.request_repaint_after(Duration::from_millis(120));
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        if !matches!(self.update_state, State::Failed(_)) {
+                            self.update_state = State::Failed(
+                                "The update stopped unexpectedly. Try again.".to_owned(),
+                            );
                         }
-                        Some(_) => State::Current,
-                        None => State::Failed,
-                    };
-                    self.update_rx = None;
-                }
-                Err(mpsc::TryRecvError::Empty) => {
-                    ctx.request_repaint_after(Duration::from_millis(250));
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    self.update_state = State::Failed;
-                    self.update_rx = None;
+                        self.update_rx = None;
+                        break;
+                    }
                 }
             }
         }
@@ -1078,13 +1133,15 @@ impl Settings {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.label(
-                    RichText::new(t.with_version("updateBannerTitle", &release.version))
-                        .font(ui::heading(15.0))
-                        .color(palette.text),
+                    RichText::new(
+                        t.with_version("updateBannerTitle", &release.version.to_string()),
+                    )
+                    .font(ui::heading(15.0))
+                    .color(palette.text),
                 );
                 ui.horizontal(|ui| {
                     if ui::push(ui, t.get("updatesInstall"), Some(ui::ACCENT)).clicked() {
-                        let _ = launcher::open(&release.page);
+                        self.start_install(release.clone());
                     }
                     if ui::push(ui, t.get("updateLater"), None).clicked() {
                         self.banner_dismissed = true;
@@ -1816,6 +1873,10 @@ impl Settings {
         let mut recheck = false;
         let mut reset_clicked = false;
         let mut open_repo = false;
+        let mut install_release: Option<update::Release> = None;
+        let mut cancel_update = false;
+        let mut rollback_to: Option<String> = None;
+        let rollback = self.rollback.clone();
         let update_state = self.update_state.clone();
         let reset_armed = self.reset_armed.is_some();
         let config = &mut self.config;
@@ -1851,27 +1912,81 @@ impl Settings {
                 Some(t.get("checkUpdatesHint")),
                 &mut config.check_updates,
             );
+            if config.check_updates {
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("updateOnStartup"),
+                    Some(t.get("updateOnStartupHint")),
+                    &mut config.update_on_startup,
+                );
+                ui::divider(ui);
+                ui::row(
+                    ui,
+                    t.get("updateEvery"),
+                    Some(t.get("updateEveryHint")),
+                    160.0,
+                    |ui| {
+                        ui::choose(
+                            ui,
+                            "update-every",
+                            &mut config.update_check_days,
+                            &[
+                                (0, t.get("updateNever")),
+                                (1, t.get("updateDaily")),
+                                (7, t.get("updateWeekly")),
+                                (30, t.get("updateMonthly")),
+                            ],
+                        );
+                    },
+                );
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("updatePrereleases"),
+                    Some(t.get("updatePrereleasesHint")),
+                    &mut config.update_prereleases,
+                );
+            }
             ui::divider(ui);
             let hint = match &update_state {
                 State::Off => t.get("updatesOff").to_owned(),
                 State::Checking => t.get("updatesChecking").to_owned(),
                 State::Current => t.with_version("updatesCurrent", env!("CARGO_PKG_VERSION")),
-                State::Available(release) => t.with_version("updatesAvailable", &release.version),
-                State::Failed => t.get("updatesError").to_owned(),
+                State::Available(release) => {
+                    t.with_version("updatesAvailable", &release.version.to_string())
+                }
+                State::Working(update::Progress::Downloading { done, total }) => match total {
+                    Some(total) => format!(
+                        "{} {:.1} / {:.1} MB",
+                        t.get("updatesDownloading"),
+                        *done as f64 / 1_048_576.0,
+                        *total as f64 / 1_048_576.0
+                    ),
+                    None => t.get("updatesDownloading").to_owned(),
+                },
+                State::Working(update::Progress::Verifying) => t.get("updatesVerifying").to_owned(),
+                State::Restarting => t.get("updatesRestarting").to_owned(),
+                State::Failed(why) => why.clone(),
             };
             ui::row(
                 ui,
-                t.get("updatesNow"),
+                &t.with_version("updatesNow", env!("CARGO_PKG_VERSION")),
                 Some(&hint),
-                140.0,
+                170.0,
                 |ui| match &update_state {
                     State::Available(release) => {
                         if ui::push(ui, t.get("updatesInstall"), Some(ui::ACCENT)).clicked() {
-                            let _ = launcher::open(&release.page);
+                            install_release = Some(release.clone());
                         }
                     }
-                    State::Checking => {
+                    State::Checking | State::Restarting => {
                         ui.add_enabled(false, egui::Button::new(t.get("updatesCheck")));
+                    }
+                    State::Working(_) => {
+                        if ui::push(ui, t.get("updatesCancel"), None).clicked() {
+                            cancel_update = true;
+                        }
                     }
                     _ => {
                         if ui::push(ui, t.get("updatesCheck"), None).clicked() {
@@ -1879,6 +1994,64 @@ impl Settings {
                         }
                     }
                 },
+            );
+            if let State::Working(progress) = &update_state {
+                let fraction = match progress {
+                    update::Progress::Downloading {
+                        done,
+                        total: Some(total),
+                    } => *done as f32 / (*total).max(1) as f32,
+                    update::Progress::Downloading { .. } => 0.0,
+                    update::Progress::Verifying => 1.0,
+                };
+                ui.add(egui::ProgressBar::new(fraction).desired_height(6.0));
+            }
+            if let State::Available(release) = &update_state {
+                ui::divider(ui);
+                let notes = release.notes.trim();
+                egui::CollapsingHeader::new(t.get("updatesNotes"))
+                    .id_salt("update-notes")
+                    .show(ui, |ui| {
+                        ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                            let shown: String = notes.chars().take(4000).collect();
+                            ui.label(
+                                RichText::new(if shown.is_empty() {
+                                    t.get("updatesNoNotes")
+                                } else {
+                                    shown.as_str()
+                                })
+                                .size(12.5),
+                            );
+                        });
+                    });
+            }
+            if let Some(previous) = &rollback {
+                ui::divider(ui);
+                let busy = matches!(update_state, State::Working(_) | State::Restarting);
+                ui::row(
+                    ui,
+                    &t.with_version("updatesRollback", previous),
+                    Some(t.get("updatesRollbackHint")),
+                    170.0,
+                    |ui| {
+                        if ui
+                            .add_enabled(
+                                !busy,
+                                egui::Button::new(t.get("updatesRollbackButton"))
+                                    .min_size(vec2(0.0, 30.0)),
+                            )
+                            .clicked()
+                        {
+                            rollback_to = Some(previous.clone());
+                        }
+                    },
+                );
+            }
+            ui::divider(ui);
+            ui.label(
+                RichText::new(t.get("updatesPrivacy"))
+                    .size(12.0)
+                    .color(Palette::of(ui).muted),
             );
         });
         ui::card(ui, None, |ui| {
@@ -1915,6 +2088,15 @@ impl Settings {
         }
         if recheck {
             self.recheck_updates(ctx);
+        }
+        if let Some(release) = install_release {
+            self.start_install(release);
+        }
+        if let Some(version) = rollback_to {
+            self.start_rollback(&version);
+        }
+        if cancel_update {
+            self.update_cancel.store(true, Ordering::Relaxed);
         }
         if open_repo {
             let _ = launcher::open(update::REPOSITORY);

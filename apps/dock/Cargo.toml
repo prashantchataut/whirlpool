@@ -19,6 +19,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 whirlpool-config.workspace = true
 whirlpool-core.workspace = true
 whirlpool-shell.workspace = true
+whirlpool-update.workspace = true
 whirlpool-settings = { path = "../settings" }
 png = "0.18"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "system-proxy"] }
