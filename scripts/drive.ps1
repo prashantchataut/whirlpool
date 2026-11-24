@@ -172,13 +172,13 @@ Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     $startX = 0; $startY = $screen.Height - 41
     $wins = [U]::Of([uint32]$script:dock.Id)
     foreach ($w in $wins) { Log "dock process window: $w" }
-    # The dock is the low, wide window near the bottom edge; its first tile is the Start tile.
+    # The dock pill is the shortest window near the bottom edge (a taller sibling holds popups); its first tile is the Start tile.
     $best = $null
     foreach ($w in $wins) {
         $n = ($w.Split('|')[1]).Split(',') | ForEach-Object { [int]$_ }
         $width = $n[2] - $n[0]; $height = $n[3] - $n[1]
         if ($n[3] -ge ($screen.Height - 160) -and $height -lt 200 -and $width -lt ($screen.Width - 40) -and $width -gt 150) {
-            if ($null -eq $best -or $width -gt $best.W) { $best = @{ L = $n[0]; T = $n[1]; R = $n[2]; B = $n[3]; W = $width } }
+            if ($null -eq $best -or $height -lt $best.H) { $best = @{ L = $n[0]; T = $n[1]; R = $n[2]; B = $n[3]; W = $width; H = $height } }
         }
     }
     if ($best) {
@@ -214,13 +214,14 @@ Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Key ([byte[]](0x1B))
 }
 
-Scenario 'drag motion: shadow, snap preview, settle' {
+foreach ($mode in @(@{ tag = ''; on = 'true' }, @{ tag = '-control'; on = 'false' })) {
+Scenario "drag motion$($mode.tag): shadow, snap preview, settle" {
     # Server images drag a bare outline and leave the window where it is. Real desktops drag the whole
     # window, which is the case Whirlpool decorates, so turn it on and say what the system reports.
     [void][U]::SystemParametersInfo(0x0025, 1, [IntPtr]::Zero, 3)
     $full = 0; [void][U]::SystemParametersInfo(0x0026, 0, [ref]$full, 0)
     Log "full-window drag (SPI_GETDRAGFULLWINDOWS) = $full"
-    Start-Dock '{"menuBar":true,"menuBarPosition":"top","dragMotion":true}'
+    Start-Dock "{`"menuBar`":true,`"menuBarPosition`":`"top`",`"dragMotion`":$($mode.on)}"
     $np = Start-Process notepad.exe -PassThru
     Start-Sleep 4
     $np.Refresh()
@@ -232,16 +233,17 @@ Scenario 'drag motion: shadow, snap preview, settle' {
     [U]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 200
     foreach ($i in 1..12) { Move-Mouse ($gx - $i * 14) ($gy + $i * 9); Start-Sleep -Milliseconds 40 }
     Start-Sleep -Milliseconds 400
-    Shot '07-drag-held'
+    Shot "07-drag-held$($mode.tag)"
     foreach ($i in 1..30) { Move-Mouse (($gx - 168) - $i * 12) ($gy + 108 + $i * 4); Start-Sleep -Milliseconds 20 }
     Move-Mouse 3 400; Start-Sleep -Milliseconds 700
-    Shot '07-drag-snap-preview'
+    Shot "07-drag-snap-preview$($mode.tag)"
     [U]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
     Start-Sleep -Milliseconds 120
-    Shot '07-drag-release-120ms'
+    Shot "07-drag-release-120ms$($mode.tag)"
     Start-Sleep 1
-    Shot '07-drag-settled'
+    Shot "07-drag-settled$($mode.tag)"
     Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
+}
 }
 
 function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]($notches * -120)), 0), [UIntPtr]::Zero) }
