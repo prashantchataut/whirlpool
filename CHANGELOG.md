@@ -13,6 +13,12 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## 4.2.0-rc5 (pre-release)
+
+- Window overview: `whirlpool --overview` shows every open window as a live card (previews composed by DWM). Arrows, Enter, Esc, click, close button. Opened by the palette action "Show all windows" and by a hot corner set to window overview.
+- Search palette: visible search field and placeholder, drawn icons for actions, files and clipboard, selection as a tint with a border.
+- Runner captures and review notes in `docs/captures/session7/`. Not verified on a personal desktop.
+
 ## 4.2.0-rc4 (pre-release, not tagged yet)
 
 - Quick settings tiles can be reordered by dragging, made wide or small, added and removed (Menu bar page).

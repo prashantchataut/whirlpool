@@ -43,6 +43,21 @@ Earlier rows below are kept as they were; where session 5 supersedes one, this t
 | Own window overview, file preview, window grouping | NOT DONE | `STUDY.md` gaps | |
 | Real-desktop verification | NOT DONE | | Everything above ran on GitHub runners (x64; ARM64 for the earlier screenshots). |
 
+## Session 7 (branch `feat/gaps-session-6`, same PR #12; pre-release `4.2.0-rc5`)
+
+Correction: the text above says `4.2.0-rc4` is not tagged; a `v4.2.0-rc4` pre-release exists on GitHub (I did not check which commit it was built from). Release gate still **not passed**.
+Everything below ran on GitHub runners (x64; the ARM64 job started but its frames were not reviewed). Nothing ran on a personal desktop.
+Captures: `docs/captures/session7/` (run 45409486018, commit 1e78315). Study numbers: run 45408962749.
+
+| Item | Status | Proof | Notes |
+| --- | --- | --- | --- |
+| Window overview (own panel, live previews) | DONE on the runner, with limits | `15-overview-*.jpg`; driver log "overview Enter: overview still open=False; foreground changed=True" | `whirlpool --overview`: full-screen cards with live DWM previews (DWM composes them; Whirlpool never reads another window's pixels), caption, close button on the chosen card, arrows, Enter, Esc, click-away, closes on focus loss. Opened by the palette action and by a hot corner set to "window overview". Layout is tested (`whirlpool-core::overview`, 6 tests). **Not exercised with real input:** clicking a card, the close button, the hot-corner route. **Not done:** app icons beside titles; a Settings page and hotkey of its own; the menu-bar Task View button still opens Windows Task View on purpose (virtual desktops). The earlier "Window overview NOT DONE" rows are superseded. |
+| Palette polish | DONE | `08-palette-*.jpg`, `review-palette-round1-vs-round3.jpg` | The search field was invisible in the earlier capture (egui hint colour); now a magnifier and a painted placeholder. Action icons are drawn glyphs (`apps/settings/src/glyphs.rs`), not letters. Selected row: full tint and border, no side bar. Still open: every action row repeats "Action". |
+| Review rounds | 3 for palette and overview, 1 for the rest | `review-*.jpg` | Round 1: session 6 captures; round 2: first build with the overview; round 3: craft pass. The Start grid and drag ghost were looked at once and **not** re-captured after session 6's last commit. |
+| Memory (item 7) | UNCHANGED, measured | `STUDY.md` | Idle 24.4 MB private, 0.04 % CPU (main: 23.9 MB, 0.08 %). A panel open: 297 to 336 MB private on the runner's software renderer; 23 to 25 MB after it closes. I changed nothing here. |
+| Study rerun against the reference's latest release | DONE | `STUDY.md` | Numbers only. |
+| Reference frames, side-by-side images | NOT PUBLISHED on purpose | `STUDY.md` | They carry another company's names and icons; the standing brief forbids naming it. Side-by-sides in the repo compare Whirlpool with Whirlpool (before and after). |
+
 ## Earlier status (still accurate unless the table above says otherwise)
 
 | Item | Status | Proof | Notes |
