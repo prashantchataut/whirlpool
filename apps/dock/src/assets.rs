@@ -37,6 +37,52 @@ struct Loaded {
     visual: Option<AppVisual>,
 }
 
+/// The dock icon style in force, set from the settings.
+static STYLE: Mutex<(whirlpool_core::iconstyle::Style, [u8; 3])> =
+    Mutex::new((whirlpool_core::iconstyle::Style::Default, [47, 143, 216]));
+
+fn style_of(style: whirlpool_config::IconStyle) -> whirlpool_core::iconstyle::Style {
+    use whirlpool_core::iconstyle::Style;
+    match style {
+        whirlpool_config::IconStyle::Default => Style::Default,
+        whirlpool_config::IconStyle::Dark => Style::Dark,
+        whirlpool_config::IconStyle::Clear => Style::Clear,
+        whirlpool_config::IconStyle::Tinted => Style::Tinted,
+    }
+}
+
+/// Applies the current icon style to a loaded icon (premultiplied BGRA in, premultiplied BGRA out).
+fn restyle(mut visual: AppVisual) -> AppVisual {
+    let (style, tint) = STYLE.lock().map_or(
+        (whirlpool_core::iconstyle::Style::Default, [0; 3]),
+        |guard| *guard,
+    );
+    if style == whirlpool_core::iconstyle::Style::Default {
+        return visual;
+    }
+    for px in visual.icon.bgra.chunks_exact_mut(4) {
+        let alpha = u16::from(px[3]);
+        let straight = |c: u8| {
+            if alpha == 0 {
+                0
+            } else {
+                ((u16::from(c) * 255 + alpha / 2) / alpha).min(255) as u8
+            }
+        };
+        let out = whirlpool_core::iconstyle::style_pixel(
+            style,
+            tint,
+            [straight(px[2]), straight(px[1]), straight(px[0]), px[3]],
+        );
+        let premultiply = |c: u8| ((u16::from(c) * u16::from(out[3]) + 127) / 255) as u8;
+        px[0] = premultiply(out[2]);
+        px[1] = premultiply(out[1]);
+        px[2] = premultiply(out[0]);
+        px[3] = out[3];
+    }
+    visual
+}
+
 pub struct Visuals {
     requests: SyncSender<Request>,
     results: Receiver<Loaded>,
@@ -47,12 +93,38 @@ pub struct Visuals {
 
 impl Visuals {
     pub fn new(window: HWND, message: u32) -> Result<Self> {
+        if let Ok(Some(config)) = whirlpool_config::load(&whirlpool_config::default_path()) {
+            let _ = Self::apply_style(config.dock_icon_style, config.dock_icon_tint);
+        }
         Self::start(window, message, |id, variant| {
             IconCache::default()
                 .get_variant(id, variant, ICON_SIZE)
                 .inspect_err(|error| eprintln!("whirlpool: {error}"))
                 .ok()
+                .map(restyle)
         })
+    }
+
+    fn apply_style(style: whirlpool_config::IconStyle, tint: [u8; 3]) -> bool {
+        let wanted = (style_of(style), tint);
+        match STYLE.lock() {
+            Ok(mut guard) if *guard != wanted => {
+                *guard = wanted;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Switches the icon style. Returns `true` (and forgets the icons loaded so far, so they load
+    /// again in the new style) when it changed.
+    pub fn set_style(&mut self, style: whirlpool_config::IconStyle, tint: [u8; 3]) -> bool {
+        let changed = Self::apply_style(style, tint);
+        if changed {
+            self.ready.clear();
+            self.pending.clear();
+        }
+        changed
     }
 
     fn start(

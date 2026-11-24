@@ -5,8 +5,11 @@
 //! `--settings`, so there is one program to install and one icon to trust.
 
 mod app;
+mod chrome;
+mod extras;
 mod icons;
 mod launchpad;
+mod notify_center;
 mod palette;
 pub mod photos;
 mod preview;
@@ -123,4 +126,17 @@ pub(crate) fn logo_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
     let (rgba, width, height) = decode_logo()?;
     let image = egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &rgba);
     Some(ctx.load_texture("whirlpool-logo", image, egui::TextureOptions::LINEAR))
+}
+
+/// The notification center: history of Whirlpool's own notifications.
+pub fn run_notifications(compat: bool) -> eframe::Result {
+    notify_center::run(compat)
+}
+
+/// The title of the notification center window, so the dock can close a running one.
+pub const NOTIFICATIONS_TITLE: &str = notify_center::TITLE;
+
+/// Adds one entry to the notification history. `false` when history is off or it was a repeat.
+pub fn push_notification(source: &str, title: &str, body: &str) -> bool {
+    notify_center::push(source, title, body)
 }

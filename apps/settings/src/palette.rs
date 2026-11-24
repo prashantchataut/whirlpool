@@ -162,15 +162,19 @@ struct Palette {
     focused_once: bool,
     frames: u32,
     dirty: bool,
+    glass: crate::chrome::GlassPanel,
+    glass_on: bool,
+    glass_strength: u8,
+    region: (i32, i32),
 }
 
 impl Palette {
-    fn new(ctx: &egui::Context) -> Self {
-        let language = whirlpool_config::load(&whirlpool_config::default_path())
+    fn new(ctx: &egui::Context, backdrop: Option<whirlpool_core::glass::Image>) -> Self {
+        let config = whirlpool_config::load(&whirlpool_config::default_path())
             .ok()
             .flatten()
-            .unwrap_or_default()
-            .language;
+            .unwrap_or_default();
+        let language = config.language;
         let texts = Texts::for_language(language);
         let action = |id: &str, key: &str, hint: &str| Item {
             kind: Kind::Action,
@@ -216,6 +220,10 @@ impl Palette {
             selected: 0,
             started: Instant::now(),
             focused_once: false,
+            glass: crate::chrome::GlassPanel::new(backdrop),
+            glass_on: config.glass_refraction,
+            glass_strength: config.glass_strength,
+            region: (0, 0),
             frames: 0,
             dirty: true,
         };
@@ -489,24 +497,44 @@ impl eframe::App for Palette {
             vec2(full.width() - 40.0, 118.0 + list_h + 10.0),
         );
         let painter = ui.painter().clone();
-        for spread in [18.0, 10.0, 4.0] {
-            painter.rect_filled(
-                panel
-                    .expand(spread * 0.5)
-                    .translate(vec2(0.0, spread * 0.4)),
-                CornerRadius::same(28),
-                Color32::from_black_alpha(14),
+        // The window is clipped to the panel's rounded shape, so it looks the same with or without
+        // alpha from the renderer. The region ignores the opening rise: it is the resting shape.
+        let ppp = ctx.pixels_per_point();
+        let size_px = ((panel.width() * ppp) as i32, (panel.height() * ppp) as i32);
+        if size_px != self.region {
+            self.region = size_px;
+            crate::chrome::round_window(
+                TITLE,
+                (
+                    ((panel.left() - full.left()) * ppp) as i32,
+                    ((panel.top() + rise - full.top()) * ppp) as i32,
+                    size_px.0,
+                    size_px.1,
+                ),
+                (22.0 * ppp) as i32,
             );
         }
-        painter.rect_filled(
-            panel,
-            CornerRadius::same(22),
-            Color32::from_rgba_unmultiplied(9, 20, 34, 238),
-        );
+        let glass_drawn = self.glass_on
+            && self.glass.paint(
+                &ctx,
+                &painter,
+                full,
+                panel,
+                22.0,
+                self.glass_strength,
+                Color32::from_rgba_unmultiplied(9, 20, 34, 164),
+            );
+        if !glass_drawn {
+            painter.rect_filled(
+                panel,
+                CornerRadius::same(22),
+                Color32::from_rgba_unmultiplied(9, 20, 34, 244),
+            );
+        }
         painter.rect_stroke(
             panel,
             CornerRadius::same(22),
-            Stroke::new(1.0, Color32::from_white_alpha(30)),
+            Stroke::new(1.0, Color32::from_white_alpha(38)),
             StrokeKind::Inside,
         );
 
@@ -519,7 +547,7 @@ impl eframe::App for Palette {
         let edit = egui::TextEdit::singleline(&mut self.query)
             .frame(egui::Frame::NONE)
             .font(FontId::proportional(22.0))
-            .hint_text(egui::RichText::new(hint).color(Color32::from_white_alpha(90)))
+            .hint_text(egui::RichText::new(hint).color(Color32::from_white_alpha(150)))
             .desired_width(edit_rect.width())
             .text_color(Color32::WHITE);
         ui.put(edit_rect, edit).request_focus();
@@ -636,6 +664,7 @@ pub fn run(compat: bool) -> eframe::Result {
         .with_always_on_top()
         .with_taskbar(false)
         .with_inner_size([WIDTH, HEIGHT]);
+    let mut backdrop = None;
     if let Some(monitor) = system::primary_monitor() {
         let scale = monitor.scale.max(1.0);
         let (left, top) = (
@@ -644,10 +673,18 @@ pub fn run(compat: bool) -> eframe::Result {
         );
         let width = (monitor.screen.right - monitor.screen.left) as f32 / scale;
         let height = (monitor.screen.bottom - monitor.screen.top) as f32 / scale;
-        viewport = viewport.with_position([
+        let at = [
             left + (width - WIDTH) / 2.0,
             top + (height * 0.16).min(height - HEIGHT).max(0.0),
-        ]);
+        ];
+        // The picture the glass refracts, taken before the window exists.
+        backdrop = crate::chrome::capture(
+            (at[0] * scale) as i32,
+            (at[1] * scale) as i32,
+            (WIDTH * scale) as i32,
+            (HEIGHT * scale) as i32,
+        );
+        viewport = viewport.with_position(at);
     }
     let options = eframe::NativeOptions {
         viewport,
@@ -661,6 +698,6 @@ pub fn run(compat: bool) -> eframe::Result {
     eframe::run_native(
         TITLE,
         options,
-        Box::new(|creation| Ok(Box::new(Palette::new(&creation.egui_ctx)))),
+        Box::new(move |creation| Ok(Box::new(Palette::new(&creation.egui_ctx, backdrop)))),
     )
 }

@@ -50,6 +50,13 @@ pub struct Tracker {
 }
 
 impl Tracker {
+    pub const fn new() -> Self {
+        Self {
+            inside: None,
+            fired: false,
+        }
+    }
+
     /// Feed one cursor sample. Returns the corner exactly once per visit, after the dwell.
     pub fn sample(
         &mut self,

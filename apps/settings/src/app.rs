@@ -495,6 +495,27 @@ const SEARCH_INDEX: &[(&str, &str, Page)] = &[
     ("Menu bar auto-hide", "hide reveal edge", Page::MenuBar),
     ("Dynamic island", "island bubble notch music", Page::MenuBar),
     (
+        "Quick settings tiles",
+        "tiles grid reorder resize add remove wifi bluetooth",
+        Page::MenuBar,
+    ),
+    (
+        "Notification history",
+        "notifications center history clear",
+        Page::MenuBar,
+    ),
+    ("Hot corners", "corner screen action pointer", Page::Windows),
+    (
+        "Dock icon style",
+        "icons dark clear tinted default",
+        Page::Dock,
+    ),
+    (
+        "Glass refraction",
+        "glass blur refraction frost panels",
+        Page::Personalize,
+    ),
+    (
         "Clock and date",
         "clock date 24 hour 12 hour time",
         Page::MenuBar,
@@ -1188,6 +1209,8 @@ impl Settings {
     }
 
     fn dock_page(&mut self, ui: &mut Ui, t: &Texts) {
+        crate::extras::icon_style_card(ui, t, &mut self.config);
+        ui.add_space(10.0);
         let (left, bottom, right) = (
             t.get("dockPositionLeft"),
             t.get("dockPositionBottom"),
@@ -1486,6 +1509,8 @@ impl Settings {
 
     fn personalize_page(&mut self, ui: &mut Ui, t: &Texts) {
         let ctx = ui.ctx().clone();
+        crate::extras::glass_card(ui, t, &mut self.config);
+        ui.add_space(10.0);
         if self.wall_thumbs.is_empty() && self.wall_thumbs_rx.is_none() {
             self.wall_thumbs_rx = Some(spawn_thumbnails(&ctx));
         }
@@ -1720,6 +1745,9 @@ impl Settings {
     }
 
     fn windows_page(&mut self, ui: &mut Ui, t: &Texts) {
+        let animate = self.animations_on;
+        crate::extras::corners_card(ui, t, &mut self.config, animate);
+        ui.add_space(10.0);
         let animations_on = self.animations_on;
         let backdrop = Backdrop {
             wallpaper: self.wallpaper.as_ref(),
@@ -1887,6 +1915,28 @@ impl Settings {
     }
 
     fn menu_bar_page(&mut self, ui: &mut Ui, t: &Texts) {
+        let animate = self.animations_on;
+        crate::extras::tiles_card(ui, t, &mut self.config, animate);
+        ui.add_space(10.0);
+        ui::card(ui, Some(t.get("groupNotifications")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("notifHistory"),
+                Some(t.get("notifHistoryHint")),
+                &mut self.config.notification_history,
+            );
+            ui::divider(ui);
+            ui::row(ui, t.get("notifOpen"), None, 150.0, |ui| {
+                if ui.button(t.get("notifOpenButton")).clicked()
+                    && let Ok(exe) = std::env::current_exe()
+                {
+                    let _ = std::process::Command::new(exe)
+                        .arg("--notifications")
+                        .spawn();
+                }
+            });
+        });
+        ui.add_space(10.0);
         let backdrop = Backdrop {
             wallpaper: self.wallpaper.as_ref(),
             icon_size: self.config.icon_size,

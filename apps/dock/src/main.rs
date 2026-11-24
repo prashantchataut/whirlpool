@@ -117,6 +117,13 @@ fn main() -> Result<()> {
         ["--launchpad-compat"] => open_launchpad(true),
         ["--palette"] => open_palette(false),
         ["--palette-compat"] => open_palette(true),
+        ["--notifications"] => open_notifications(false),
+        ["--notifications-compat"] => open_notifications(true),
+        ["--notify", title, rest @ ..] => {
+            // For scripts: `whirlpool --notify "Backup done" "12 files"` adds to the history.
+            whirlpool_settings::push_notification("Script", title, &rest.join(" "));
+            Ok(())
+        }
         ["--overlay"] => overlay::run(),
         ["--overlay-toggle"] => {
             overlay::toggle(&env::current_exe().context("exe")?);
@@ -203,6 +210,46 @@ fn open_palette(compat: bool) -> Result<()> {
                 .spawn();
         }
         anyhow::anyhow!("palette: {error}")
+    })
+}
+
+/// Opens the notification center, or closes it if it is already open.
+fn open_notifications(compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::NOTIFICATIONS_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single = unsafe {
+        Owned::new(CreateMutexW(
+            None,
+            false,
+            w!("Local\\Whirlpool.Notifications"),
+        )?)
+    };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_notifications(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("notifications (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
+            let _ = std::process::Command::new(exe)
+                .arg("--notifications-compat")
+                .spawn();
+        }
+        anyhow::anyhow!("notifications: {error}")
     })
 }
 
