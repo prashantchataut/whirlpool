@@ -43,6 +43,21 @@ Not started: HUDs (wifi, Bluetooth, volume, brightness), DPI pass at 100/150/200
 
 Runner caveat: the screenshot runner shows its own system dialogs (paging file, performance options) behind panels; they appear refracted in the glass and are not Whirlpool.
 
+## Session 7 (branch `feat/gaps-session-6`, PR #12, pre-release 4.2.0-rc5)
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Window overview | `whirlpool --overview` (toggles; `--overview-compat` for DirectX). Cards from `WindowTracker::list`; DWM thumbnails registered against the panel's own window (found by title); re-listed every 2 s while open. Packing and arrow steps are pure and tested in core. Hot-corner action `WindowOverview` and a palette action open it. | `apps/settings/src/overview.rs`, `crates/whirlpool-core/src/overview.rs`, `apps/dock/src/main.rs` (`open_overview`), `apps/dock/src/app.rs` |
+| Glyphs | Shape-drawn icons, reusable as the fallback for windows and apps without an icon. | `apps/settings/src/glyphs.rs` |
+| Palette | Painted placeholder and magnifier, glyph tiles, "Show all windows" action, selection as tint plus border. | `apps/settings/src/palette.rs` |
+| Driver | Overview scenario (three Notepads and a PowerShell; open, Right, hover, Enter; logs whether it closed and the foreground changed). | `scripts/drive.ps1` |
+
+Tooling note: the sandbox that wrote this ran `cargo test -p whirlpool-core` but cannot type-check the `windows` crate (out of memory), so CI compiled the Windows code. The docs of session 6 say rc4 is untagged; a `v4.2.0-rc4` pre-release exists.
+
+### Next (ranked)
+
+1. App icons in overview captions (reuse the Start grid icon loader); overview hotkey and a Settings card with a live preview. 2. Palette: drop the repeated "Action" label. 3. Panel memory and start time without OpenGL (about 300 MB, 7 s; unchanged). 4. Exit takes about 1.1 s (reference 0.3 s). 5. Re-capture and review the Start grid and drag ghost. 6. Real-desktop run; signing.
+
 ## Version 4.2.0-rc3: what changed
 
 | Area | Change | Where |

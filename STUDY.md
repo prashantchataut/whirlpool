@@ -9,6 +9,39 @@ is a deliberate departure from "side-by-side captures": the reference's frames c
 icons, which Whirlpool must not carry. Harness: `scripts/study.ps1`, `scripts/observe-install.ps1`,
 `.github/workflows/study.yml` (the program under study is supplied through repository secrets).
 
+## Session 7 re-run (latest release of the reference; one run per program)
+
+Same harness on fresh runners (run 45408962749). Numbers only.
+
+| Measure | Reference | Whirlpool (main) | Whirlpool (this branch) |
+| --- | --- | --- | --- |
+| Idle working set | 252.9 MB | 12.8 MB | 12.6 MB |
+| Idle private memory | 135.1 MB | 23.9 MB | 24.4 MB |
+| Idle CPU (one core) | 5.39 % | 0.08 % | 0.04 % |
+| Processes at idle | 5 | 2 | 2 |
+| Exit (quit to no process) | 316 ms | 1118 ms | 1070 ms |
+| First visible change after launch | 206 ms | not rerun | 475 ms |
+| Settled after launch | 5851 ms | not rerun | 502 ms |
+| Start grid by hotkey: first change / settled | 43 ms / 1557 ms (one chord reacted) | not rerun | 193 ms / 2103 ms (includes the software DirectX start) |
+| Task overview | Win+Tab (Windows' own): 38 ms / 190 ms | not rerun | own overview: 200 ms ease-out once its process is up (not timed from the key on the runner) |
+
+Panel memory (this branch, runner without a GPU): start grid open 335.5 MB private, palette 332.0, quick settings 297.5; after closing 24.2, 23.4, 23.4.
+Main: 314.4, 329.4, 298.7 open; 24.8, 24.7, 24.6 closed. **No memory change this session**; item 7 stays PARTIAL.
+
+The reference ignored most keys I tried (its shortcuts are unknown to me), so those scenes are "not measured", not "absent". It exits faster than
+Whirlpool; that is a real gap. The window overview is now **done** (`docs/captures/session7/`).
+
+### Ranked gaps after session 7
+
+1. Panels cost about 300 MB open without OpenGL and start in about 7 s there.
+2. Overview: no app icons in captions; no hotkey or Settings card of its own.
+3. Exit takes about 1.1 s against 0.3 s.
+4. No file preview on Space; no window grouping view.
+5. Palette repeats "Action" on every action row.
+6. Notification history holds only Whirlpool's and scripts' alerts.
+7. Hot-corner dwell uses a 120 ms timer while a corner is set.
+8. The feature name "Launchpad" in code and Settings.
+
 ## What this study could not do
 
 - I did not look at the reference's frames in this session. Its rows below come from the driver's numbers (pixel

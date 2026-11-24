@@ -29,3 +29,17 @@ below claims they were used. What was done instead, and the skill whose rule eac
 
 Research: black-box measurement of another shell on a runner (`STUDY.md`); the Windows limits on reading other
 programs' notifications and on transforming other programs' windows shaped what was built and what was skipped.
+
+## Session 7 (window overview, palette polish)
+
+Honest record. Opened this session: `impeccable` (SKILL.md, `reference/craft-floor.md`, `reference/animate.md`) and `animation-vocabulary`
+(SKILL.md). **Not opened:** `frontend-design`, `design-taste-frontend`, `ui-ux-pro-max`, `web-design-guidelines`, `accessibility`, `prototype`.
+The impeccable launcher scripts target web pages and were not run; checks were done by looking at runner captures.
+
+| Skill | What it changed |
+| --- | --- |
+| `impeccable` craft floor ("Operate" mode for app UI) | The palette's selected row lost its one-sided accent bar (a listed refusal) for a full tint and border. Card depth became an offset, blurred shadow instead of a hard rectangle (on the near-black backdrop it is barely visible in the capture). Letters standing in for icons became drawn glyphs. Placeholder contrast raised. |
+| `impeccable` animate reference | One motion for the overview: cards grow from 90 % while fading in, 200 ms, exponential ease-out; no stagger; none when Windows animations are off. |
+| `animation-vocabulary` | Names used in review notes: scale-in, fade-in. Not done: origin-aware motion (cards do not fly out of their windows). |
+
+Three looks at the real palette and overview captures (`docs/captures/session7/review-*.jpg`); findings are in `STATUS.md`.
