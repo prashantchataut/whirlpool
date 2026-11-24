@@ -63,12 +63,14 @@ function Start-Dock($json) {
     $env:WHIRLPOOL_DEMO = '1'
     $script:dock = Start-Process $Exe -PassThru
     Start-Sleep 14
+    # A click on empty desktop closes any Windows flyout left open by an earlier scene.
+    Click 600 ($screen.Height - 220); Start-Sleep 1
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
 }
 function Wait-Window($title, $seconds = 30) {
     $until = [DateTime]::Now.AddSeconds($seconds)
     while ([DateTime]::Now -lt $until) {
-        if ([U]::FindWindow($null, $title) -ne [IntPtr]::Zero) { Start-Sleep -Milliseconds 1500; return $true }
+        if (Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title }) { Start-Sleep -Milliseconds 1500; return $true }
         Start-Sleep -Milliseconds 300
     }
     Log "window not found: $title"
@@ -115,8 +117,8 @@ Scenario 'bar and dock, bottom floating bar over a bottom dock' {
 
 Scenario 'quick settings and volume' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
-    Click ($screen.Width - 88) 12
-    Start-Sleep 3
+    & $Exe --quick-settings ($screen.Width - 12) 40 top
+    [void](Wait-Window 'Whirlpool Quick Settings')
     Shot '04-quick-settings'
 }
 

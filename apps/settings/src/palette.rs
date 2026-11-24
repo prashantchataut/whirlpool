@@ -547,7 +547,7 @@ impl eframe::App for Palette {
         let edit = egui::TextEdit::singleline(&mut self.query)
             .frame(egui::Frame::NONE)
             .font(FontId::proportional(22.0))
-            .hint_text(egui::RichText::new(hint).color(Color32::from_white_alpha(150)))
+            .hint_text(egui::RichText::new(hint).color(Color32::from_rgb(168, 196, 208)))
             .desired_width(edit_rect.width())
             .text_color(Color32::WHITE);
         ui.put(edit_rect, edit).request_focus();

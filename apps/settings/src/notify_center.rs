@@ -176,11 +176,15 @@ impl eframe::App for Center {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if !self.entries.is_empty()
                             && ui
-                                .add(egui::Button::new(
-                                    RichText::new(&clear_all)
-                                        .size(12.5)
-                                        .color(Color32::from_rgb(160, 205, 215)),
-                                ))
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(&clear_all)
+                                            .size(12.5)
+                                            .color(Color32::from_rgb(232, 244, 248)),
+                                    )
+                                    .fill(Color32::from_white_alpha(30))
+                                    .stroke(Stroke::new(1.0, Color32::from_white_alpha(50))),
+                                )
                                 .clicked()
                         {
                             clear = true;

@@ -66,7 +66,8 @@ fn stage(ui: &mut Ui, height: f32) -> Rect {
 }
 
 fn hint(ui: &mut Ui, text: &str) {
-    ui.label(RichText::new(text).size(12.0).color(MUTED));
+    let color = ui.visuals().weak_text_color();
+    ui.label(RichText::new(text).size(12.0).color(color));
     ui.add_space(8.0);
 }
 
@@ -228,7 +229,7 @@ pub fn tiles_card(ui: &mut Ui, t: &Texts, config: &mut Config, animate: bool) {
         ui.horizontal_wrapped(|ui| {
             if let Some(i) = selected.filter(|i| *i < config.quick_tiles.len()) {
                 let spec = &mut config.quick_tiles[i];
-                ui.label(RichText::new(tile_label(t, spec.kind)).color(INK));
+                ui.label(RichText::new(tile_label(t, spec.kind)).strong());
                 ui.selectable_value(&mut spec.size, TileSize::Small, t.get("tileSmall"));
                 ui.selectable_value(&mut spec.size, TileSize::Wide, t.get("tileWide"));
                 if ui.button(t.get("tileRemove")).clicked() {
@@ -236,7 +237,8 @@ pub fn tiles_card(ui: &mut Ui, t: &Texts, config: &mut Config, animate: bool) {
                     selected = None;
                 }
             } else {
-                ui.label(RichText::new(t.get("tilePick")).size(12.0).color(MUTED));
+                let weak = ui.visuals().weak_text_color();
+                ui.label(RichText::new(t.get("tilePick")).size(12.0).color(weak));
             }
         });
         ui.add_space(4.0);
@@ -379,6 +381,15 @@ pub fn corners_card(ui: &mut Ui, t: &Texts, config: &mut Config, animate: bool) 
             }
             let _ = align;
         }
+        if actions.iter().all(|a| *a == CornerAction::None) {
+            painter.text(
+                screen.center(),
+                egui::Align2::CENTER_CENTER,
+                t.get("cornersIdle"),
+                egui::FontId::proportional(12.0),
+                Color32::from_white_alpha(150),
+            );
+        }
         if animate && phase >= 0.0 {
             let (point, _) = anchors[(phase as usize).min(3)];
             let local = (phase % 1.0) as f32;
@@ -502,6 +513,7 @@ pub fn icon_style_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         let cell = (width - 3.0 * 8.0) / 4.0;
         let (area, _) = ui.allocate_exact_size(vec2(width, cell * 0.95 + 28.0), Sense::hover());
         let hues = [[46u8, 140, 230], [244, 150, 50], [70, 190, 120]];
+        let (ink, weak) = (ui.visuals().text_color(), ui.visuals().weak_text_color());
         for (n, style) in IconStyle::ALL.into_iter().enumerate() {
             let rect = Rect::from_min_size(
                 area.min + vec2(n as f32 * (cell + 8.0), 0.0),
@@ -571,7 +583,7 @@ pub fn icon_style_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
                     IconStyle::Tinted => "iconStyleTinted",
                 }),
                 egui::FontId::proportional(12.5),
-                if picked { INK } else { MUTED },
+                if picked { ink } else { weak },
             );
         }
         if config.dock_icon_style == IconStyle::Tinted {

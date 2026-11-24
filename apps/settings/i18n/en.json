@@ -409,5 +409,6 @@
   "notifTitle": "Notifications",
   "notifClear": "Clear all",
   "notifEmpty": "All quiet",
-  "notifEmptyHint": "Alerts from Whirlpool and from scripts (whirlpool --notify) appear here."
+  "notifEmptyHint": "Alerts from Whirlpool and from scripts (whirlpool --notify) appear here.",
+  "cornersIdle": "Choose an action for a corner below"
 }
