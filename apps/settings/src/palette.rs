@@ -517,7 +517,7 @@ impl eframe::App for Palette {
         );
         let hint = self.texts.get("paletteHint").to_string();
         let edit = egui::TextEdit::singleline(&mut self.query)
-            .frame(false)
+            .frame(egui::Frame::NONE)
             .font(FontId::proportional(22.0))
             .hint_text(egui::RichText::new(hint).color(Color32::from_white_alpha(90)))
             .desired_width(edit_rect.width())
@@ -539,7 +539,7 @@ impl eframe::App for Palette {
             });
             let width = 22.0 + label.chars().count() as f32 * 7.4;
             let rect = Rect::from_min_size(pos2(x, chip_y), vec2(width, 28.0));
-            let response = ui.interact(rect, ui.id().with(("chip", prefix(mode))), Sense::click());
+            let response = ui.interact(rect, ui.make_persistent_id(("chip", prefix(mode))), Sense::click());
             let on = mode == mode_now;
             painter.rect_filled(
                 rect,
@@ -600,7 +600,7 @@ impl eframe::App for Palette {
                 ),
                 vec2(panel.width() - 20.0, ROW),
             );
-            let response = ui.interact(rect, ui.id().with(("row", position)), Sense::click());
+            let response = ui.interact(rect, ui.make_persistent_id(("row", position)), Sense::click());
             if moved && pointer.is_some_and(|at| rect.contains(at)) {
                 self.selected = position;
             }
