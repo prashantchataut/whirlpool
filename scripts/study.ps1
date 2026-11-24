@@ -114,7 +114,7 @@ public static class Cap {
   }
 }
 "@
-} catch { Log "COMPILE FAILED: $($_ | Out-String)"; exit 2 }
+} catch { Log "COMPILE FAILED: $($_.Exception.Message)"; foreach ($e in $Error) { Log ("  " + $e.ToString()) }; Log ("refs: " + ($refs -join ' ')); exit 2 }
 [void][Cap]::SetProcessDPIAware()
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $W = $screen.Width; $H = $screen.Height
