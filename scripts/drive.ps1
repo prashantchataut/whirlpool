@@ -3,7 +3,8 @@
 # is written to the log and the rest still run, so a missing feature shows up as a missing image.
 param(
     [Parameter(Mandatory = $true)][string]$Exe,
-    [Parameter(Mandatory = $true)][string]$Out
+    [Parameter(Mandatory = $true)][string]$Out,
+    [string]$Only = ''
 )
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -110,6 +111,7 @@ function Wait-Window($title, $seconds = 30) {
     return $false
 }
 function Scenario($name, [scriptblock]$body) {
+    if ($Only -and $name -notlike "*$Only*") { return }
     Log "== $name"
     try { & $body } catch { Log "FAILED ${name}: $_" }
 }

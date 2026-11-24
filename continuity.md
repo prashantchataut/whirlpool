@@ -197,3 +197,11 @@ It touches ~15 sites and needs a real desktop to verify, hence it was not guesse
 - CI (Windows MSVC) builds and tests the workspace. The charging animation and floating bar are **not verified on a real desktop by a human**.
 - Local (Linux): `whirlpool-core` and `whirlpool-config` tests, including all 54 wallpapers; the new styles were reviewed on a contact sheet.
 - Windows Defender / SmartScreen: unsigned binaries from a new project are flagged by reputation, not by content. See `docs/TRUST.md`. Submit each release at https://www.microsoft.com/wdsi/filesubmission and, when funds allow, sign with SignPath or Azure Trusted Signing (the workflow signs automatically if a certificate secret exists).
+
+## Session 7 hand-off
+
+Read `STATUS.md` first. New: `apps/settings/src/design.rs` (tokens, easing, stagger, `Backdrop`), `glass::frost` in core,
+`Direction` A/B/C switches for Start and quick settings (A is the default; B and C stay behind the env vars until someone
+deletes them). The capture driver takes `-Only <text>` and the Screenshots workflow has an `only` input, so one
+scenario can be re-run in minutes: `gh workflow run screenshots.yml -f only=redesign`. Next: re-capture the Start grid on
+the fallback build, then HUDs, DPI, Settings, crossfade, site.

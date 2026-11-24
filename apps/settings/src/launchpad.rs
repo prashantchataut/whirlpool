@@ -498,6 +498,13 @@ fn draw_slot(
             );
             paint_icon(&painter, plate.shrink(side * 0.1), slot);
             painter.text(
+                pos2(rect.center().x, plate.bottom() + 15.0),
+                Align2::CENTER_TOP,
+                short(&slot.app.name, 16),
+                ui::heading(13.5),
+                Color32::from_black_alpha(110),
+            );
+            painter.text(
                 pos2(rect.center().x, plate.bottom() + 14.0),
                 Align2::CENTER_TOP,
                 short(&slot.app.name, 16),
@@ -658,8 +665,15 @@ impl eframe::App for Launchpad {
         let (width, height) = (full.width(), full.height());
         let m = metrics(self.direction);
         let lay = layout(self.direction, &m, full);
-        let area = lay.area;
+        let mut area = lay.area;
         let grid = pad::fit(area.w, area.h, m.cell, m.gap, m.max_columns);
+        // Centre the rows in the space they have (a little above the middle) so a short page does
+        // not leave a dead band above the dots.
+        let content_h = grid.rows as f32 * (m.cell + m.gap) - m.gap;
+        if content_h < area.h {
+            area.y += (area.h - content_h) * 0.4;
+            area.h = content_h;
+        }
         let count = self.shown.len();
         let pages = pad::page_count(count, grid);
         self.page = self.page.min(pages - 1);

@@ -1,3 +1,10 @@
+## Unreleased
+
+- Start grid: redesigned. Blurred picture of the screen behind it, Inter type, glass icon plates, diagonal stagger on open, rows centred. Alternates `WHIRLPOOL_START_DESIGN=b|c`.
+- Quick settings: redesigned. Glass tiles, a water-level volume capsule, blurred backdrop, always dark glass. Alternates `WHIRLPOOL_QUICK_DESIGN=b|c`.
+- Panels retry with DirectX when OpenGL 2.0 is not available instead of exiting silently.
+- Added `packaging/` winget and scoop manifests and `scripts/make-manifests.ps1`.
+
 # Changelog / Cambios
 
 Each release lists its changes in English and in Spanish. The release workflow

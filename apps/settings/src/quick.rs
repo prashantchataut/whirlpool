@@ -415,7 +415,7 @@ impl Quick {
                     rect,
                     Icon::Moon,
                     "Night light",
-                    "Opens in Windows",
+                    "In Settings",
                     false,
                 )
                 .clicked()
@@ -431,7 +431,7 @@ impl Quick {
                     rect,
                     Icon::Battery,
                     "Battery saver",
-                    if saver { "On" } else { "Opens in Windows" },
+                    if saver { "On" } else { "In Settings" },
                     saver,
                 )
                 .clicked()
@@ -441,17 +441,7 @@ impl Quick {
                 }
             }
             TileKind::Focus => {
-                if tile(
-                    ui,
-                    look,
-                    rect,
-                    Icon::Focus,
-                    "Focus",
-                    "Opens in Windows",
-                    false,
-                )
-                .clicked()
-                {
+                if tile(ui, look, rect, Icon::Focus, "Focus", "In Settings", false).clicked() {
                     windows_page("ms-settings:quietmomentshome");
                     Self::close(ctx);
                 }
@@ -463,7 +453,7 @@ impl Quick {
                     rect,
                     Icon::Display,
                     "Display",
-                    "Opens in Windows",
+                    "In Settings",
                     false,
                 )
                 .clicked()
@@ -479,7 +469,7 @@ impl Quick {
                     rect,
                     Icon::Hotspot,
                     "Hotspot",
-                    "Opens in Windows",
+                    "In Settings",
                     false,
                 )
                 .clicked()
@@ -489,17 +479,7 @@ impl Quick {
                 }
             }
             TileKind::Sound | TileKind::Unknown => {
-                if tile(
-                    ui,
-                    look,
-                    rect,
-                    Icon::Speaker,
-                    "Sound",
-                    "Opens in Windows",
-                    false,
-                )
-                .clicked()
-                {
+                if tile(ui, look, rect, Icon::Speaker, "Sound", "In Settings", false).clicked() {
                     Self::close(ctx);
                     thread::spawn(|| {
                         thread::sleep(Duration::from_millis(220));
@@ -815,32 +795,32 @@ fn tile(
             );
             ring(&painter, rect, 20);
             let badge = Rect::from_center_size(
-                pos2(rect.left() + 14.0 + 20.0, rect.center().y),
-                vec2(40.0, 40.0),
+                pos2(rect.left() + 12.0 + 18.0, rect.center().y),
+                vec2(36.0, 36.0),
             );
             painter.circle_filled(
                 badge.center(),
-                20.0,
+                18.0,
                 blend(
                     Color32::from_white_alpha(28),
                     look.on_accent.gamma_multiply(0.16),
                     active,
                 ),
             );
-            icons::paint(&painter, badge.shrink(9.0), icon, ink);
-            let text_x = badge.right() + 11.0;
+            icons::paint(&painter, badge.shrink(8.0), icon, ink);
+            let text_x = badge.right() + 10.0;
             painter.text(
                 pos2(text_x, rect.center().y - 9.0),
                 Align2::LEFT_CENTER,
                 label,
-                ui::heading(14.0),
+                ui::heading(13.5),
                 ink,
             );
             painter.text(
                 pos2(text_x, rect.center().y + 10.0),
                 Align2::LEFT_CENTER,
                 sub,
-                FontId::proportional(12.0),
+                FontId::proportional(11.5),
                 dim,
             );
         }

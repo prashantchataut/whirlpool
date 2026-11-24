@@ -5,8 +5,12 @@ name: Screenshots
 # natively on windows-11-arm (the ARM binary is built and run there, not cross-compiled).
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'Run only scenarios whose name contains this text (empty runs all)'
+        default: ''
   push:
-    branches: [feat/usable-island-launchpad-drag, feat/gaps-session-5, feat/session-7-design]
+    branches: [feat/usable-island-launchpad-drag, feat/gaps-session-5]
     paths:
       - "apps/**"
       - "crates/**"
@@ -32,7 +36,7 @@ jobs:
       - name: Drive the app and photograph it
         shell: pwsh
         continue-on-error: true
-        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out
+        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only '${{ inputs.only }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
