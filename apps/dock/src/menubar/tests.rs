@@ -29,6 +29,30 @@ mod island_tests {
     }
 
     #[test]
+    fn presets_change_the_collapsed_island_with_several_providers() {
+        use whirlpool_config::IslandPreset;
+        let bounds = Span {
+            left: 100.0,
+            right: 900.0,
+        };
+        let width = |preset: IslandPreset, providers: usize| {
+            let widgets = MenuBarWidgets {
+                island_preset: preset,
+                ..MenuBarWidgets::default()
+            };
+            let single = island_metrics(&widgets).single_width;
+            let [_, (_, usage)] = trigger_layout_for(single, bounds, 500.0, 1.0, false, providers);
+            usage.expect("providers fit").width()
+        };
+        // Two providers: Classic is what has always shipped (2 x 134).
+        assert_eq!(width(IslandPreset::Classic, 2), 268.0);
+        assert!(width(IslandPreset::Compact, 2) < width(IslandPreset::Classic, 2));
+        assert!(width(IslandPreset::Wide, 2) > width(IslandPreset::Classic, 2));
+        assert!(width(IslandPreset::Expressive, 2) > width(IslandPreset::Classic, 2));
+        assert!(width(IslandPreset::Expressive, 2) < width(IslandPreset::Wide, 2));
+    }
+
+    #[test]
     fn preset_row_height_reaches_the_panel_height() {
         let usage = ProviderUsage::default();
         let classic = usage_row_height(

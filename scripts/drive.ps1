@@ -23,6 +23,8 @@ public static class U {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, ref int value, uint flags);
 }
 "@
 [void][U]::SetProcessDPIAware()
@@ -35,7 +37,8 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 function Shot($name) {
     $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+    # CaptureBlt (0x40000000) is needed to see layered windows such as the drag overlay.
+    $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size, [System.Drawing.CopyPixelOperation]0x40CC0020)
     $bmp.Save((Join-Path $Out "$name.png"))
     $g.Dispose(); $bmp.Dispose()
     Log "shot $name"
@@ -67,6 +70,7 @@ function Start-Dock($json) {
     Click 600 ($screen.Height - 220); Start-Sleep 1
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
 }
+function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 function Wait-Window($title, $seconds = 30) {
     $until = [DateTime]::Now.AddSeconds($seconds)
     while ([DateTime]::Now -lt $until) {
@@ -135,23 +139,37 @@ foreach ($page in 'dock', 'menubar', 'personalize', 'windows', 'system', 'about'
 }
 Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
 
-Scenario 'launchpad: dock button, hotkey, search, keys' {
+Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    $dockWin = [U]::FindWindow($null, 'Whirlpool')
+    $dr = New-Object U+RECT
+    if ($dockWin -ne [IntPtr]::Zero -and [U]::GetWindowRect($dockWin, [ref]$dr)) { Log "dock window rect $($dr.L),$($dr.T) $($dr.R),$($dr.B)" } else { Log 'dock window not found by title' }
+    # The Start tile is the first tile of the dock. Click it with the real pointer.
+    $startX = [int](($dr.L + $dr.R) / 2 - 0); $startY = $screen.Height - 41
+    if ($dr.R -gt $dr.L -and ($dr.R - $dr.L) -lt ($screen.Width - 40)) { $startX = $dr.L + 34; $startY = [int](($dr.T + $dr.B) / 2) }
+    Log "clicking the Start tile at $startX,$startY"
+    Click $startX $startY
+    $opened = Wait-Window 'Whirlpool Launchpad' 20
+    Log "launchpad opened by the Start tile: $opened"
+    Shot '06-launchpad-start-tile'
+    Key ([byte[]](0x1B)); Start-Sleep 2
     # Hotkey: Ctrl+Alt+Space
     Key ([byte[]](0x11, 0x12, 0x20))
     [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-hotkey'
-    Key ([byte[]](0x43))     # c
-    Key ([byte[]](0x61))     # a (numpad 1 key code is not a letter; harmless)
-    Start-Sleep 1
-    Shot '06-launchpad-search'
-    Key ([byte[]](0x27))     # right arrow
-    Key ([byte[]](0x28))     # down arrow
+    # Arrow keys on the full grid: the focus ring must leave the first tile (Right, Right, Down).
+    Type-Keys ([byte[]](0x27, 0x27, 0x28))
     Start-Sleep 1
     Shot '06-launchpad-navigated'
-    Key ([byte[]](0x1B))     # escape
+    # Letters: C A L
+    Type-Keys ([byte[]](0x43, 0x41, 0x4C))
     Start-Sleep 1
-    Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $script:dock.Id }))"
+    Shot '06-launchpad-search'
+    Key ([byte[]](0x1B))
+    Start-Sleep 1
+    Key ([byte[]](0x1B))
+    Start-Sleep 1
+    Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Launchpad' }))"
     & $Exe --launchpad
     [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-cli'
@@ -159,6 +177,11 @@ Scenario 'launchpad: dock button, hotkey, search, keys' {
 }
 
 Scenario 'drag motion: shadow, snap preview, settle' {
+    # Server images drag a bare outline and leave the window where it is. Real desktops drag the whole
+    # window, which is the case Whirlpool decorates, so turn it on and say what the system reports.
+    [void][U]::SystemParametersInfo(0x0025, 1, [IntPtr]::Zero, 3)
+    $full = 0; [void][U]::SystemParametersInfo(0x0026, 0, [ref]$full, 0)
+    Log "full-window drag (SPI_GETDRAGFULLWINDOWS) = $full"
     Start-Dock '{"menuBar":true,"menuBarPosition":"top","dragMotion":true}'
     $np = Start-Process notepad.exe -PassThru
     Start-Sleep 4
@@ -184,7 +207,6 @@ Scenario 'drag motion: shadow, snap preview, settle' {
 }
 
 function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]($notches * -120)), 0), [UIntPtr]::Zero) }
-function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 
 Scenario 'search palette: apps, calculator, actions, clipboard' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
