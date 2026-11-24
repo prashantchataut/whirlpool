@@ -23,7 +23,7 @@ jobs:
           key: shots-windows-latest
       - run: cargo build --release -p whirlpool
       - name: Study
-        shell: pwsh
+        shell: powershell
         run: ./scripts/study.ps1 -Target whirlpool -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out-whirlpool
       - uses: actions/upload-artifact@v4
         if: always()
@@ -51,12 +51,12 @@ jobs:
           Get-ChildItem "$env:RUNNER_TEMP\pkg" -Recurse -File | ForEach-Object { "$($_.FullName.Substring($env:RUNNER_TEMP.Length)) $($_.Length)" } | Set-Content out-other\listing.txt
           "EXE_PATH=$($exe.FullName)" | Add-Content $env:GITHUB_ENV
       - name: Study
-        shell: pwsh
+        shell: powershell
         env:
           QUIT: ${{ secrets.STUDY_QUIT_KEYS }}
         run: ./scripts/study.ps1 -Target reference -Exe $env:EXE_PATH -Out out-other -QuitKeys $env:QUIT
       - name: Install and uninstall, observed from outside
-        shell: pwsh
+        shell: powershell
         env:
           INSTALL: ${{ secrets.STUDY_INSTALL_CMD }}
           UNINSTALL: ${{ secrets.STUDY_UNINSTALL_CMD }}

@@ -23,15 +23,17 @@ function Log($m) {
 }
 
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-$refs = @([System.Drawing.Bitmap].Assembly.Location, [System.Drawing.Point].Assembly.Location, [System.Drawing.Imaging.ImageFormat].Assembly.Location) | Select-Object -Unique
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Runtime.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Collections.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Diagnostics.Process.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Linq.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Threading.Thread.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.ComponentModel.Primitives.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Runtime.InteropServices.dll' | Select-Object -First 1 -ExpandProperty FullName)
-$refs = $refs | Where-Object { $_ } | Select-Object -Unique
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    # PowerShell 7: every managed assembly of the runtime, so the GDI+ implementation types resolve.
+    $dirs = @([IO.Path]::GetDirectoryName([object].Assembly.Location), [IO.Path]::GetDirectoryName([System.Drawing.Bitmap].Assembly.Location)) | Select-Object -Unique
+    $refs = foreach ($d in $dirs) {
+        Get-ChildItem $d -Filter *.dll | Where-Object {
+            try { [void][Reflection.AssemblyName]::GetAssemblyName($_.FullName); $_.Name -notmatch '^(Microsoft\.|System\.Management\.Automation)' } catch { $false }
+        } | ForEach-Object FullName
+    }
+} else {
+    $refs = @('System.Drawing')
+}
 try {
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @"
 using System; using System.Collections.Generic; using System.Diagnostics; using System.Drawing;
