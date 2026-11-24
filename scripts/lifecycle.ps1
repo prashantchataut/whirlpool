@@ -1,7 +1,8 @@
 # Install, run, uninstall: proves what Setup leaves behind. Used by .github/workflows/lifecycle.yml.
 param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Out)
 $ErrorActionPreference = 'Continue'
-New-Item -ItemType Directory -Force $Out | Out-Null
+$Out = (New-Item -ItemType Directory -Force $Out).FullName   # absolute: the uninstaller's second phase runs elsewhere
+$Setup = (Resolve-Path $Setup).Path
 $report = Join-Path $Out 'lifecycle.txt'
 function Say($m) { $m | Tee-Object -Append $report }
 
