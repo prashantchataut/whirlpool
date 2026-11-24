@@ -226,7 +226,12 @@ impl eframe::App for Overview {
         } else {
             ctx.animate_value_with_time(ui.make_persistent_id("appear"), 1.0, 0.2)
         };
-        let eased = 1.0 - (1.0 - appear).powi(3);
+        // Exponential ease-out from the progress of the animation: quick start, long soft landing.
+        let eased = if appear >= 1.0 {
+            1.0
+        } else {
+            (1.0 - 2f32.powf(-10.0 * appear)) / (1.0 - 2f32.powf(-10.0))
+        };
 
         // Keys.
         let area = Rect::from_min_max(
@@ -328,10 +333,15 @@ impl eframe::App for Overview {
             let scale = (0.9 + 0.1 * eased) * (1.0 + 0.025 * lift);
             let rect = Rect::from_center_size(base.center(), base.size() * scale);
             let alpha = eased;
-            painter.rect_filled(
-                rect.translate(vec2(0.0, 6.0)).expand(2.0),
-                CornerRadius::same(18),
-                Color32::from_black_alpha((70.0 * alpha) as u8),
+            // Depth: an offset, soft-blurred shadow (a hard offset rectangle reads as a sticker).
+            painter.add(
+                egui::epaint::Shadow {
+                    offset: [0, 10],
+                    blur: 28,
+                    spread: 0,
+                    color: Color32::from_black_alpha((120.0 * alpha) as u8),
+                }
+                .as_shape(rect, CornerRadius::same(14)),
             );
             painter.rect_filled(
                 rect,

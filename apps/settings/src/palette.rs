@@ -301,18 +301,17 @@ impl Palette {
         let painter = ui.painter();
         let accent = Color32::from_rgb(72, 205, 220);
         if selected {
+            // A full tint and border, not a bar down one side.
             painter.rect_filled(
                 rect,
                 CornerRadius::same(12),
-                Color32::from_rgba_unmultiplied(72, 205, 220, 34),
+                Color32::from_rgba_unmultiplied(72, 205, 220, 38),
             );
-            painter.rect_filled(
-                Rect::from_min_size(
-                    pos2(rect.left(), rect.top() + 12.0),
-                    vec2(3.0, rect.height() - 24.0),
-                ),
-                CornerRadius::same(2),
-                accent,
+            painter.rect_stroke(
+                rect.shrink(0.5),
+                CornerRadius::same(12),
+                Stroke::new(1.0, Color32::from_rgba_unmultiplied(72, 205, 220, 110)),
+                StrokeKind::Inside,
             );
         }
         let icon =
