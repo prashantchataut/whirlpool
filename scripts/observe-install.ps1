@@ -47,8 +47,8 @@ function FolderStats($paths) {
 function RunTimed($cmd, $label) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $p = Start-Process cmd.exe -ArgumentList '/c', $cmd -WorkingDirectory $PackageDir -RedirectStandardInput $answers -RedirectStandardOutput (Join-Path $Out "$label-stdout.txt") -RedirectStandardError (Join-Path $Out "$label-stderr.txt") -PassThru -WindowStyle Hidden
-    if (-not $p.WaitForExit(420000)) { Say "$label: still running after 420 s; stopped"; Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-    Say "$label: exit code $($p.ExitCode) after $($sw.ElapsedMilliseconds) ms"
+    if (-not $p.WaitForExit(420000)) { Say "${label}: still running after 420 s; stopped"; Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+    Say "${label}: exit code $($p.ExitCode) after $($sw.ElapsedMilliseconds) ms"
 }
 
 $before = Snap

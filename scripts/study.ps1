@@ -119,15 +119,15 @@ public static class Cap {
 } catch { Log "COMPILE FAILED: $($_.Exception.Message)"; foreach ($e in $Error) { Log ("  " + $e.ToString()) }; Log ("refs: " + ($refs -join ' ')); exit 2 }
 [void][Cap]::SetProcessDPIAware()
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$W = $screen.Width; $H = $screen.Height
-Log "screen ${W}x${H} arch=$env:PROCESSOR_ARCHITECTURE cores=$env:NUMBER_OF_PROCESSORS"
+$ScrW = $screen.Width; $ScrH = $screen.Height
+Log "screen ${ScrW}x${ScrH} arch=$env:PROCESSOR_ARCHITECTURE cores=$env:NUMBER_OF_PROCESSORS"
 
-function Neutral { [Cap]::Exec("move:$([int]($W/2)),$([int]($H/2))"); Start-Sleep -Milliseconds 400 }
+function Neutral { [Cap]::Exec("move:$([int]($ScrW/2)),$([int]($ScrH/2))"); Start-Sleep -Milliseconds 400 }
 function Scene($scene, $variant, $mode, $ms, $interval = 0, $cleanup = $null) {
     $base = Join-Path $Out ("{0}-{1}" -f $scene, $variant)
     try {
         Neutral; Start-Sleep -Milliseconds 700
-        [Cap]::Burst($ms, $W, $H, $mode, $interval)
+        [Cap]::Burst($ms, $ScrW, $ScrH, $mode, $interval)
         $row = [Cap]::Analyze($base)
         Add-Content $csv "$Target,$scene,$variant,$row"
         Log "scene $scene/$variant -> $row"
@@ -136,7 +136,7 @@ function Scene($scene, $variant, $mode, $ms, $interval = 0, $cleanup = $null) {
     [Cap]::Exec('key:1B'); Start-Sleep -Milliseconds 600   # Escape closes whatever opened
 }
 
-$ignore = 'pwsh', 'powershell', 'conhost', 'dllhost', 'WmiPrvSE', 'RuntimeBroker', 'backgroundTaskHost', 'SearchHost', 'ShellExperienceHost', 'TextInputHost', 'notepad', 'Runner.Worker', 'Runner.Listener', 'Runner.PluginHost', 'dotnet', 'ctfmon', 'smartscreen', 'MoUsoCoreWorker', 'msiexec', 'taskhostw', 'sihost', 'svchost'
+$ignore = 'pwsh', 'powershell', 'conhost', 'dllhost', 'WmiPrvSE', 'RuntimeBroker', 'backgroundTaskHost', 'SearchHost', 'ShellExperienceHost', 'TextInputHost', 'notepad', 'Runner.Worker', 'Runner.Listener', 'Runner.PluginHost', 'dotnet', 'ctfmon', 'smartscreen', 'msdtc', 'TrustedInstaller', 'TiWorker', 'SgrmBroker', 'audiodg', 'CompatTelRunner', 'MsMpEng', 'MpDefenderCoreService', 'NisSrv', 'wuauclt', 'UsoClient', 'WaaSMedic', 'spoolsv', 'SearchIndexer', 'SearchProtocolHost', 'SearchFilterHost', 'ApplicationFrameHost', 'StartMenuExperienceHost', 'LockApp', 'OpenConsole', 'WindowsTerminal', 'cmd', 'sppsvc', 'MoUsoCoreWorker', 'msiexec', 'taskhostw', 'sihost', 'svchost'
 $baseline = @{}; Get-Process | ForEach-Object { $baseline[$_.Id] = $true }
 function Tracked { Get-Process | Where-Object { -not $baseline.ContainsKey($_.Id) -and ($ignore -notcontains $_.Name) } }
 function Idle-Sample($seconds) {
@@ -154,7 +154,7 @@ function Idle-Sample($seconds) {
 }
 
 (New-Object -ComObject Shell.Application).MinimizeAll(); Start-Sleep 2
-foreach ($title in 'System Properties') { $h = (Get-Process | Where-Object { $_.MainWindowTitle -eq $title } | Select-Object -First 1); if ($h) { [void]$h.CloseMainWindow() } }
+foreach ($title in 'System Properties') { $dlg = (Get-Process | Where-Object { $_.MainWindowTitle -eq $title } | Select-Object -First 1); if ($dlg) { [void]$dlg.CloseMainWindow() } }
 Start-Sleep 1
 if (Test-Path "$env:APPDATA\Whirlpool\config.json") { Remove-Item "$env:APPDATA\Whirlpool\config.json" -Force }
 
@@ -171,7 +171,7 @@ Add-Content (Join-Path $Out 'idle.csv') "target,ws_mb,private_mb,cpu_pct_of_one_
 Log "idle: ws=$($idle.ws) MB private=$($idle.priv) MB cpu=$($idle.cpu)% procs=$($idle.procs) [$($idle.names)]"
 
 # ---------- scenes ----------
-$bottom = $H - 24
+$bottom = $ScrH - 24
 if ($Target -eq 'whirlpool') {
     Scene 'dock-hover' 'icon' "move:470,$bottom" 1200
     Scene 'dock-hover' 'edge-sweep' "move:420,$bottom" 1200
@@ -180,11 +180,11 @@ if ($Target -eq 'whirlpool') {
     Scene 'notifications' 'bar-clock' 'click:930,14' 2500
     Scene 'start-grid' 'hotkey' 'key:11,12,20' 6000 0 'key:11,12,20'
     Scene 'window-overview' 'bar-icon' 'click:717,14' 2000
-    foreach ($c in @(@('tl', 0, 0), @('tr', ($W - 1), 0), @('bl', 0, ($H - 1)), @('br', ($W - 1), ($H - 1)))) {
+    foreach ($c in @(@('tl', 0, 0), @('tr', ($ScrW - 1), 0), @('bl', 0, ($ScrH - 1)), @('br', ($ScrW - 1), ($ScrH - 1)))) {
         Scene 'hot-corner' $c[0] "move:$($c[1]),$($c[2])" 1500
     }
 } else {
-    $cx = [int]($W / 2)
+    $cx = [int]($ScrW / 2)
     Scene 'dock-hover' 'bottom-a' "move:$cx,$bottom" 1200
     Scene 'dock-hover' 'bottom-b' "move:$($cx - 60),$($bottom - 8)" 1200
     foreach ($k in @(@('alt-space', '12,20'), @('ctrl-space', '11,20'), @('win-space', '5B,20'), @('win-s', '5B,53'), @('ctrl-alt-space', '11,12,20'))) {
@@ -197,9 +197,9 @@ if ($Target -eq 'whirlpool') {
         Scene 'start-grid' $k[0] "key:$($k[1])" 2000
     }
     foreach ($dx in 40, 80, 120, 160, 200, 250) {
-        Scene 'bar-icon' "x-$dx" "click:$($W - $dx),12" 2000
+        Scene 'bar-icon' "x-$dx" "click:$($ScrW - $dx),12" 2000
     }
-    foreach ($c in @(@('tl', 0, 0), @('tr', ($W - 1), 0), @('bl', 0, ($H - 1)), @('br', ($W - 1), ($H - 1)))) {
+    foreach ($c in @(@('tl', 0, 0), @('tr', ($ScrW - 1), 0), @('bl', 0, ($ScrH - 1)), @('br', ($ScrW - 1), ($ScrH - 1)))) {
         Scene 'hot-corner' $c[0] "move:$($c[1]),$($c[2])" 1500
     }
 }
@@ -212,7 +212,7 @@ $exitMs = $sw.ElapsedMilliseconds
 Log "exit: $exitMs ms until tracked processes ended; remaining=$(@(Tracked).Count)"
 Add-Content (Join-Path $Out 'exit.csv') "target,exit_ms,remaining`n$Target,$exitMs,$(@(Tracked).Count)"
 Start-Sleep 3
-[Cap]::Burst(300, $W, $H, '', 0); [void][Cap]::Analyze((Join-Path $Out 'after-exit'))
+[Cap]::Burst(300, $ScrW, $ScrH, '', 0); [void][Cap]::Analyze((Join-Path $Out 'after-exit'))
 Get-Process | Where-Object { -not $baseline.ContainsKey($_.Id) -and ($ignore -notcontains $_.Name) } | Stop-Process -Force -ErrorAction SilentlyContinue
 if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer.exe; Log 'explorer was not running after exit; started it' }
 Log 'done'
