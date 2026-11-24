@@ -11,7 +11,27 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $log = Join-Path $Out 'drive-log.txt'
 function Log($m) { "$([DateTime]::Now.ToString('HH:mm:ss')) $m" | Tee-Object -Append $log }
 
+# Session 8 gate. A scenario whose window never appears, or whose frame is the bare desktop, is a
+# failure: it is written to FAILED.txt and the script exits 1 at the end. Before this, an empty
+# desktop was saved as a capture and the job was green (that is how a broken Start grid looked fine).
+$script:Failures = New-Object System.Collections.Generic.List[string]
+function Fail($m) { Log "GATE FAIL: $m"; $script:Failures.Add($m) }
+
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+Add-Type @"
+public static class Px {
+  // Share of pixels (4 bytes each) whose largest channel difference is above tol.
+  public static double Diff(byte[] a, byte[] b, int tol) {
+    int n = System.Math.Min(a.Length, b.Length) / 4; if (n == 0) return 0; long hit = 0;
+    for (int i = 0; i < n; i++) {
+      int o = i * 4;
+      int d = System.Math.Abs(a[o] - b[o]); int e = System.Math.Abs(a[o + 1] - b[o + 1]); int f = System.Math.Abs(a[o + 2] - b[o + 2]);
+      if (d > tol || e > tol || f > tol) hit++;
+    }
+    return (double)hit / n;
+  }
+}
+"@
 Add-Type @"
 using System; using System.Runtime.InteropServices;
 public static class U {
@@ -58,7 +78,7 @@ Log "screen $($screen.Width)x$($screen.Height) arch=$env:PROCESSOR_ARCHITECTURE"
 $dir = Join-Path $env:APPDATA 'Whirlpool'
 New-Item -ItemType Directory -Force $dir | Out-Null
 
-function Shot($name) {
+function Shot($name, $to = $Out) {
     $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     # BitBlt with CAPTUREBLT (0x40000000) also copies layered windows, such as the drag overlay.
@@ -69,9 +89,29 @@ function Shot($name) {
         [void][U]::ReleaseDC([IntPtr]::Zero, $src); $g.ReleaseHdc($dst)
     } catch { Log "BitBlt failed: $_" }
     if (-not $copied) { $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size) }
-    $bmp.Save((Join-Path $Out "$name.png"))
+    $bmp.Save((Join-Path $to "$name.png"))
     $g.Dispose(); $bmp.Dispose()
     Log "shot $name"
+}
+function Get-Pixels($path) {
+    $bmp = New-Object System.Drawing.Bitmap $path
+    $rect = New-Object System.Drawing.Rectangle 0, 0, $bmp.Width, $bmp.Height
+    $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $bytes = New-Object byte[] ($data.Stride * $bmp.Height)
+    [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
+    $bmp.UnlockBits($data); $bmp.Dispose()
+    return , $bytes
+}
+$refDir = Join-Path $env:TEMP 'whirlpool-ref'
+New-Item -ItemType Directory -Force $refDir | Out-Null
+# A panel capture must differ from the dock-only frame of the same scenario in at least $min of its pixels.
+function Shot-Panel($name, $min = 0.05) {
+    Shot $name
+    $ref = Join-Path $refDir 'dock-only.png'
+    if (-not (Test-Path $ref)) { Fail "no dock-only reference frame to compare $name with"; return }
+    $d = [Px]::Diff((Get-Pixels $ref), (Get-Pixels (Join-Path $Out "$name.png")), 24)
+    Log ("painted {0}: {1:P1} of pixels differ from the dock-only frame (needs {2:P0})" -f $name, $d, $min)
+    if ($d -lt $min) { Fail "blank capture: $name differs from the dock-only frame in only $([math]::Round($d * 100, 2)) % of pixels" }
 }
 function KillAll {
     & $Exe --quit 2>$null
@@ -99,6 +139,8 @@ function Start-Dock($json) {
     # A click on empty desktop closes any Windows flyout left open by an earlier scene.
     Click 600 ($screen.Height - 220); Start-Sleep 1
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
+    if (-not (Get-Process whirlpool -ErrorAction SilentlyContinue)) { Fail 'the dock process is not running after start' }
+    Shot 'dock-only' $refDir
 }
 function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 function Wait-Window($title, $seconds = 30) {
@@ -107,13 +149,14 @@ function Wait-Window($title, $seconds = 30) {
         if (Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title }) { Start-Sleep -Milliseconds 1500; return $true }
         Start-Sleep -Milliseconds 300
     }
-    Log "window not found: $title"
+    Fail "window never appeared: $title"
     return $false
 }
 function Scenario($name, [scriptblock]$body) {
-    if ($Only -and $name -notlike "*$Only*") { return }
+    # -Only takes one or more comma-separated fragments (a scenario runs if its name contains any of them).
+    if ($Only -and -not (@($Only -split ',' | Where-Object { $_ } | Where-Object { $name -like "*$_*" }).Count)) { return }
     Log "== $name"
-    try { & $body } catch { Log "FAILED ${name}: $_" }
+    try { & $body } catch { Fail "scenario ${name} threw: $_" }
 }
 
 # The runner shows its agent console over the desktop; get it out of the frame.
@@ -154,7 +197,7 @@ Scenario 'quick settings and volume' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
     & $Exe --quick-settings ($screen.Width - 12) 40 top
     [void](Wait-Window 'Whirlpool Quick Settings')
-    Shot '04-quick-settings'
+    Shot-Panel '04-quick-settings'
 }
 
 foreach ($page in 'dock', 'menubar', 'personalize', 'windows', 'system', 'about') {
@@ -192,12 +235,12 @@ Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Click $startX $startY
     $opened = Wait-Window 'Whirlpool Launchpad' 20
     Log "launchpad opened by the Start tile: $opened"
-    Shot '06-launchpad-start-tile'
+    Shot-Panel '06-launchpad-start-tile'
     Key ([byte[]](0x1B)); Start-Sleep 2
     # Hotkey: Ctrl+Alt+Space
     Key ([byte[]](0x11, 0x12, 0x20))
     [void](Wait-Window 'Whirlpool Launchpad')
-    Shot '06-launchpad-hotkey'
+    Shot-Panel '06-launchpad-hotkey'
     # Arrow keys on the full grid: the focus ring must leave the first tile (Right, Right, Down).
     Type-Keys ([byte[]](0x27, 0x27, 0x28))
     Start-Sleep 1
@@ -213,7 +256,7 @@ Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Launchpad' }))"
     & $Exe --launchpad
     [void](Wait-Window 'Whirlpool Launchpad')
-    Shot '06-launchpad-cli'
+    Shot-Panel '06-launchpad-cli'
     Key ([byte[]](0x1B))
 }
 
@@ -255,6 +298,7 @@ function Wait-Window-Fast($title, $seconds = 20) {
         if (Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title }) { return $true }
         Start-Sleep -Milliseconds 40
     }
+    Fail "window never appeared: $title"
     return $false
 }
 
@@ -270,7 +314,7 @@ Scenario 'redesign directions: Start grid and quick settings' {
         Start-Sleep -Milliseconds 120
         if ($d -eq 'a') { Shot "20-start-$d-entering" }
         Start-Sleep -Milliseconds 2200
-        Shot "20-start-$d"
+        Shot-Panel "20-start-$d"
         Type-Keys ([byte[]](0x27, 0x27, 0x28)); Start-Sleep -Milliseconds 700
         Shot "20-start-$d-selected"
         Type-Keys ([byte[]](0x53, 0x45, 0x54)); Start-Sleep -Milliseconds 900
@@ -285,7 +329,7 @@ Scenario 'redesign directions: Start grid and quick settings' {
         Start-Sleep -Milliseconds 90
         if ($d -eq 'a') { Shot "21-quick-$d-entering" }
         Start-Sleep -Milliseconds 1800
-        Shot "21-quick-$d"
+        Shot-Panel "21-quick-$d"
         # Drag the volume to the middle and a bit further, then photograph the result.
         Move-Mouse ($screen.Width - 140) 330; Start-Sleep -Milliseconds 300
         Shot "21-quick-$d-hover"
@@ -304,7 +348,7 @@ Scenario 'search palette: apps, calculator, actions, clipboard' {
     Start-Sleep 1
     Key ([byte[]](0x11, 0x10, 0x20))     # Ctrl+Shift+Space
     [void](Wait-Window 'Whirlpool Search')
-    Shot '08-palette-open'
+    Shot-Panel '08-palette-open'
     Type-Keys ([byte[]](0x43, 0x41, 0x4C))   # c a l
     Start-Sleep 2
     Shot '08-palette-apps'
@@ -313,7 +357,7 @@ Scenario 'search palette: apps, calculator, actions, clipboard' {
     Shot '08-palette-calc'
     Key ([byte[]](0x11, 0x41)); Type-Keys ([byte[]](0x08)); Key ([byte[]](0x10, 0xBE))     # clear, then ">"
     Start-Sleep 2
-    Shot '08-palette-actions'
+    Shot-Panel '08-palette-actions'
     Key ([byte[]](0x11, 0x41)); Type-Keys ([byte[]](0x08)); Key ([byte[]](0x10, 0x33))     # clear, then "#"
     Start-Sleep 2
     Shot '08-palette-clipboard'
@@ -335,7 +379,7 @@ Scenario 'window overview: live cards, arrow keys, Enter switches' {
     $up = Wait-Window 'Whirlpool Overview'
     Log "overview opened: $up"
     Start-Sleep 1
-    Shot '15-overview-open'
+    Shot-Panel '15-overview-open'
     Key ([byte[]](0x27)); Start-Sleep -Milliseconds 600       # Right arrow
     Shot '15-overview-selected'
     $card = ($screen.Width / 2); Move-Mouse $card ($screen.Height / 2); Start-Sleep -Milliseconds 700
@@ -431,3 +475,11 @@ foreach ($style in 'dark', 'clear', 'tinted') {
         Shot "14-dock-$style"
     }
 }
+
+# Gate: any missing window, blank panel frame or thrown scenario fails the job (artifacts still upload).
+if ($script:Failures.Count -gt 0) {
+    $script:Failures | Set-Content (Join-Path $Out 'FAILED.txt')
+    Log "GATE: $($script:Failures.Count) failure(s); exiting 1"
+    exit 1
+}
+Log 'GATE: every expected window appeared and every panel frame was painted'

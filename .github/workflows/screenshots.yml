@@ -9,6 +9,8 @@ on:
       only:
         description: 'Run only scenarios whose name contains this text (empty runs all)'
         default: ''
+  # Required on every pull request, with no path filter: a docs-only PR still proves the app starts and paints.
+  pull_request:
   push:
     branches: [feat/usable-island-launchpad-drag, feat/gaps-session-5]
     paths:
@@ -19,6 +21,13 @@ on:
       - "Cargo.*"
 
 jobs:
+  matrix:
+    name: capture matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/check-matrix.mjs
+
   screenshots:
     strategy:
       fail-fast: false
@@ -35,10 +44,13 @@ jobs:
         run: cargo build --release -p whirlpool
       - name: Drive the app and photograph it
         shell: pwsh
-        continue-on-error: true
+        # No continue-on-error: the driver exits 1 when a window never appears or a frame is blank.
         run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only '${{ inputs.only }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots-${{ matrix.os }}
           path: out
+      - name: Every screen in the capture matrix was written
+        if: always() && inputs.only == ''
+        run: node scripts/check-matrix.mjs --verify out
