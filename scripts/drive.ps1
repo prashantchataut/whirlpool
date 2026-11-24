@@ -23,6 +23,28 @@ public static class U {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int rop);
+  [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+  [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc p, IntPtr l);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+  // Visible top-level windows of one process: "class|left,top,right,bottom".
+  public static System.Collections.Generic.List<string> Of(uint pid) {
+    var r = new System.Collections.Generic.List<string>();
+    EnumWindows(delegate (IntPtr h, IntPtr l) {
+      uint p; GetWindowThreadProcessId(h, out p);
+      if (p == pid && IsWindowVisible(h)) {
+        RECT rc; GetWindowRect(h, out rc);
+        var sb = new System.Text.StringBuilder(256); GetClassName(h, sb, 256);
+        r.Add(sb.ToString() + "|" + rc.L + "," + rc.T + "," + rc.R + "," + rc.B);
+      }
+      return true;
+    }, IntPtr.Zero);
+    return r;
+  }
   [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);
   [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, ref int value, uint flags);
 }
@@ -37,8 +59,14 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 function Shot($name) {
     $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    # CaptureBlt (0x40000000) is needed to see layered windows such as the drag overlay.
-    $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size, [System.Drawing.CopyPixelOperation]0x40CC0020)
+    # BitBlt with CAPTUREBLT (0x40000000) also copies layered windows, such as the drag overlay.
+    $copied = $false
+    try {
+        $dst = $g.GetHdc(); $src = [U]::GetDC([IntPtr]::Zero)
+        $copied = [U]::BitBlt($dst, 0, 0, $screen.Width, $screen.Height, $src, $screen.X, $screen.Y, 0x40CC0020)
+        [void][U]::ReleaseDC([IntPtr]::Zero, $src); $g.ReleaseHdc($dst)
+    } catch { Log "BitBlt failed: $_" }
+    if (-not $copied) { $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size) }
     $bmp.Save((Join-Path $Out "$name.png"))
     $g.Dispose(); $bmp.Dispose()
     Log "shot $name"
@@ -141,12 +169,22 @@ Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
 
 Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
-    $dockWin = [U]::FindWindow($null, 'Whirlpool')
-    $dr = New-Object U+RECT
-    if ($dockWin -ne [IntPtr]::Zero -and [U]::GetWindowRect($dockWin, [ref]$dr)) { Log "dock window rect $($dr.L),$($dr.T) $($dr.R),$($dr.B)" } else { Log 'dock window not found by title' }
-    # The Start tile is the first tile of the dock. Click it with the real pointer.
-    $startX = [int](($dr.L + $dr.R) / 2 - 0); $startY = $screen.Height - 41
-    if ($dr.R -gt $dr.L -and ($dr.R - $dr.L) -lt ($screen.Width - 40)) { $startX = $dr.L + 34; $startY = [int](($dr.T + $dr.B) / 2) }
+    $startX = 0; $startY = $screen.Height - 41
+    $wins = [U]::Of([uint32]$script:dock.Id)
+    foreach ($w in $wins) { Log "dock process window: $w" }
+    # The dock is the low, wide window near the bottom edge; its first tile is the Start tile.
+    $best = $null
+    foreach ($w in $wins) {
+        $n = ($w.Split('|')[1]).Split(',') | ForEach-Object { [int]$_ }
+        $width = $n[2] - $n[0]; $height = $n[3] - $n[1]
+        if ($n[3] -ge ($screen.Height - 160) -and $height -lt 200 -and $width -lt ($screen.Width - 40) -and $width -gt 150) {
+            if ($null -eq $best -or $width -gt $best.W) { $best = @{ L = $n[0]; T = $n[1]; R = $n[2]; B = $n[3]; W = $width } }
+        }
+    }
+    if ($best) {
+        $startX = $best.L + 34; $startY = [int](($best.T + $best.B) / 2)
+        Log "dock rect $($best.L),$($best.T) $($best.R),$($best.B)"
+    } else { Log 'dock window not identified; clicking the default position' }
     Log "clicking the Start tile at $startX,$startY"
     Click $startX $startY
     $opened = Wait-Window 'Whirlpool Launchpad' 20
