@@ -1,0 +1,62 @@
+name: Study
+
+# Black-box comparison on a Windows runner: real input, real screen, process table. Only numbers and
+# Whirlpool's own frames are published. Anything about the other program lives in repository secrets
+# (masked in logs) and its frames go to a private artifact that lives one day.
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/gaps-session-5]
+    paths:
+      - "scripts/study.ps1"
+      - ".github/workflows/study.yml"
+
+jobs:
+  whirlpool:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots-windows-latest
+      - run: cargo build --release -p whirlpool
+      - name: Study
+        shell: pwsh
+        run: ./scripts/study.ps1 -Target whirlpool -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out-whirlpool
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: study-whirlpool
+          path: out-whirlpool
+
+  other:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the program under study
+        shell: pwsh
+        env:
+          SRC: ${{ secrets.STUDY_SOURCE }}
+          EXE: ${{ secrets.STUDY_SHELL_EXE }}
+        run: |
+          New-Item -ItemType Directory -Force out-other | Out-Null
+          $rel = Invoke-RestMethod "https://api.github.com/repos/$env:SRC/releases/latest" -Headers @{ 'User-Agent' = 'study' }
+          $asset = $rel.assets | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile "$env:RUNNER_TEMP\pkg.zip"
+          Expand-Archive "$env:RUNNER_TEMP\pkg.zip" -DestinationPath "$env:RUNNER_TEMP\pkg"
+          $exe = Get-ChildItem "$env:RUNNER_TEMP\pkg" -Recurse -Filter $env:EXE | Select-Object -First 1
+          "release=$($rel.tag_name) asset=$($asset.name) size=$($asset.size)" | Set-Content out-other\package.txt
+          Get-ChildItem "$env:RUNNER_TEMP\pkg" -Recurse -File | ForEach-Object { "$($_.FullName.Substring($env:RUNNER_TEMP.Length)) $($_.Length)" } | Set-Content out-other\listing.txt
+          "EXE_PATH=$($exe.FullName)" | Add-Content $env:GITHUB_ENV
+      - name: Study
+        shell: pwsh
+        env:
+          QUIT: ${{ secrets.STUDY_QUIT_KEYS }}
+        run: ./scripts/study.ps1 -Target reference -Exe $env:EXE_PATH -Out out-other -QuitKeys $env:QUIT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-other
+          path: out-other
+          retention-days: 1
