@@ -107,6 +107,45 @@ fn rounded_rect_sdf(px: f32, py: f32, w: f32, h: f32, r: f32) -> (f32, f32, f32)
     (dist, dx, dy)
 }
 
+/// A frosted copy of `src`: averaged down by `factor` (so it is smaller), then box-blurred three
+/// times, which is close to a Gaussian. Draw it stretched over the area it was taken from; the
+/// stretch is part of the blur. Runs once when a panel opens.
+pub fn frost(src: &Image, factor: usize, radius: usize) -> Image {
+    if src.width == 0 || src.height == 0 {
+        return src.clone();
+    }
+    let factor = factor.max(1);
+    let (w, h) = ((src.width / factor).max(1), (src.height / factor).max(1));
+    let mut small = Image::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let mut sum = [0u32; 3];
+            let mut count = 0u32;
+            for dy in 0..factor {
+                for dx in 0..factor {
+                    let sx = (x * factor + dx).min(src.width - 1);
+                    let sy = (y * factor + dy).min(src.height - 1);
+                    let i = (sy * src.width + sx) * 4;
+                    for (channel, total) in sum.iter_mut().enumerate() {
+                        *total += u32::from(src.rgba[i + channel]);
+                    }
+                    count += 1;
+                }
+            }
+            let o = (y * w + x) * 4;
+            for (channel, total) in sum.iter().enumerate() {
+                small.rgba[o + channel] = (total / count) as u8;
+            }
+            small.rgba[o + 3] = 255;
+        }
+    }
+    let mut out = small;
+    for _ in 0..3 {
+        out = box_blur(&out, radius);
+    }
+    out
+}
+
 /// Separable box blur (edge pixels repeat). Returns a copy.
 pub fn box_blur(src: &Image, radius: usize) -> Image {
     if radius == 0 || src.width == 0 || src.height == 0 {
@@ -209,6 +248,36 @@ pub fn refract(backdrop: &Image, rect: (usize, usize, usize, usize), glass: &Gla
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frost_keeps_a_flat_colour_and_shrinks_the_picture() {
+        let mut flat = Image::new(64, 32);
+        for px in flat.rgba.chunks_exact_mut(4) {
+            px.copy_from_slice(&[40, 120, 200, 255]);
+        }
+        let out = frost(&flat, 4, 3);
+        assert_eq!((out.width, out.height), (16, 8));
+        assert!(out.rgba.chunks_exact(4).all(|p| p[..3] == [40, 120, 200]));
+    }
+
+    #[test]
+    fn frost_spreads_a_bright_dot() {
+        let mut dot = Image::new(32, 32);
+        for px in dot.rgba.chunks_exact_mut(4) {
+            px.copy_from_slice(&[0, 0, 0, 255]);
+        }
+        let centre = (16 * 32 + 16) * 4;
+        dot.rgba[centre..centre + 3].copy_from_slice(&[255, 255, 255]);
+        let out = frost(&dot, 2, 2);
+        let max = out.rgba.chunks_exact(4).map(|p| p[0]).max().unwrap_or(0);
+        assert!(max < 255, "the dot is softened, got {max}");
+        assert!(max > 0, "and still there");
+    }
+
+    #[test]
+    fn frost_of_nothing_is_nothing() {
+        assert_eq!(frost(&Image::new(0, 0), 4, 2).width, 0);
+    }
 
     /// A horizontal ramp: red grows with x, green grows with y.
     fn ramp(w: usize, h: usize) -> Image {

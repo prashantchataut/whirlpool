@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: PrashantChataut.Whirlpool
+PackageVersion: 4.2.0-rc4
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-11-24
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc4/Whirlpool-Setup.exe
+    InstallerSha256: FE2A8AC6B3CC9964CDC9D07D2DA098C27BDBF3CCF5A4709946A39465EA81F1AE
+  - Architecture: arm64
+    InstallerUrl: https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc4/Whirlpool-Setup-arm64.exe
+    InstallerSha256: AEA316F784ADA9024C92192A5D674ED11AE7226540827CC929B471A9762244FB
+ManifestType: installer
+ManifestVersion: 1.6.0

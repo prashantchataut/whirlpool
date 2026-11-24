@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: PrashantChataut.Whirlpool
+PackageVersion: 4.2.0-rc4
+PackageLocale: en-US
+Publisher: Prashant Chataut
+PublisherUrl: https://github.com/prashantchataut
+PackageName: Whirlpool
+PackageUrl: https://github.com/prashantchataut/whirlpool
+License: MIT
+LicenseUrl: https://github.com/prashantchataut/whirlpool/blob/main/LICENSE
+ShortDescription: A dock that moves like water: magnifying dock, menu bar with an island, Start grid and command palette for Windows 10 and 11.
+Moniker: whirlpool
+Tags:
+  - dock
+  - menu-bar
+  - launcher
+  - shell
+  - customization
+ReleaseNotesUrl: https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc4
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

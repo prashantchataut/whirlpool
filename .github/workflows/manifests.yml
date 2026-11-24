@@ -1,0 +1,38 @@
+name: Manifests
+
+# Runs the manifest generator against a real release's checksum file and checks the shape of what it wrote.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/make-manifests.ps1"
+      - "packaging/**"
+      - ".github/workflows/manifests.yml"
+
+jobs:
+  manifests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate from the newest release's checksums
+        shell: pwsh
+        run: |
+          $tag = (gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          gh release download $tag --pattern SHA256SUMS.txt --dir out
+          ./scripts/make-manifests.ps1 -Version $tag.TrimStart('v') -Sums out/SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Check the shape
+        shell: pwsh
+        run: |
+          $s = Get-Content packaging/scoop/whirlpool.json -Raw | ConvertFrom-Json
+          foreach ($arch in '64bit', 'arm64') {
+            if ($s.architecture.$arch.hash -notmatch '^[0-9a-f]{64}$') { throw "scoop $arch hash is not a sha256" }
+          }
+          $i = Get-Content packaging/winget/PrashantChataut.Whirlpool.installer.yaml -Raw
+          if (([regex]::Matches($i, 'InstallerSha256: [0-9A-F]{64}')).Count -ne 2) { throw 'winget installer manifest needs two sha256 values' }
+          Get-ChildItem packaging -Recurse -File | ForEach-Object { Write-Host $_.FullName }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manifests
+          path: packaging
