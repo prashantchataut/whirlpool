@@ -1730,9 +1730,12 @@ impl Settings {
             t.get("genieSpeedFast"),
             t.get("genieSpeedFaster"),
         );
+        let animate = self.animations_on;
         let config = &mut self.config;
         let mut open_animation_settings = false;
         ui::card(ui, Some(t.get("groupLaunchpad")), |ui| {
+            crate::preview::start_grid(ui, animate);
+            ui.add_space(10.0);
             ui::toggle_row(
                 ui,
                 t.get("launchpadOn"),
@@ -1804,6 +1807,8 @@ impl Settings {
             }
         });
         ui::card(ui, Some(t.get("groupDragging")), |ui| {
+            crate::preview::drag_motion(ui, animate, config.drag_motion);
+            ui.add_space(10.0);
             ui::toggle_row(
                 ui,
                 t.get("dragMotion"),

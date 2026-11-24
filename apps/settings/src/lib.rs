@@ -9,6 +9,7 @@ mod icons;
 mod launchpad;
 mod palette;
 pub mod photos;
+mod preview;
 mod quick;
 pub mod rotate;
 mod text;
