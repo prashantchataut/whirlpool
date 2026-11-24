@@ -6,6 +6,7 @@
 
 mod app;
 mod chrome;
+mod design;
 mod extras;
 mod glyphs;
 mod icons;
@@ -30,17 +31,17 @@ pub fn run() -> eframe::Result {
 
 /// Opens the quick settings panel; see [`quick`].
 pub fn run_quick(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Result {
-    quick::run(right, anchor_y, bottom, compat)
+    with_fallback(compat, |compat| quick::run(right, anchor_y, bottom, compat))
 }
 
 /// The Launchpad: the full-screen app grid. `compat` draws it with DirectX.
 pub fn run_launchpad(compat: bool) -> eframe::Result {
-    launchpad::run(compat)
+    with_fallback(compat, launchpad::run)
 }
 
 /// The command palette: apps, files, actions and clipboard history in one box.
 pub fn run_palette(compat: bool) -> eframe::Result {
-    palette::run(compat)
+    with_fallback(compat, palette::run)
 }
 
 /// The window overview: every open window as a live card, full screen.
@@ -149,4 +150,16 @@ pub const NOTIFICATIONS_TITLE: &str = notify_center::TITLE;
 /// Adds one entry to the notification history. `false` when history is off or it was a repeat.
 pub fn push_notification(source: &str, title: &str, body: &str) -> bool {
     notify_center::push(source, title, body)
+}
+
+/// Runs a panel with OpenGL and, if that cannot start (no OpenGL 2.0: a VM, a remote session, an old
+/// driver), once more with DirectX. Without this the panel's process simply exits and nothing shows.
+fn with_fallback(compat: bool, run: impl Fn(bool) -> eframe::Result) -> eframe::Result {
+    match run(compat) {
+        Err(error) if !compat => {
+            eprintln!("panel could not start with OpenGL ({error}); retrying with DirectX");
+            run(true)
+        }
+        result => result,
+    }
 }

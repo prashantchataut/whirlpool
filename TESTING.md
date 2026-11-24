@@ -67,3 +67,12 @@ Open `%LOCALAPPDATA%\Whirlpool\whirlpool.log` afterwards: it should hold no erro
 
 If something fails, attach `whirlpool.log` and a screenshot to an issue. Do not describe a capture from a CI
 runner as a real-desktop result (AGENTS.md, Rule 4).
+
+## Session 7: what only real hardware can check
+
+- **Backdrop blur on a GPU desktop and at 125/150/200% scaling.** Captured only at 1024x768, 100%, software rendering. The screen grab is taken in physical pixels and the blur factor scales with width, but a high-DPI multi-monitor desktop has not been seen.
+- **Frame pacing of the staggered entrance.** The runner has no GPU, so the motion was captured as two frames (mid-entrance and settled), not measured. Check it feels like ~0.5 s of arrival, with no dropped frames, on real hardware.
+- **Start grid with 300+ apps** (page count, dot row width) and with Store apps whose icons are missing.
+- **Volume capsule dragging with a real mouse, wheel and touch**, and muting from the speaker icon.
+- **Update toast**: no runner capture exists. It is still unverified.
+- **Light system theme**: both panels are always dark glass; check they still look intentional on a light desktop.

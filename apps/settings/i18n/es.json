@@ -46,6 +46,7 @@
   "launchpadSearch": "Buscar aplicaciones",
   "launchpadEmpty": "Ninguna aplicación coincide con «{query}»",
   "launchpadLoading": "Cargando aplicaciones…",
+  "launchpadCount": "{count} aplicaciones",
   "groupLaunchpad": "Launchpad",
   "launchpadOn": "Launchpad en lugar de Inicio",
   "launchpadOnHint": "El botón Inicio del dock y el atajo abren una cuadrícula de aplicaciones a pantalla completa con búsqueda. Desactivado abre el menú Inicio de Windows.",

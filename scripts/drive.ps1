@@ -3,7 +3,8 @@
 # is written to the log and the rest still run, so a missing feature shows up as a missing image.
 param(
     [Parameter(Mandatory = $true)][string]$Exe,
-    [Parameter(Mandatory = $true)][string]$Out
+    [Parameter(Mandatory = $true)][string]$Out,
+    [string]$Only = ''
 )
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -110,6 +111,7 @@ function Wait-Window($title, $seconds = 30) {
     return $false
 }
 function Scenario($name, [scriptblock]$body) {
+    if ($Only -and $name -notlike "*$Only*") { return }
     Log "== $name"
     try { & $body } catch { Log "FAILED ${name}: $_" }
 }
@@ -245,6 +247,51 @@ Scenario "drag motion$($mode.tag): shadow, snap preview, settle" {
     Shot "07-drag-settled$($mode.tag)"
     Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
 }
+}
+
+function Wait-Window-Fast($title, $seconds = 20) {
+    $until = [DateTime]::Now.AddSeconds($seconds)
+    while ([DateTime]::Now -lt $until) {
+        if (Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title }) { return $true }
+        Start-Sleep -Milliseconds 40
+    }
+    return $false
+}
+
+# Session 7: the three directions of the Start grid and of quick settings, each settled and (for the
+# first of each) caught while the tiles are still arriving. WHIRLPOOL_START_DESIGN and
+# WHIRLPOOL_QUICK_DESIGN pick the direction; the chosen one is the default without them.
+Scenario 'redesign directions: Start grid and quick settings' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    foreach ($d in 'a', 'b', 'c') {
+        $env:WHIRLPOOL_START_DESIGN = $d
+        & $Exe --launchpad
+        [void](Wait-Window-Fast 'Whirlpool Launchpad')
+        Start-Sleep -Milliseconds 120
+        if ($d -eq 'a') { Shot "20-start-$d-entering" }
+        Start-Sleep -Milliseconds 2200
+        Shot "20-start-$d"
+        Type-Keys ([byte[]](0x27, 0x27, 0x28)); Start-Sleep -Milliseconds 700
+        Shot "20-start-$d-selected"
+        Type-Keys ([byte[]](0x53, 0x45, 0x54)); Start-Sleep -Milliseconds 900
+        Shot "20-start-$d-search"
+        Key ([byte[]](0x1B)); Start-Sleep 1; Key ([byte[]](0x1B)); Start-Sleep 2
+    }
+    Remove-Item Env:WHIRLPOOL_START_DESIGN -ErrorAction SilentlyContinue
+    foreach ($d in 'a', 'b', 'c') {
+        $env:WHIRLPOOL_QUICK_DESIGN = $d
+        & $Exe --quick-settings ($screen.Width - 12) 40 top
+        [void](Wait-Window-Fast 'Whirlpool Quick Settings')
+        Start-Sleep -Milliseconds 90
+        if ($d -eq 'a') { Shot "21-quick-$d-entering" }
+        Start-Sleep -Milliseconds 1800
+        Shot "21-quick-$d"
+        # Drag the volume to the middle and a bit further, then photograph the result.
+        Move-Mouse ($screen.Width - 140) 330; Start-Sleep -Milliseconds 300
+        Shot "21-quick-$d-hover"
+        Key ([byte[]](0x1B)); Start-Sleep 2
+    }
+    Remove-Item Env:WHIRLPOOL_QUICK_DESIGN -ErrorAction SilentlyContinue
 }
 
 function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]($notches * -120)), 0), [UIntPtr]::Zero) }

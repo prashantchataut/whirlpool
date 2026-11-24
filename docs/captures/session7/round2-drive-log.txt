@@ -1,0 +1,22 @@
+14:41:33 screen 1024x768 arch=AMD64
+14:41:37 shot 00-runner-desktop
+14:41:37 == redesign directions: Start grid and quick settings
+14:41:55 dock running=True
+14:42:15 shot 20-start-a-entering
+14:42:18 shot 20-start-a
+14:42:19 shot 20-start-a-selected
+14:42:20 shot 20-start-a-search
+14:42:26 shot 20-start-b
+14:42:27 shot 20-start-b-selected
+14:42:29 shot 20-start-b-search
+14:42:35 shot 20-start-c
+14:42:36 shot 20-start-c-selected
+14:42:38 shot 20-start-c-search
+14:42:41 shot 21-quick-a-entering
+14:42:43 shot 21-quick-a
+14:42:44 shot 21-quick-a-hover
+14:42:48 shot 21-quick-b
+14:42:49 shot 21-quick-b-hover
+14:42:53 shot 21-quick-c
+14:42:53 shot 21-quick-c-hover
+14:42:58 done
