@@ -1,7 +1,33 @@
 # Status
 
-Release gate **not passed**: the shell side of B3, B4 and B6 is NOT DONE (engines only). 4.2.0-rc3 is therefore published as a pre-release, not as stable.
-Proof lives in `proof/` (taken from GitHub's Windows runners, not a personal desktop) and in the linked workflow runs.
+Release gate **not passed**. The 4.2.0-rc4 pre-release adds the session 5 work below; stable stays held back (signing is unavailable, the Windows desktop was only exercised on GitHub's runners, never a personal PC, and several items are partial).
+Proof lives in `proof/`, `docs/captures/session5/` (runner captures) and the linked workflow runs.
+
+## Session 5 (branch `feat/gaps-session-5`)
+
+Earlier rows below are kept as they were; where session 5 supersedes one, this table wins.
+
+| Item | Status | Proof | Notes |
+| --- | --- | --- | --- |
+| Study of a reference shell (black-box) | DONE, with limits | `STUDY.md`, `scripts/study.ps1` | Resource numbers measured. Many of its scenes were not triggered (shortcuts unknown). Its frames are not published on purpose. |
+| 1. Island presets in layout and Settings | DONE | merged PR #10, island captures | Supersedes the B3 row. Four presets in the Menu bar page. |
+| 1. Start grid as the real Start window | DONE | `06-launchpad-hotkey.jpg`; Settings preview | Dock button, hotkey, CLI. On a runner without OpenGL it appears after about 7 s. |
+| 1. Drag motion: shadow, spring settle, snap preview | PARTIAL | `07-drag-snap-preview.jpg` | Supersedes the B4 row. Never transforms another program's window. Snap preview box still looks plain. |
+| 2. Command palette (apps, files, actions, clipboard) | DONE | `08-palette-*.jpg` | Rounded and glass without relying on window alpha. Open: action icons are letters in circles; placeholder weak over a busy backdrop. |
+| 3. Quick settings as an editable grid | DONE (editor logic unit-tested) | `12-quick-tiles.jpg`, `05-settings-menubar.jpg` | Ten tile kinds, small or wide. Drag reorder is tested in `whirlpool-core::tiles`, **not** exercised with real input in a capture. |
+| 4. Notification centre with history | PARTIAL | `11-notifications.jpg` | Holds Whirlpool's and scripts' alerts (`whirlpool --notify`). Other programs' toasts cannot be read by an unpackaged app. Only the CLI feeds it today; the update reminder does not yet. |
+| 4. Window overview | NOT DONE | | Hot corner and bar open Windows Task View. |
+| 4. Hot corners | DONE | `13-corner-top-left.jpg`, `13-corner-top-right.jpg` | Top-left and top-right fired on real pointer input. Bottom corners and the lock/desktop actions not exercised. 120 ms timer only while a corner is set. |
+| 5. Dock icon styles | DONE | `14-dock-*.jpg`, Dock page | Default, dark, clear, tinted. |
+| 5. Glass refraction in our own shader | DONE as a CPU shader | `glass.rs` tests, captures | Runs once per panel open on a screen grab. It is not a GPU shader. Not applied to the dock itself or to the quick panel. |
+| 6. Quit key, taskbar rescue key, install log, clean uninstall | DONE on the runner | `10-after-R.png`, `lifecycle.yml` run | Rescue and quit keys exercised with real keys. The lifecycle workflow passes; I did not re-read its log this session. |
+| 7. Memory | PARTIAL, honest | `STUDY.md` table | Idle did **not** improve (22.5 to 22.8 MB private, 0 % CPU, both already small). After a panel closes the working set is now 0.9 / 10.8 MB instead of 14.9 / 21.9 MB. While a panel is open it is 297 to 333 MB private on the runner's software renderer, before and after. |
+| Review of captures | 2 rounds, not 3 | `review-dock-round1-vs-round2.jpg` | Third round not done. |
+| Reference's frames, side-by-side images | NOT DONE on purpose | `STUDY.md` | Would carry another company's names and icons. |
+| Own window overview, file preview, window grouping | NOT DONE | `STUDY.md` gaps | |
+| Real-desktop verification | NOT DONE | | Everything above ran on GitHub runners (x64; ARM64 for the earlier screenshots). |
+
+## Earlier status (still accurate unless the table above says otherwise)
 
 | Item | Status | Proof | Notes |
 | --- | --- | --- | --- |
