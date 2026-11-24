@@ -23,7 +23,17 @@ function Log($m) {
 }
 
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-Add-Type -ReferencedAssemblies System.Drawing @"
+$refs = @([System.Drawing.Bitmap].Assembly.Location, [System.Drawing.Point].Assembly.Location, [System.Drawing.Imaging.ImageFormat].Assembly.Location) | Select-Object -Unique
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Runtime.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Collections.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Diagnostics.Process.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Linq.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Threading.Thread.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.ComponentModel.Primitives.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs += (Get-ChildItem ([System.IO.Path]::GetDirectoryName([object].Assembly.Location)) -Filter 'System.Runtime.InteropServices.dll' | Select-Object -First 1 -ExpandProperty FullName)
+$refs = $refs | Where-Object { $_ } | Select-Object -Unique
+try {
+Add-Type -ReferencedAssemblies $refs -TypeDefinition @"
 using System; using System.Collections.Generic; using System.Diagnostics; using System.Drawing;
 using System.Drawing.Imaging; using System.Globalization; using System.Runtime.InteropServices; using System.Threading;
 public static class Cap {
@@ -104,6 +114,7 @@ public static class Cap {
   }
 }
 "@
+} catch { Log "COMPILE FAILED: $($_ | Out-String)"; exit 2 }
 [void][Cap]::SetProcessDPIAware()
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $W = $screen.Width; $H = $screen.Height

@@ -9,6 +9,7 @@ on:
     branches: [feat/gaps-session-5]
     paths:
       - "scripts/study.ps1"
+      - "scripts/observe-install.ps1"
       - ".github/workflows/study.yml"
 
 jobs:
@@ -54,6 +55,18 @@ jobs:
         env:
           QUIT: ${{ secrets.STUDY_QUIT_KEYS }}
         run: ./scripts/study.ps1 -Target reference -Exe $env:EXE_PATH -Out out-other -QuitKeys $env:QUIT
+      - name: Install and uninstall, observed from outside
+        shell: pwsh
+        env:
+          INSTALL: ${{ secrets.STUDY_INSTALL_CMD }}
+          UNINSTALL: ${{ secrets.STUDY_UNINSTALL_CMD }}
+        run: ./scripts/observe-install.ps1 -PackageDir "$env:RUNNER_TEMP\pkg" -InstallCmd $env:INSTALL -UninstallCmd $env:UNINSTALL -Out out-other-install
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-other-install
+          path: out-other-install
+          retention-days: 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
