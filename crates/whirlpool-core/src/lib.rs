@@ -14,6 +14,7 @@ pub mod layout;
 pub mod magnify;
 pub mod notify;
 pub mod overlay;
+pub mod overview;
 pub mod palette;
 pub mod roster;
 pub mod rotation;

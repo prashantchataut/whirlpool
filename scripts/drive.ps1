@@ -20,6 +20,7 @@ public static class U {
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr e);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
@@ -270,6 +271,35 @@ Scenario 'search palette: apps, calculator, actions, clipboard' {
     Start-Sleep 2
     Shot '08-palette-clipboard'
     Key ([byte[]](0x1B))
+}
+
+Scenario 'window overview: live cards, arrow keys, Enter switches' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    $apps = @()
+    foreach ($i in 1..3) {
+        $np = Start-Process notepad.exe -PassThru
+        $apps += $np
+        Start-Sleep 3
+        Type-Keys ([byte[]](0x57, 0x41, 0x56, 0x45, 0x20, [byte](0x30 + $i)))   # "wave N" so each preview differs
+    }
+    $apps += Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '$Host.UI.RawUI.WindowTitle = "Tide log"' -PassThru
+    Start-Sleep 3
+    Start-Process $Exe -ArgumentList '--overview'
+    $up = Wait-Window 'Whirlpool Overview'
+    Log "overview opened: $up"
+    Start-Sleep 1
+    Shot '15-overview-open'
+    Key ([byte[]](0x27)); Start-Sleep -Milliseconds 600       # Right arrow
+    Shot '15-overview-selected'
+    $card = ($screen.Width / 2); Move-Mouse $card ($screen.Height / 2); Start-Sleep -Milliseconds 700
+    Shot '15-overview-hover'
+    $before = [U]::GetForegroundWindow()
+    Key ([byte[]](0x0D)); Start-Sleep 2                         # Enter
+    $after = [U]::GetForegroundWindow()
+    $left = [bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Overview' })
+    Log "overview Enter: overview still open=$left; foreground changed=$($before -ne $after)"
+    Shot '15-overview-after-enter'
+    foreach ($a in $apps) { Stop-Process -Id $a.Id -Force -ErrorAction SilentlyContinue }
 }
 
 foreach ($page in 'windows', 'dock') {

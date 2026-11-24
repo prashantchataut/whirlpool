@@ -7,9 +7,11 @@
 mod app;
 mod chrome;
 mod extras;
+mod glyphs;
 mod icons;
 mod launchpad;
 mod notify_center;
+mod overview;
 mod palette;
 pub mod photos;
 mod preview;
@@ -40,6 +42,14 @@ pub fn run_launchpad(compat: bool) -> eframe::Result {
 pub fn run_palette(compat: bool) -> eframe::Result {
     palette::run(compat)
 }
+
+/// The window overview: every open window as a live card, full screen.
+pub fn run_overview(compat: bool) -> eframe::Result {
+    overview::run(compat)
+}
+
+/// The title of the overview window, so the dock can close a running one.
+pub const OVERVIEW_TITLE: &str = overview::TITLE;
 
 /// The title of the palette window, so the dock can close a running one.
 pub const PALETTE_TITLE: &str = palette::TITLE;

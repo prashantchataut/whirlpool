@@ -133,6 +133,7 @@ fn run_action(id: &str) {
     match id {
         "settings" => own("--settings"),
         "start-grid" => own("--launchpad"),
+        "overview" => own("--overview"),
         "overlay" => own("--overlay-toggle"),
         "restore" => own("--restore"),
         "quit" => own("--quit"),
@@ -185,6 +186,7 @@ impl Palette {
         let actions = vec![
             action("settings", "paletteActSettings", "paletteActSettingsHint"),
             action("start-grid", "paletteActStart", "paletteActStartHint"),
+            action("overview", "paletteActOverview", "paletteActOverviewHint"),
             action("overlay", "paletteActOverlay", "paletteActOverlayHint"),
             action("lock", "paletteActLock", "paletteActLockHint"),
             action("signout", "paletteActSignOut", "paletteActSignOutHint"),
@@ -315,16 +317,23 @@ impl Palette {
         }
         let icon =
             Rect::from_center_size(pos2(rect.left() + 34.0, rect.center().y), vec2(32.0, 32.0));
-        let (title, detail, kind_text, texture, letter) = match row {
+        let (title, detail, kind_text, texture, letter, glyph) = match row {
             Row::Calc(result) => (
                 result.clone(),
                 self.texts.get("paletteCalcHint").to_string(),
                 self.texts.get("paletteKindCalc"),
                 None,
                 "=".to_owned(),
+                "calc".to_owned(),
             ),
             Row::Item(index) => {
                 let item = &self.items[*index];
+                let glyph = match item.kind {
+                    Kind::Action => item.target.clone(),
+                    Kind::File => "file".to_owned(),
+                    Kind::Clipboard => "clip".to_owned(),
+                    Kind::App => String::new(),
+                };
                 (
                     item.title.clone(),
                     item.detail.clone(),
@@ -335,6 +344,7 @@ impl Palette {
                         .next()
                         .map(|c| c.to_uppercase().to_string())
                         .unwrap_or_default(),
+                    glyph,
                 )
             }
         };
@@ -344,6 +354,14 @@ impl Palette {
                 icon,
                 Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 Color32::WHITE,
+            );
+        } else if !glyph.is_empty() {
+            crate::glyphs::tile(painter, icon, accent);
+            crate::glyphs::draw(
+                painter,
+                &glyph,
+                icon.shrink(3.0),
+                Color32::from_rgb(168, 238, 246),
             );
         } else {
             painter.rect_filled(
@@ -543,11 +561,34 @@ impl eframe::App for Palette {
             pos2(panel.left() + 24.0, panel.top() + 14.0),
             vec2(panel.width() - 48.0, 48.0),
         );
-        let hint = self.texts.get("paletteHint").to_string();
+        // A magnifier on the left; the placeholder is painted here, not as the field's hint, because the
+        // hint colour follows the theme's weak text and vanished on glass.
+        let lens = pos2(edit_rect.left() + 14.0, edit_rect.center().y - 1.5);
+        painter.circle_stroke(
+            lens,
+            7.5,
+            Stroke::new(2.0, Color32::from_rgb(150, 232, 240)),
+        );
+        painter.line_segment(
+            [lens + vec2(5.4, 5.4), lens + vec2(11.0, 11.0)],
+            Stroke::new(2.2, Color32::from_rgb(150, 232, 240)),
+        );
+        let edit_rect = Rect::from_min_max(
+            pos2(edit_rect.left() + 40.0, edit_rect.top()),
+            edit_rect.max,
+        );
+        if self.query.is_empty() {
+            painter.text(
+                pos2(edit_rect.left() + 2.0, edit_rect.center().y),
+                Align2::LEFT_CENTER,
+                self.texts.get("paletteHint"),
+                FontId::proportional(22.0),
+                Color32::from_white_alpha(185),
+            );
+        }
         let edit = egui::TextEdit::singleline(&mut self.query)
             .frame(egui::Frame::NONE)
             .font(FontId::proportional(22.0))
-            .hint_text(egui::RichText::new(hint).color(Color32::from_rgb(168, 196, 208)))
             .desired_width(edit_rect.width())
             .text_color(Color32::WHITE);
         ui.put(edit_rect, edit).request_focus();

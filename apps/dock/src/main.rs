@@ -117,6 +117,8 @@ fn main() -> Result<()> {
         ["--launchpad-compat"] => open_launchpad(true),
         ["--palette"] => open_palette(false),
         ["--palette-compat"] => open_palette(true),
+        ["--overview"] => open_overview(false),
+        ["--overview-compat"] => open_overview(true),
         ["--notifications"] => open_notifications(false),
         ["--notifications-compat"] => open_notifications(true),
         ["--notify", title, rest @ ..] => {
@@ -143,7 +145,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --launchpad | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }
@@ -210,6 +212,41 @@ fn open_palette(compat: bool) -> Result<()> {
                 .spawn();
         }
         anyhow::anyhow!("palette: {error}")
+    })
+}
+
+/// Opens the window overview, or closes it if it is already open, so one key does both.
+fn open_overview(compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::OVERVIEW_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single =
+        unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Overview"))?) };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_overview(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("overview (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
+            let _ = std::process::Command::new(exe)
+                .arg("--overview-compat")
+                .spawn();
+        }
+        anyhow::anyhow!("overview: {error}")
     })
 }
 
