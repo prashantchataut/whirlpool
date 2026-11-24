@@ -6,7 +6,7 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
-## 4.2.0-rc4 (pre-release)
+## 4.2.0-rc4 (pre-release, not tagged yet)
 
 - Quick settings tiles can be reordered by dragging, made wide or small, added and removed (Menu bar page).
 - Notification history window and `whirlpool --notify "title" "text"`; history can be turned off.
@@ -14,7 +14,7 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Dock icon styles: default, dark, clear, tinted (Dock page).
 - Glass with refraction for search and notifications; strength in Personalize.
 - Search and notification panels no longer show a black rectangle when the graphics driver has no OpenGL.
-- Known gaps: no own window overview; panels use about 300 MB while open without OpenGL.
+- Known gaps: no own window overview; panels use about 300 MB while open without OpenGL. The collapsed island ignores the island preset when two or more providers are shown, and the drag ghost overlay is misplaced in the runner capture.
 
 ## [4.2.0-rc3]
 

@@ -13,7 +13,7 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
-## Session 5 (branch `feat/gaps-session-5`, pre-release 4.2.0-rc4)
+## Session 5 (branch `feat/gaps-session-5`, intended pre-release 4.2.0-rc4, not tagged yet)
 
 | Area | Change | Where |
 | --- | --- | --- |
@@ -25,9 +25,21 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 | Dock | Hot corner timer (only while a corner is set, never over full-screen), icon restyle at the single load point. | `apps/dock/src/app.rs`, `assets.rs` |
 | Study | `scripts/study.ps1`, `observe-install.ps1`, `study.yml` (reference supplied by repository secrets; never named in the repo). `drive.ps1` waits for windows by title and dismisses stray Windows flyouts. | `scripts/`, `.github/workflows/` |
 
+### Wiring state of presets, Launchpad and drag (checked against runner captures, run 45387185126)
+
+Earlier hand-offs called these "not wired". They are wired; the captures show what is still wrong.
+
+| Area | State | Where |
+| --- | --- | --- |
+| Island presets | Opened panel follows the preset. **Bug:** collapsed island ignores it with 2+ providers (`trigger_layout_for` uses `134 * count`). | `apps/dock/src/menubar/{layout,mod}.rs`, `crates/whirlpool-core/src/island.rs` |
+| Launchpad | Own process (`whirlpool --launchpad`, toggles). Dock Start tile opens it unless `launchpad` is off; dock registers `launchpadHotkey`. | `apps/settings/src/launchpad.rs`, `apps/dock/src/{app,main}.rs` |
+| Drag motion | `drag.rs`: thread only during a move, ghost overlay, spring settle. Ghost is misplaced and in front in the capture. `core::dragmotion` is unused by it. | `apps/dock/src/drag.rs` |
+
+Not started: HUDs (wifi, Bluetooth, volume, brightness), DPI pass at 100/150/200 percent, copy audit, Settings redesign. `4.2.0-rc4` is described above but not tagged yet.
+
 ### Next (ranked)
 
-1. Panel memory and start time without OpenGL (about 300 MB, 7 s). 2. Own window overview with DWM thumbnails. 3. Palette action icons and placeholder contrast; snap preview look. 4. Feed the update reminder and charging events into the history. 5. Rename "Launchpad". 6. Real-desktop run of everything above; signing.
+0. Collapsed island follows the preset; fix the drag ghost; driver clicks the Start tile and sends real letters and arrows. 1. Panel memory and start time without OpenGL (about 300 MB, 7 s). 2. Own window overview with DWM thumbnails. 3. Palette action icons and placeholder contrast; snap preview look. 4. Feed the update reminder and charging events into the history. 5. Rename "Launchpad". 6. Real-desktop run of everything above; signing.
 
 Runner caveat: the screenshot runner shows its own system dialogs (paging file, performance options) behind panels; they appear refracted in the glass and are not Whirlpool.
 
@@ -36,7 +48,7 @@ Runner caveat: the screenshot runner shows its own system dialogs (paging file, 
 | Area | Change | Where |
 | --- | --- | --- |
 | Updates | Reminder toast through hidden Windows PowerShell with its own notification identity (`HKCU\\Software\\Classes\\AppUserModelId\\Whirlpool`). Cadence lives in `State::reminder_due` / `note_reminded` (`reminded`, `reminded_at`, `reminder_count` in `updates\\state.json`). Config `updateReminders` (default on); `updateOnStartup` default now on. | `crates/whirlpool-update/src/{remind,state}.rs`, `apps/settings/src/update.rs`, `apps/dock/src/app.rs` |
-| Core | `island`, `launchpad`, `dragmotion`: pure, tested, not wired. | `crates/whirlpool-core/src/` |
+| Core | `island`, `launchpad`, `dragmotion`: pure and tested. (Island and Launchpad were wired later; see Session 5.) | `crates/whirlpool-core/src/` |
 | Site | No logo images; Roadmap replaces "Not done yet"; version 4.2.0-rc3. | `site/` |
 
 ### Next (ranked)
