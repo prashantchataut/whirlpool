@@ -15,6 +15,7 @@ mod accessories;
 mod app;
 mod assets;
 mod charge;
+mod clipboard;
 mod drag;
 mod drop;
 mod edge_watch;
@@ -114,6 +115,15 @@ fn main() -> Result<()> {
         }
         ["--launchpad"] => open_launchpad(false),
         ["--launchpad-compat"] => open_launchpad(true),
+        ["--palette"] => open_palette(false),
+        ["--palette-compat"] => open_palette(true),
+        ["--notifications"] => open_notifications(false),
+        ["--notifications-compat"] => open_notifications(true),
+        ["--notify", title, rest @ ..] => {
+            // For scripts: `whirlpool --notify "Backup done" "12 files"` adds to the history.
+            whirlpool_settings::push_notification("Script", title, &rest.join(" "));
+            Ok(())
+        }
         ["--overlay"] => overlay::run(),
         ["--overlay-toggle"] => {
             overlay::toggle(&env::current_exe().context("exe")?);
@@ -141,6 +151,108 @@ fn main() -> Result<()> {
 /// The quick settings panel the menu bar opens. One at a time; a second
 /// request while it is open does nothing, since the panel closes itself when
 /// it loses focus.
+/// OpenGL failed once on this machine (virtual machine, remote desktop, old driver): the next windows go
+/// straight to DirectX instead of starting, failing and starting again. Forgotten after two weeks so a
+/// driver update gets another chance.
+fn compat_marker() -> Option<std::path::PathBuf> {
+    env::var_os("LOCALAPPDATA").map(|base| {
+        std::path::PathBuf::from(base)
+            .join("Whirlpool")
+            .join("renderer-directx.flag")
+    })
+}
+
+fn prefer_compat() -> bool {
+    compat_marker()
+        .and_then(|path| std::fs::metadata(path).ok())
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|time| time.elapsed().ok())
+        .is_some_and(|age| age < std::time::Duration::from_secs(14 * 24 * 3600))
+}
+
+fn remember_compat() {
+    if let Some(path) = compat_marker() {
+        if let Some(folder) = path.parent() {
+            let _ = std::fs::create_dir_all(folder);
+        }
+        let _ = std::fs::write(path, b"1");
+    }
+}
+
+/// Opens the search palette, or closes it if it is already open, so one hotkey does both.
+fn open_palette(compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::PALETTE_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Palette"))?) };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_palette(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("palette (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
+            let _ = std::process::Command::new(exe)
+                .arg("--palette-compat")
+                .spawn();
+        }
+        anyhow::anyhow!("palette: {error}")
+    })
+}
+
+/// Opens the notification center, or closes it if it is already open.
+fn open_notifications(compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::NOTIFICATIONS_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single = unsafe {
+        Owned::new(CreateMutexW(
+            None,
+            false,
+            w!("Local\\Whirlpool.Notifications"),
+        )?)
+    };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_notifications(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("notifications (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
+            let _ = std::process::Command::new(exe)
+                .arg("--notifications-compat")
+                .spawn();
+        }
+        anyhow::anyhow!("notifications: {error}")
+    })
+}
+
 /// Opens the Launchpad, or closes it if it is already open, so one hotkey does both.
 fn open_launchpad(compat: bool) -> Result<()> {
     use windows::Win32::{
@@ -163,10 +275,12 @@ fn open_launchpad(compat: bool) -> Result<()> {
         // Still starting up: a second press must not open a second grid.
         return Ok(());
     }
+    let compat = compat || prefer_compat();
     whirlpool_settings::run_launchpad(compat).map_err(|error| {
         whirlpool_shell::log::line(&format!("launchpad (compat={compat}): {error}"));
         whirlpool_shell::log::flush();
         if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
             let _ = std::process::Command::new(exe)
                 .arg("--launchpad-compat")
                 .spawn();
@@ -192,10 +306,12 @@ fn open_quick_settings(right: &str, y: &str, edge: &str, compat: bool) -> Result
         right.parse().context("invalid x")?,
         y.parse().context("invalid y")?,
     );
+    let compat = compat || prefer_compat();
     whirlpool_settings::run_quick(right, y, edge == "bottom", compat).map_err(|error| {
         whirlpool_shell::log::line(&format!("quick settings (compat={compat}): {error}"));
         whirlpool_shell::log::flush();
         if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
             // No OpenGL (virtual machine, remote desktop): same panel on DirectX.
             let _ = std::process::Command::new(exe)
                 .args([

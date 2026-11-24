@@ -188,6 +188,11 @@ const TASKBAR_TIMER: usize = 3;
 const TASKBAR_DELAY_MS: u32 = 600;
 const TASKBAR_MAX_ATTEMPTS: u8 = 50;
 const TRIM_TIMER: usize = 4;
+/// Every two minutes: if the person has been away from keyboard and mouse for half a minute and the dock
+/// is neither hovered nor animating, give the unused pages back. No work happens otherwise.
+const HOUSEKEEP_TIMER: usize = 17;
+const HOUSEKEEP_MS: u32 = 120_000;
+const AWAY_MS: u32 = 30_000;
 const TRIM_DELAY_MS: u32 = 3000;
 const BIN_TIMER: usize = 5;
 const BIN_DELAY_MS: u32 = 300;
@@ -225,6 +230,38 @@ const WALLPAPER_TIMER: usize = 41;
 /// Id of the global hotkey that shows and hides the system overlay.
 const OVERLAY_HOTKEY: i32 = 0x5750;
 const LAUNCHPAD_HOTKEY: i32 = 0x5751;
+const PALETTE_HOTKEY: i32 = 0x5752;
+/// Samples the pointer for hot corners; exists only while a corner has an action.
+const CORNER_TIMER: usize = 0x4C43;
+const CORNER_SAMPLE_MS: u32 = 120;
+
+thread_local! {
+    static CORNERS: std::cell::Cell<whirlpool_core::corners::Tracker> =
+        const { std::cell::Cell::new(whirlpool_core::corners::Tracker::new()) };
+}
+
+/// The pointer and the bounds of the monitor it is on.
+fn cursor_and_screen() -> Option<(POINT, (i32, i32, i32, i32))> {
+    use windows::Win32::{
+        Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint},
+        UI::WindowsAndMessaging::GetCursorPos,
+    };
+    let mut point = POINT::default();
+    // SAFETY: Reads the pointer position and the description of the monitor under it.
+    unsafe {
+        GetCursorPos(&mut point).ok()?;
+        let monitor = MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+            return None;
+        }
+        let r = info.rcMonitor;
+        Some((point, (r.left, r.top, r.right, r.bottom)))
+    }
+}
 const PREVIEW_TIMER: usize = 13;
 /// While the crab is out (a few seconds): is its act over, is the pointer on it.
 const MASCOT_TIMER: usize = 14;
@@ -1657,6 +1694,25 @@ impl App {
         unsafe { SetTimer(Some(self.input), TRIM_TIMER, TRIM_DELAY_MS, None) };
     }
 
+    fn housekeeping(&self) {
+        use windows::Win32::{
+            System::SystemInformation::GetTickCount,
+            UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO},
+        };
+        let mut info = LASTINPUTINFO {
+            cbSize: size_of::<LASTINPUTINFO>() as u32,
+            dwTime: 0,
+        };
+        // SAFETY: Reads the time of the last input event into a correctly sized structure.
+        let away = unsafe {
+            GetLastInputInfo(&mut info).as_bool()
+                && GetTickCount().wrapping_sub(info.dwTime) >= AWAY_MS
+        };
+        if away && !self.hovering && !self.is_animating() {
+            power::trim_memory();
+        }
+    }
+
     fn trim_if_idle(&self) {
         if !self.hovering && !self.is_animating() {
             power::trim_memory();
@@ -2467,6 +2523,43 @@ impl App {
         }
     }
 
+    /// (Re)registers the search palette hotkey and the clipboard listener behind its history.
+    fn register_palette_hotkey(&self) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey,
+        };
+        const NO_REPEAT: u32 = 0x4000;
+        crate::clipboard::enable(
+            self.input,
+            self.config.palette && self.config.clipboard_history,
+        );
+        // SAFETY: Hotkey calls on our own window; unregistering one that is not set is harmless.
+        unsafe {
+            let _ = UnregisterHotKey(Some(self.input), PALETTE_HOTKEY);
+            if !self.config.palette {
+                return;
+            }
+            let Some((modifiers, key)) =
+                whirlpool_core::overlay::parse_hotkey(&self.config.palette_hotkey)
+            else {
+                return;
+            };
+            if RegisterHotKey(
+                Some(self.input),
+                PALETTE_HOTKEY,
+                HOT_KEY_MODIFIERS(modifiers | NO_REPEAT),
+                key,
+            )
+            .is_err()
+            {
+                whirlpool_shell::log::line(&format!(
+                    "palette hotkey {} is taken by another program",
+                    self.config.palette_hotkey
+                ));
+            }
+        }
+    }
+
     /// (Re)registers the Launchpad hotkey; off, empty or invalid means none.
     fn register_launchpad_hotkey(&self) {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -2501,6 +2594,83 @@ impl App {
     }
 
     /// Arms the wallpaper timer, or removes it: with rotation off no timer exists at all.
+    /// Starts or stops the hot corner sampler: it runs only while some corner has an action.
+    fn apply_hot_corners(&self) {
+        let any = [
+            self.config.hot_corner_top_left,
+            self.config.hot_corner_top_right,
+            self.config.hot_corner_bottom_left,
+            self.config.hot_corner_bottom_right,
+        ]
+        .iter()
+        .any(|action| *action != whirlpool_config::CornerAction::None);
+        // SAFETY: Timers on our own window; setting one again replaces it.
+        unsafe {
+            if any {
+                SetTimer(Some(self.input), CORNER_TIMER, CORNER_SAMPLE_MS, None);
+            } else {
+                let _ = KillTimer(Some(self.input), CORNER_TIMER);
+            }
+        }
+        if !any {
+            CORNERS.with(|c| c.set(whirlpool_core::corners::Tracker::new()));
+        }
+    }
+
+    /// One pointer sample for the hot corners. Never fires over a full-screen program.
+    fn corner_tick(&mut self) {
+        use whirlpool_core::corners::Corner;
+        if self.fullscreen {
+            return;
+        }
+        let Some((point, screen)) = cursor_and_screen() else {
+            return;
+        };
+        static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+        let now = START.get_or_init(Instant::now).elapsed().as_millis() as u64;
+        let mut tracker = CORNERS.with(std::cell::Cell::get);
+        let fired = tracker.sample(now, screen, point.x, point.y);
+        CORNERS.with(|c| c.set(tracker));
+        let Some(corner) = fired else { return };
+        use whirlpool_config::CornerAction as A;
+        let action = match corner {
+            Corner::TopLeft => self.config.hot_corner_top_left,
+            Corner::TopRight => self.config.hot_corner_top_right,
+            Corner::BottomLeft => self.config.hot_corner_bottom_left,
+            Corner::BottomRight => self.config.hot_corner_bottom_right,
+        };
+        match action {
+            A::None => {}
+            A::StartGrid => open_launchpad(),
+            A::Palette => open_palette(),
+            A::WindowOverview => launcher::open_task_view(),
+            A::Notifications => spawn_self("--notifications", &[]),
+            A::QuickSettings => {
+                let bottom = matches!(corner, Corner::BottomLeft | Corner::BottomRight);
+                let right = if matches!(corner, Corner::TopRight | Corner::BottomRight) {
+                    screen.2 - 12
+                } else {
+                    screen.0 + 400
+                };
+                let y = if bottom { screen.3 - 56 } else { screen.1 + 44 };
+                spawn_self(
+                    "--quick-settings",
+                    &[
+                        &right.to_string(),
+                        &y.to_string(),
+                        if bottom { "bottom" } else { "top" },
+                    ],
+                );
+            }
+            A::ShowDesktop => launcher::show_desktop(),
+            A::LockScreen => {
+                let _ = std::process::Command::new("rundll32.exe")
+                    .arg("user32.dll,LockWorkStation")
+                    .spawn();
+            }
+        }
+    }
+
     fn schedule_wallpaper(&self) {
         // SAFETY: Timers on our own window; setting one again replaces it.
         unsafe {
@@ -3987,7 +4157,13 @@ impl App {
             self.last_frame = Instant::now();
         }
         let moved = config.dock_position != self.config.dock_position;
+        let style_changed = self
+            .icons
+            .set_style(config.dock_icon_style, config.dock_icon_tint);
         self.config = config;
+        if style_changed {
+            self.assets_for = (0.0, false, 0, DockEdge::Bottom);
+        }
         if moved {
             // A hidden dock comes out of its new edge on every display.
             self.apply_edge_settings();
@@ -3995,8 +4171,10 @@ impl App {
         // Updates may have been turned on or off.
         self.schedule_update();
         self.schedule_wallpaper();
+        self.apply_hot_corners();
         self.register_overlay_hotkey();
         self.register_launchpad_hotkey();
+        self.register_palette_hotkey();
         crate::drag::configure(self.config.drag_motion);
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
@@ -5116,6 +5294,43 @@ pub fn drop_files(x: i32, y: i32) -> DROPEFFECT {
 }
 
 /// Starts the Launchpad process, or closes it if it is already open (`--launchpad` toggles).
+fn open_palette() {
+    use std::io::Write;
+    use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
+    // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
+    unsafe {
+        let _ = AllowSetForegroundWindow(ASFW_ANY);
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    // The clipboard history travels over a pipe: it is never written to disk.
+    let history = serde_json::to_string(&crate::clipboard::snapshot()).unwrap_or_default();
+    if let Ok(mut child) = std::process::Command::new(exe)
+        .arg("--palette")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        && let Some(mut pipe) = child.stdin.take()
+    {
+        let _ = pipe.write_all(history.as_bytes());
+    }
+}
+
+/// Starts this program again with a command-line switch (the way the panels are opened).
+fn spawn_self(switch: &str, args: &[&str]) {
+    use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
+    // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
+    unsafe {
+        let _ = AllowSetForegroundWindow(ASFW_ANY);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe)
+            .arg(switch)
+            .args(args)
+            .spawn();
+    }
+}
+
 fn open_launchpad() {
     use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
     // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
@@ -5445,6 +5660,18 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
         windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == LAUNCHPAD_HOTKEY => {
             open_launchpad();
         }
+        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == PALETTE_HOTKEY => {
+            open_palette();
+        }
+        0x031D => crate::clipboard::changed(hwnd), // WM_CLIPBOARDUPDATE
+        WM_TIMER if w.0 == HOUSEKEEP_TIMER => with_app("mantenimiento", |app| {
+            app.housekeeping();
+            Ok(())
+        }),
+        WM_TIMER if w.0 == CORNER_TIMER => with_app("esquinas activas", |app| {
+            app.corner_tick();
+            Ok(())
+        }),
         WM_TIMER if w.0 == WALLPAPER_TIMER => {
             with_app("fondo de pantalla", |app| {
                 app.rotate_wallpaper();
@@ -5898,10 +6125,14 @@ pub fn run() -> Result<()> {
         RegisterDragDrop(input, &target)?;
         DROP_WINDOW.store(input.0 as isize, Ordering::Relaxed);
 
+        // SAFETY: A timer on our own window.
+        unsafe { SetTimer(Some(input), HOUSEKEEP_TIMER, HOUSEKEEP_MS, None) };
         app.schedule_update();
         app.schedule_wallpaper();
         app.register_overlay_hotkey();
         app.register_launchpad_hotkey();
+        app.register_palette_hotkey();
+        app.apply_hot_corners();
         crate::drag::configure(app.config.drag_motion);
         APP.set(Some(app));
     }

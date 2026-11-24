@@ -41,13 +41,13 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const TITLE: &str = "Whirlpool Launchpad";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct App {
-    name: String,
+pub(crate) struct App {
+    pub(crate) name: String,
     /// What to hand to the shell: a `.lnk` path or `shell:AppsFolder\<AppUserModelID>`.
-    id: String,
+    pub(crate) id: String,
 }
 
-enum Message {
+pub(crate) enum Message {
     Apps(Vec<App>),
     Icon(String, ColorImage),
 }
@@ -170,7 +170,7 @@ fn load_icons(
     ctx.request_repaint();
 }
 
-fn spawn_loader(ctx: egui::Context) -> Receiver<Message> {
+pub(crate) fn spawn_loader(ctx: egui::Context) -> Receiver<Message> {
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         // SAFETY: Initialising COM for this thread; an apartment already in place is ignored.

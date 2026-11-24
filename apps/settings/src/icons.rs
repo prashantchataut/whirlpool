@@ -23,6 +23,9 @@ pub enum Icon {
     Speaker,
     Muted,
     Bolt,
+    Focus,
+    Display,
+    Hotspot,
 }
 
 /// Points on a circular arc, angles in degrees (0 = right, clockwise).
@@ -206,6 +209,20 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
                 line(vec![p(16.5, 9.5), p(21.0, 14.5)]);
                 line(vec![p(21.0, 9.5), p(16.5, 14.5)]);
             }
+        }
+        Icon::Focus => {
+            painter.circle_stroke(p(12.0, 12.0), 8.0 * u, stroke);
+            painter.circle_filled(p(12.0, 12.0), 3.2 * u, color);
+        }
+        Icon::Display => {
+            boxed(p(3.0, 5.0), p(21.0, 16.0), 2.5);
+            line(vec![p(9.0, 20.0), p(15.0, 20.0)]);
+            line(vec![p(12.0, 16.0), p(12.0, 20.0)]);
+        }
+        Icon::Hotspot => {
+            painter.circle_filled(p(12.0, 13.0), 2.0 * u, color);
+            line(arc(p(12.0, 13.0), 6.0 * u, 215.0, 325.0));
+            line(arc(p(12.0, 13.0), 10.0 * u, 215.0, 325.0));
         }
         Icon::Bolt => {
             line(vec![

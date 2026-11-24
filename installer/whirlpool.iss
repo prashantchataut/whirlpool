@@ -52,6 +52,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 #endif
 MinVersion=10.0.18362
+SetupLogging=yes
+CloseApplications=no
 
 [Tasks]
 Name: "autostart"; Description: "Start Whirlpool when I sign in"; GroupDescription: "Options:"
@@ -74,6 +76,10 @@ Filename: "{app}\whirlpool.exe"; Parameters: "--autostart on"; Flags: runhidden;
 Filename: "{app}\whirlpool.exe"; Flags: nowait; Check: RelaunchRequested
 Filename: "{app}\whirlpool.exe"; Description: "Start Whirlpool now"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+Type: files; Name: "{app}\install.log"
+Type: files; Name: "{app}\install-setup.log"
+
 [UninstallRun]
 Filename: "{app}\whirlpool.exe"; Parameters: "--autostart off"; Flags: runhidden; RunOnceId: "AutostartOff"
 Filename: "{app}\whirlpool.exe"; Parameters: "--restore"; Flags: runhidden; RunOnceId: "RestoreTaskbar"
@@ -95,4 +101,63 @@ begin
     Sleep(600);
   end;
   Result := '';
+end;
+
+// ---- Install log ---------------------------------------------------------------------------------
+// A short, readable record next to the program: what was installed, where, with which options.
+// The full Setup log is copied beside it when Windows lets us read it.
+procedure WriteInstallLog;
+var
+  Lines: TArrayOfString;
+begin
+  SetArrayLength(Lines, 7);
+  Lines[0] := 'Whirlpool {#AppVersion} installed ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
+  Lines[1] := 'Folder: ' + ExpandConstant('{app}');
+  Lines[2] := 'Start when I sign in: ' + IntToStr(Ord(WizardIsTaskSelected('autostart')));
+  Lines[3] := 'Desktop shortcut: ' + IntToStr(Ord(WizardIsTaskSelected('desktopicon')));
+  Lines[4] := 'Start menu: ' + ExpandConstant('{autoprograms}') + '\Whirlpool';
+  Lines[5] := 'Settings and logs live in %APPDATA%\Whirlpool and %LOCALAPPDATA%\Whirlpool';
+  Lines[6] := 'Uninstall removes all of the above (Settings > Apps, or unins000.exe).';
+  SaveStringsToFile(ExpandConstant('{app}\install.log'), Lines, False);
+  FileCopy(ExpandConstant('{log}'), ExpandConstant('{app}\install-setup.log'), False);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    WriteInstallLog;
+end;
+
+// ---- Clean uninstall ------------------------------------------------------------------------------
+// Give the taskbar back, stop every copy of the program (the dock, its watchdog and any open window),
+// then remove what Whirlpool created outside its folder. Silent uninstalls remove settings too unless
+// /KEEPDATA is passed; an interactive one asks.
+function KeepData: Boolean;
+begin
+  if UninstallSilent then
+    Result := ExpandConstant('{param:keepdata|0}') = '1'
+  else
+    Result := MsgBox('Keep your Whirlpool settings and logs for a later reinstall?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Code: Integer;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    Exec(ExpandConstant('{app}\whirlpool.exe'), '--restore', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Sleep(1200);
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM whirlpool.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Sleep(400);
+  end;
+  if CurUninstallStep = usPostUninstall then
+  begin
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\AppUserModelId\Whirlpool');
+    if not KeepData then
+    begin
+      DelTree(ExpandConstant('{userappdata}\Whirlpool'), True, True, True);
+      DelTree(ExpandConstant('{localappdata}\Whirlpool'), True, True, True);
+    end;
+  end;
 end;

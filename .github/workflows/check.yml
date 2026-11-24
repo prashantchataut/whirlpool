@@ -1,0 +1,21 @@
+name: Check
+
+# Fast feedback on every push of the working branch: type-check the Windows code and run the unit tests
+# of the pure crates. The full build, tests and releases stay in ci.yml and release.yml.
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/gaps-session-5]
+    paths: ["apps/**", "crates/**", "Cargo.*"]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: check
+      - run: cargo check --workspace --all-targets
+      - run: cargo test -p whirlpool-core -p whirlpool-config

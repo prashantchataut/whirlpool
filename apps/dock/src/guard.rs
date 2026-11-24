@@ -18,9 +18,17 @@ use windows::{
             PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, SYNCHRONIZATION_SYNCHRONIZE, SetEvent,
             TerminateProcess, WaitForMultipleObjects, WaitForSingleObject,
         },
-        UI::WindowsAndMessaging::{
-            FindWindowW, GetSystemMetrics, GetWindowThreadProcessId, PostMessageW, SM_SHUTTINGDOWN,
-            SMTO_ABORTIFHUNG, SMTO_ERRORONEXIT, SendMessageTimeoutW, WM_CLOSE,
+        UI::{
+            Input::KeyboardAndMouse::{
+                HOT_KEY_MODIFIERS, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, RegisterHotKey,
+                UnregisterHotKey,
+            },
+            WindowsAndMessaging::{
+                FindWindowW, GetSystemMetrics, GetWindowThreadProcessId, MSG,
+                MsgWaitForMultipleObjects, PM_REMOVE, PeekMessageW, PostMessageW, QS_HOTKEY,
+                SM_SHUTTINGDOWN, SMTO_ABORTIFHUNG, SMTO_ERRORONEXIT, SendMessageTimeoutW, WM_CLOSE,
+                WM_HOTKEY,
+            },
         },
     },
     core::{HSTRING, Owned},
@@ -36,6 +44,12 @@ const HEALTH_INTERVAL_MS: u32 = 5_000;
 const PING_TIMEOUT_MS: u32 = 250;
 const MISSES_BEFORE_RESTORE: u8 = 4;
 const CLOSE_TIMEOUT_MS: u32 = 8_000;
+/// Emergency keys. They live in this separate process, so they still work when the dock's own
+/// window thread is stuck. Ctrl+Alt+Shift+Q quits Whirlpool; Ctrl+Alt+Shift+R also brings the Windows
+/// taskbar back at once and makes sure Explorer is running.
+const QUIT_KEY: i32 = 0x5751;
+const RESCUE_KEY: i32 = 0x5752;
+const RESCUE_CLOSE_MS: u32 = 2_000;
 
 fn recovery_event(pid: u32) -> HSTRING {
     HSTRING::from(format!("Local\\Whirlpool.Recover.{pid}"))
@@ -189,6 +203,7 @@ pub fn run(pid: u32) -> Result<()> {
         }
     };
     restore_desktop();
+    ensure_explorer_after_exit();
     drop(recovery);
     drop(process);
     // Never race the previous instance's mutex or the old guard's restoration.
@@ -208,13 +223,86 @@ pub fn run(pid: u32) -> Result<()> {
     Ok(())
 }
 
+fn register_emergency_keys() {
+    let modifiers = HOT_KEY_MODIFIERS(MOD_CONTROL.0 | MOD_ALT.0 | MOD_SHIFT.0 | MOD_NOREPEAT.0);
+    // SAFETY: Thread hotkeys (no window); a key another program owns just fails to register.
+    unsafe {
+        for (id, key, name) in [(QUIT_KEY, 0x51, "Q"), (RESCUE_KEY, 0x52, "R")] {
+            if RegisterHotKey(None, id, modifiers, key).is_err() {
+                whirlpool_shell::log::line(&format!(
+                    "emergency key Ctrl+Alt+Shift+{name} is taken by another program"
+                ));
+            }
+        }
+    }
+}
+
+fn unregister_emergency_keys() {
+    // SAFETY: Removes the thread hotkeys registered above; harmless if they were not set.
+    unsafe {
+        let _ = UnregisterHotKey(None, QUIT_KEY);
+        let _ = UnregisterHotKey(None, RESCUE_KEY);
+    }
+}
+
+/// Which emergency key is waiting in this thread's queue, if any.
+fn pending_emergency_key() -> Option<i32> {
+    let mut message = MSG::default();
+    // SAFETY: Takes hotkey messages from this thread's own queue.
+    while unsafe { PeekMessageW(&mut message, None, WM_HOTKEY, WM_HOTKEY, PM_REMOVE) }.as_bool() {
+        if message.wParam.0 as i32 == QUIT_KEY || message.wParam.0 as i32 == RESCUE_KEY {
+            return Some(message.wParam.0 as i32);
+        }
+    }
+    None
+}
+
+/// Starts Explorer if the Windows taskbar window is gone, so the user is never left without a shell.
+fn ensure_explorer() {
+    // SAFETY: A plain window lookup.
+    let present = unsafe { FindWindowW(windows::core::w!("Shell_TrayWnd"), None) }.is_ok();
+    if !present {
+        let _ = Command::new("explorer.exe").spawn();
+        whirlpool_shell::log::line("explorer was not running; started it");
+    }
+}
+
 fn watch(pid: u32, process: HANDLE, recovery: HANDLE) -> Result<bool> {
     let mut health = Health::default();
+    register_emergency_keys();
+    let result = watch_loop(pid, process, recovery, &mut health);
+    unregister_emergency_keys();
+    result
+}
+
+fn watch_loop(pid: u32, process: HANDLE, recovery: HANDLE, health: &mut Health) -> Result<bool> {
     loop {
-        // Reuse the existing health wait. A recovery request wakes immediately;
+        // Reuse the existing health wait. A recovery request or an emergency key wakes immediately;
         // no new polling thread, timer or periodic allocation is needed.
-        let wait =
-            unsafe { WaitForMultipleObjects(&[process, recovery], false, HEALTH_INTERVAL_MS) };
+        let wait = unsafe {
+            MsgWaitForMultipleObjects(
+                Some(&[process, recovery]),
+                false,
+                HEALTH_INTERVAL_MS,
+                QS_HOTKEY,
+            )
+        };
+        if wait.0 == WAIT_OBJECT_0.0 + 2 {
+            match pending_emergency_key() {
+                Some(RESCUE_KEY) => {
+                    whirlpool_shell::log::line("rescue key pressed: bringing back the taskbar");
+                    taskbar::give_back_on_exit();
+                    let _ = stop_dock(pid, process, RESCUE_CLOSE_MS);
+                    ensure_explorer();
+                    return Ok(false);
+                }
+                Some(_) => {
+                    whirlpool_shell::log::line("quit key pressed");
+                    return stop_dock(pid, process, CLOSE_TIMEOUT_MS).map(|_| false);
+                }
+                None => continue,
+            }
+        }
         if wait == WAIT_OBJECT_0 {
             // The UI may exit immediately after signaling its device loss.
             return Ok(unsafe { WaitForSingleObject(recovery, 0) } == WAIT_OBJECT_0);
@@ -289,6 +377,12 @@ fn ui_responds(pid: u32) -> bool {
         )
         .0 != 0
     }
+}
+
+fn ensure_explorer_after_exit() {
+    // Only when the dock really ended: give Explorer a moment to redraw the taskbar it was handed back.
+    std::thread::sleep(Duration::from_millis(400));
+    ensure_explorer();
 }
 
 fn restore_desktop() {

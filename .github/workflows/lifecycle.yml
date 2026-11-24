@@ -1,0 +1,39 @@
+name: Lifecycle
+
+# Builds the installer from this commit, installs it silently, starts the program, uninstalls it and
+# lists everything that is left behind. The job fails if anything is.
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/gaps-session-5]
+    paths:
+      - "installer/**"
+      - "scripts/lifecycle.ps1"
+      - ".github/workflows/lifecycle.yml"
+      - "apps/dock/src/guard.rs"
+
+jobs:
+  lifecycle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots-windows-latest
+      - run: cargo build --release -p whirlpool
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=0.0.0-ci" "/DNumericVersion=0.0.0.0" "/DSourceExe=..\target\release\whirlpool.exe" installer\whirlpool.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed' }
+      - name: Install, run, uninstall
+        shell: pwsh
+        run: ./scripts/lifecycle.ps1 -Setup (Resolve-Path dist/Whirlpool-Setup.exe).Path -Out out-lifecycle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lifecycle
+          path: out-lifecycle

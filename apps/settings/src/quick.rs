@@ -17,7 +17,11 @@ use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Rect, Response, Sense, Stroke, StrokeKind, Ui,
     pos2, vec2,
 };
-use whirlpool_core::tint::{self, Profile};
+use whirlpool_config::{TileKind, TileSpec};
+use whirlpool_core::{
+    tiles,
+    tint::{self, Profile},
+};
 use whirlpool_shell::{imagery, launcher, status::AudioWatch, system};
 use windows::{
     Devices::Radios::{Radio, RadioKind, RadioState},
@@ -30,7 +34,21 @@ use crate::{
 };
 
 const WIDTH: f32 = 372.0;
-const HEIGHT: f32 = 352.0;
+const TILE_H: f32 = 58.0;
+/// Everything below the tile grid: padding, the volume well and the battery line.
+const BELOW_GRID: f32 = 162.0;
+
+fn grid_height(rows: usize) -> f32 {
+    if rows == 0 {
+        0.0
+    } else {
+        rows as f32 * TILE_H + (rows as f32 - 1.0) * GAP
+    }
+}
+
+fn panel_height(rows: usize) -> f32 {
+    BELOW_GRID + grid_height(rows)
+}
 const PAD: f32 = 16.0;
 const GAP: f32 = 8.0;
 const RADIUS: u8 = 20;
@@ -213,10 +231,12 @@ pub struct Quick {
     battery: Option<system::Battery>,
     wallpaper_rx: Receiver<Option<Profile>>,
     profile: Option<Profile>,
+    tiles: Vec<TileSpec>,
+    region_done: bool,
 }
 
 impl Quick {
-    fn new(ctx: &egui::Context) -> Self {
+    fn new(ctx: &egui::Context, tiles: Vec<TileSpec>) -> Self {
         let (radios_tx, radios_rx) = mpsc::channel();
         {
             let (tx, ctx) = (radios_tx.clone(), ctx.clone());
@@ -259,6 +279,198 @@ impl Quick {
             battery: system::battery(),
             wallpaper_rx,
             profile: None,
+            tiles,
+            region_done: false,
+        }
+    }
+
+    /// One tile of the grid: draws it and does what a click on it does.
+    #[allow(clippy::too_many_arguments)]
+    fn tile_slot(
+        &mut self,
+        ui: &mut Ui,
+        look: &Look,
+        rect: Rect,
+        kind: TileKind,
+        saver: bool,
+        all_off: bool,
+        ctx: &egui::Context,
+    ) {
+        let windows_page = |uri: &str| {
+            let _ = launcher::open(uri);
+        };
+        match kind {
+            TileKind::Wifi => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Wifi,
+                    "Wi-Fi",
+                    state_text(self.radios.wifi),
+                    self.radios.wifi == Some(true),
+                )
+                .clicked()
+                    && let Some(on) = self.radios.wifi
+                {
+                    self.radios.wifi = Some(!on);
+                    self.toggle(&[RadioKind::WiFi], !on, ctx);
+                }
+            }
+            TileKind::Bluetooth => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Bluetooth,
+                    "Bluetooth",
+                    state_text(self.radios.bluetooth),
+                    self.radios.bluetooth == Some(true),
+                )
+                .clicked()
+                    && let Some(on) = self.radios.bluetooth
+                {
+                    self.radios.bluetooth = Some(!on);
+                    self.toggle(&[RadioKind::Bluetooth], !on, ctx);
+                }
+            }
+            TileKind::Airplane => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Airplane,
+                    "Airplane mode",
+                    if all_off { "On" } else { "Off" },
+                    all_off,
+                )
+                .clicked()
+                {
+                    let turn_on = all_off;
+                    self.radios = Radios {
+                        wifi: self.radios.wifi.map(|_| turn_on),
+                        bluetooth: self.radios.bluetooth.map(|_| turn_on),
+                    };
+                    self.toggle(
+                        &[
+                            RadioKind::WiFi,
+                            RadioKind::Bluetooth,
+                            RadioKind::MobileBroadband,
+                        ],
+                        turn_on,
+                        ctx,
+                    );
+                }
+            }
+            TileKind::Cast => {
+                if tile(ui, look, rect, Icon::Cast, "Cast", "Find displays", false).clicked() {
+                    Self::close(ctx);
+                    thread::spawn(|| {
+                        // Let this panel go first so the Cast flyout keeps focus.
+                        thread::sleep(Duration::from_millis(220));
+                        launcher::open_cast();
+                    });
+                }
+            }
+            TileKind::NightLight => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Moon,
+                    "Night light",
+                    "Opens in Windows",
+                    false,
+                )
+                .clicked()
+                {
+                    windows_page("ms-settings:nightlight");
+                    Self::close(ctx);
+                }
+            }
+            TileKind::BatterySaver => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Battery,
+                    "Battery saver",
+                    if saver { "On" } else { "Opens in Windows" },
+                    saver,
+                )
+                .clicked()
+                {
+                    windows_page("ms-settings:batterysaver");
+                    Self::close(ctx);
+                }
+            }
+            TileKind::Focus => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Focus,
+                    "Focus",
+                    "Opens in Windows",
+                    false,
+                )
+                .clicked()
+                {
+                    windows_page("ms-settings:quietmomentshome");
+                    Self::close(ctx);
+                }
+            }
+            TileKind::Display => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Display,
+                    "Display",
+                    "Opens in Windows",
+                    false,
+                )
+                .clicked()
+                {
+                    windows_page("ms-settings:display");
+                    Self::close(ctx);
+                }
+            }
+            TileKind::Hotspot => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Hotspot,
+                    "Hotspot",
+                    "Opens in Windows",
+                    false,
+                )
+                .clicked()
+                {
+                    windows_page("ms-settings:network-mobilehotspot");
+                    Self::close(ctx);
+                }
+            }
+            TileKind::Sound | TileKind::Unknown => {
+                if tile(
+                    ui,
+                    look,
+                    rect,
+                    Icon::Speaker,
+                    "Sound",
+                    "Opens in Windows",
+                    false,
+                )
+                .clicked()
+                {
+                    Self::close(ctx);
+                    thread::spawn(|| {
+                        thread::sleep(Duration::from_millis(220));
+                        launcher::open_sound();
+                    });
+                }
+            }
         }
     }
 
@@ -489,6 +701,20 @@ impl eframe::App for Quick {
         ui.set_opacity(appear);
 
         let full = ui.max_rect();
+        if !self.region_done {
+            self.region_done = true;
+            let ppp = ctx.pixels_per_point();
+            crate::chrome::round_window(
+                "Whirlpool Quick Settings",
+                (
+                    0,
+                    0,
+                    (full.width() * ppp) as i32,
+                    (full.height() * ppp) as i32,
+                ),
+                (f32::from(RADIUS) * ppp) as i32,
+            );
+        }
         let radius = CornerRadius::same(RADIUS);
         ui.painter().rect_filled(full, radius, look.surface);
         ui.painter().rect_stroke(
@@ -505,129 +731,24 @@ impl eframe::App for Quick {
             StrokeKind::Inside,
         );
 
-        // Toggles: two columns, three rows.
+        // Toggles: the user's tile grid, two columns, wide tiles span both.
         let tile_w = ((full.width() - 2.0 * PAD - GAP) / 2.0).floor();
-        let tile_h = 58.0;
-        let at = |col: usize, row: usize| {
-            Rect::from_min_size(
-                full.min
-                    + vec2(
-                        PAD + col as f32 * (tile_w + GAP),
-                        PAD + row as f32 * (tile_h + GAP),
-                    ),
-                vec2(tile_w, tile_h),
-            )
-        };
+        let tile_h = TILE_H;
         let saver = self.battery.is_some_and(|b| b.saver);
         let all_off = self.radios.wifi != Some(true)
             && self.radios.bluetooth != Some(true)
             && (self.radios.wifi.is_some() || self.radios.bluetooth.is_some());
-
-        if tile(
-            ui,
-            &look,
-            at(0, 0),
-            Icon::Wifi,
-            "Wi-Fi",
-            state_text(self.radios.wifi),
-            self.radios.wifi == Some(true),
-        )
-        .clicked()
-            && let Some(on) = self.radios.wifi
-        {
-            self.radios.wifi = Some(!on);
-            self.toggle(&[RadioKind::WiFi], !on, &ctx);
+        let spans: Vec<usize> = self.tiles.iter().map(|t| t.span()).collect();
+        for slot in tiles::pack(&spans) {
+            let kind = self.tiles[slot.index].kind;
+            let (x, y, w, h) = tiles::slot_rect(&slot, tile_w, tile_h, GAP);
+            let rect = Rect::from_min_size(full.min + vec2(PAD + x, PAD + y), vec2(w, h));
+            self.tile_slot(ui, &look, rect, kind, saver, all_off, &ctx);
         }
-        if tile(
-            ui,
-            &look,
-            at(1, 0),
-            Icon::Bluetooth,
-            "Bluetooth",
-            state_text(self.radios.bluetooth),
-            self.radios.bluetooth == Some(true),
-        )
-        .clicked()
-            && let Some(on) = self.radios.bluetooth
-        {
-            self.radios.bluetooth = Some(!on);
-            self.toggle(&[RadioKind::Bluetooth], !on, &ctx);
-        }
-        if tile(
-            ui,
-            &look,
-            at(0, 1),
-            Icon::Airplane,
-            "Airplane mode",
-            if all_off { "On" } else { "Off" },
-            all_off,
-        )
-        .clicked()
-        {
-            let turn_on = all_off;
-            self.radios = Radios {
-                wifi: self.radios.wifi.map(|_| turn_on),
-                bluetooth: self.radios.bluetooth.map(|_| turn_on),
-            };
-            self.toggle(
-                &[
-                    RadioKind::WiFi,
-                    RadioKind::Bluetooth,
-                    RadioKind::MobileBroadband,
-                ],
-                turn_on,
-                &ctx,
-            );
-        }
-        if tile(
-            ui,
-            &look,
-            at(1, 1),
-            Icon::Cast,
-            "Cast",
-            "Find displays",
-            false,
-        )
-        .clicked()
-        {
-            Self::close(&ctx);
-            thread::spawn(|| {
-                // Let this panel go first so the Cast flyout keeps focus.
-                thread::sleep(Duration::from_millis(220));
-                launcher::open_cast();
-            });
-        }
-        if tile(
-            ui,
-            &look,
-            at(0, 2),
-            Icon::Moon,
-            "Night light",
-            "Opens in Windows",
-            false,
-        )
-        .clicked()
-        {
-            let _ = launcher::open("ms-settings:nightlight");
-            Self::close(&ctx);
-        }
-        if tile(
-            ui,
-            &look,
-            at(1, 2),
-            Icon::Battery,
-            "Battery saver",
-            if saver { "On" } else { "Opens in Windows" },
-            saver,
-        )
-        .clicked()
-        {
-            let _ = launcher::open("ms-settings:batterysaver");
-            Self::close(&ctx);
-        }
+        let grid_h = grid_height(tiles::rows(&spans));
 
         // Volume, in its own rounded well.
-        let well_top = full.top() + PAD + 3.0 * tile_h + 2.0 * GAP + 12.0;
+        let well_top = full.top() + PAD + grid_h + 12.0;
         let well = Rect::from_min_size(
             pos2(full.left() + PAD, well_top),
             vec2(full.width() - 2.0 * PAD, 56.0),
@@ -815,6 +936,12 @@ impl eframe::App for Quick {
 /// a bar on the bottom edge, standing on) `anchor_y`; both in screen pixels.
 pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Result {
     whirlpool_config::migrate_legacy_folder();
+    let tiles_list = whirlpool_config::load(&whirlpool_config::default_path())
+        .ok()
+        .flatten()
+        .map_or_else(TileSpec::defaults, |c| c.sanitized().quick_tiles);
+    let spans: Vec<usize> = tiles_list.iter().map(|t| t.span()).collect();
+    let height = panel_height(tiles::rows(&spans));
     let (scale, left_limit, top_limit, bottom_limit) =
         system::primary_monitor().map_or((1.0, 0.0, 0.0, 2000.0), |m| {
             let s = m.scale.max(1.0);
@@ -827,13 +954,13 @@ pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Res
         });
     let x = (right as f32 / scale - WIDTH).max(left_limit + 8.0);
     let y = if bottom {
-        anchor_y as f32 / scale - HEIGHT - EDGE_GAP
+        anchor_y as f32 / scale - height - EDGE_GAP
     } else {
         anchor_y as f32 / scale + EDGE_GAP
     }
     .clamp(
         top_limit + 4.0,
-        (bottom_limit - HEIGHT - 4.0).max(top_limit + 4.0),
+        (bottom_limit - height - 4.0).max(top_limit + 4.0),
     );
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -843,7 +970,7 @@ pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Res
             .with_resizable(false)
             .with_always_on_top()
             .with_taskbar(false)
-            .with_inner_size([WIDTH, HEIGHT])
+            .with_inner_size([WIDTH, height])
             .with_position([x, y]),
         renderer: if compat {
             eframe::Renderer::Wgpu
@@ -857,7 +984,7 @@ pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Res
         options,
         Box::new(|creation| {
             ui::install_theme(&creation.egui_ctx);
-            Ok(Box::new(Quick::new(&creation.egui_ctx)))
+            Ok(Box::new(Quick::new(&creation.egui_ctx, tiles_list)))
         }),
     )
 }
