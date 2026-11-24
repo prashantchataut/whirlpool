@@ -410,5 +410,11 @@
   "notifClear": "Clear all",
   "notifEmpty": "All quiet",
   "notifEmptyHint": "Alerts from Whirlpool and from scripts (whirlpool --notify) appear here.",
-  "cornersIdle": "Choose an action for a corner below"
+  "cornersIdle": "Choose an action for a corner below",
+  "overviewTitle": "Windows",
+  "overviewHint": "Click a window to switch to it  ·  arrows and Enter  ·  Esc to close",
+  "overviewEmpty": "No open windows",
+  "overviewMinimized": "Minimized",
+  "paletteActOverview": "Show all windows",
+  "paletteActOverviewHint": "Every open window on one screen"
 }

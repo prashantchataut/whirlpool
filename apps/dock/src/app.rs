@@ -2643,7 +2643,7 @@ impl App {
             A::None => {}
             A::StartGrid => open_launchpad(),
             A::Palette => open_palette(),
-            A::WindowOverview => launcher::open_task_view(),
+            A::WindowOverview => spawn_self("--overview", &[]),
             A::Notifications => spawn_self("--notifications", &[]),
             A::QuickSettings => {
                 let bottom = matches!(corner, Corner::BottomLeft | Corner::BottomRight);

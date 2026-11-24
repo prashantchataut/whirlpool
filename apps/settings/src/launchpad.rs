@@ -605,8 +605,18 @@ impl eframe::App for Launchpad {
             pos2(search.left() + 48.0, search.top() + 6.0),
             pos2(search.right() - 18.0, search.bottom() - 6.0),
         );
+        if self.query.is_empty() {
+            // Painted here rather than as the field's hint: the hint colour follows the theme's weak
+            // text, which is nearly invisible on this dark backdrop.
+            painter.text(
+                pos2(edit_rect.left() + 2.0, edit_rect.center().y),
+                egui::Align2::LEFT_CENTER,
+                self.texts.get("launchpadSearch"),
+                FontId::proportional(18.0),
+                Color32::from_white_alpha(165),
+            );
+        }
         let edit = egui::TextEdit::singleline(&mut self.query)
-            .hint_text(self.texts.get("launchpadSearch").to_owned())
             .font(FontId::proportional(18.0))
             .frame(egui::Frame::NONE)
             .desired_width(edit_rect.width())

@@ -54,10 +54,10 @@ use windows::{
 
 const CLASS: PCWSTR = w!("Whirlpool.DragOverlay");
 /// Room around the window for the shadow to fade out in, and how far the lift moves it down.
-const SHADOW_MARGIN: i32 = 48;
-const SHADOW_SIGMA: f32 = 16.0;
-const SHADOW_LIFT: i32 = 14;
-const SHADOW_PEAK: f32 = 0.40;
+const SHADOW_MARGIN: i32 = 64;
+const SHADOW_SIGMA: f32 = 20.0;
+const SHADOW_LIFT: i32 = 18;
+const SHADOW_PEAK: f32 = 0.60;
 /// How close to a side counts as touching it, and how far along a side a corner reaches (pixels).
 const EDGE: i32 = 8;
 const CORNER: i32 = 140;

@@ -122,7 +122,8 @@ pub(super) fn trigger_layout_for(
     let usage_width = match providers {
         0 => 0.0,
         1 => px(single_width),
-        count => px(134.0 * count as f32),
+        // Classic (145 for one provider) keeps its shipped 134 per provider; the other presets scale it.
+        count => px(single_width * (134.0 / 145.0) * count as f32),
     };
     let total = music_width + usage_width;
     let available = (bounds.width() - gap).min(total);

@@ -213,5 +213,11 @@
   "overlayClickThroughHint": "Les clics passent à la fenêtre dessous. Impossible de la déplacer tant que c'est actif.",
   "overlayFullscreen": "Afficher sur les applis plein écran",
   "overlayFullscreenHint": "Fonctionne sur les fenêtres sans bordure. Les jeux en plein écran exclusif dessinent par-dessus.",
-  "overlayAbout": "Les images affichées sont celles du compositeur du bureau, pas du jeu : la mesure par jeu exige un traçage en administrateur. Températures et consommation ne sont pas affichées : Windows ne les expose que via les pilotes constructeur."
+  "overlayAbout": "Les images affichées sont celles du compositeur du bureau, pas du jeu : la mesure par jeu exige un traçage en administrateur. Températures et consommation ne sont pas affichées : Windows ne les expose que via les pilotes constructeur.",
+  "overviewTitle": "Fenêtres",
+  "overviewHint": "Cliquez sur une fenêtre pour y aller  ·  flèches et Entrée  ·  Échap pour fermer",
+  "overviewEmpty": "Aucune fenêtre ouverte",
+  "overviewMinimized": "Réduite",
+  "paletteActOverview": "Afficher toutes les fenêtres",
+  "paletteActOverviewHint": "Toutes les fenêtres ouvertes sur un seul écran"
 }

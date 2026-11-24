@@ -409,9 +409,11 @@ export function WhatsNew() {
     ["ARM64 installer", "Built in CI for Windows on ARM. The x64 installer also runs there through emulation."],
   ];
   const next: [string, string][] = [
-    ["Dynamic island presets", "Compact, Classic, Wide and Expressive sizes. The geometry is written and tested; it is not yet connected to the menu bar."],
-    ["Motion for dragged windows", "A spring model that trails, leans and settles. Written and tested; not yet connected to the shell."],
-    ["Launchpad-style Start grid", "Paged icon grid with search. The layout engine is written and tested; the window is next."],
+    ["Dynamic island presets", "Compact, Classic, Wide and Expressive change the live island, closed and open. Seen in four runner captures; not yet on a personal desktop."],
+    ["Motion for dragged windows", "A soft shadow behind the window you drag, a preview of where it will snap, and a spring settle on release. Windows does not let a program tilt another program's window, so there is no tilt. Seen in runner captures."],
+    ["Launchpad-style Start grid", "The dock's Start button and Ctrl+Alt+Space open a grid of your apps with search and arrow-key selection. Seen in runner captures; icons fill in a moment after it opens."],
+    ["Volume, Wi-Fi, Bluetooth and brightness pop-ups", "Not started."],
+    ["Display scaling pass at 100, 150 and 200 percent", "Not started."],
     ["Verified on ARM hardware", "The ARM64 build has not been run on an ARM device by the maintainer yet."],
     ["Signed installers", "Needs a code-signing certificate. Until then each release publishes SHA-256 sums and build provenance."],
   ];

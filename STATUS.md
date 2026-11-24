@@ -1,18 +1,18 @@
 # Status
 
-Release gate **not passed**. `4.2.0-rc4` is the intended next pre-release but is **not tagged yet** (the newest tag and release is `v4.2.0-rc3`). Stable stays held back: signing is unavailable, nothing ran on a personal desktop, HUDs, the DPI pass, the copy audit and the Settings redesign are NOT DONE, and the drag ghost is visibly wrong in the runner capture.
+Release gate **not passed**. `4.2.0-rc4` is the intended next pre-release but is **not tagged yet** (newest tag and release: `v4.2.0-rc3`). Stable stays held back: signing is unavailable, nothing ran on a personal desktop, and the HUDs, the DPI pass and the Settings redesign are NOT DONE. PR #11 (session 5) is merged; session 6 is PR #12 (`feat/gaps-session-6`). Captures in `docs/captures/session6/` come from runner run 45403289477 (windows-latest, x64) on commit `027d24d`; they are screenshots of a running Windows Server 2025 session, not renders.
 Proof lives in `proof/`, `docs/captures/session5/` (runner captures) and the linked workflow runs.
 
-## Session 5 (branch `feat/gaps-session-5`)
+## Sessions 5 and 6 (PR #11 merged; PR #12 `feat/gaps-session-6`)
 
 Earlier rows below are kept as they were; where session 5 supersedes one, this table wins.
 
 | Item | Status | Proof | Notes |
 | --- | --- | --- | --- |
 | Study of a reference shell (black-box) | DONE, with limits | `STUDY.md`, `scripts/study.ps1` | Resource numbers measured. Many of its scenes were not triggered (shortcuts unknown). Its frames are not published on purpose. |
-| 1. Island presets in layout and Settings | PARTIAL | `02-island-*` (run 45387185126) | Settings row and live preview exist; the **opened** panel follows the preset. The **collapsed** island does not with two or more providers (see the B3 row). Earlier text here said DONE; the pixel comparison says otherwise. |
-| 1. Start grid as the real Start window | PARTIAL | `06-launchpad-hotkey.jpg` | Window, search, grid, hotkey captured. The dock Start tile opens it in code (`Outside::OpenStart`) but no capture clicks it, and the arrow-key capture is invalid (see the B6 row). On a runner without OpenGL it appears after about 7 s. |
-| 1. Drag motion: shadow, spring settle, snap preview | PARTIAL, looks wrong | `07-drag-*` (run 45387185126) | See the B4 row: ghost offset from the window and in front of it, dark fringe. Never transforms another program's window. |
+| 1. Island presets in layout and Settings | DONE on a runner capture | `docs/captures/session6/02-island-*` (run 45403289477) | Collapsed island with two providers now follows the preset (`menubar/layout.rs`, unit test). Differing pixels against Classic, closed: Compact 3,253, Wide 3,940, Expressive 2,083; open: 69,569 / 47,835 / 64,843 (fuzz 2%). Choosing the preset in Settings writes the config the live island reads. Not seen on a personal desktop or on two monitors. |
+| 1. Start grid as the real Start window | DONE on runner captures | `06-launchpad-start-tile`, `-hotkey`, `-search`, `-navigated` (run 45403289477) | The dock Start tile (real click), `Ctrl+Alt+Space`, search, arrow-key selection (focus moved down and right from the first app) and the app list are captured. Fixed this session: the search placeholder was nearly invisible; it is now painted by the window and legible. Icons fill in about a second after opening on the runner (letter tiles first). Still called "Launchpad" in Settings. |
+| 1. Drag motion: shadow, spring settle, snap preview | PARTIAL: works, shadow subtle | `07-drag-*` and `-control` (run 45403289477), `apps/dock/src/drag.rs` | The shadow is drawn behind the dragged window and aligned with it: beside its right edge the blue channel runs 167, 187, 199, 206 against about 216 for the wallpaper. In a downsized screenshot it is faint, even after raising its strength this session. The blue rounded snap preview sits correctly inside the zone. The large grey rectangle in the capture and in the control (motion off) is Windows own snap preview on this server image, not Whirlpool's; the earlier reading "offset, in front, dark fringe" was wrong. The spring settle is code plus before/after captures, not a motion capture. Never transforms another program's window. `core::dragmotion` is not used by `drag.rs` (it uses `snap` and `spring`). |
 | 2. Command palette (apps, files, actions, clipboard) | DONE | `08-palette-*.jpg` | Rounded and glass without relying on window alpha. Open: action icons are letters in circles; placeholder weak over a busy backdrop. |
 | 3. Quick settings as an editable grid | DONE (editor logic unit-tested) | `12-quick-tiles.jpg`, `05-settings-menubar.jpg` | Ten tile kinds, small or wide. Drag reorder is tested in `whirlpool-core::tiles`, **not** exercised with real input in a capture. |
 | 4. Notification centre with history | PARTIAL | `11-notifications.jpg` | Holds Whirlpool's and scripts' alerts (`whirlpool --notify`). Other programs' toasts cannot be read by an unpackaged app. Only the CLI feeds it today; the update reminder does not yet. |
@@ -37,10 +37,10 @@ Earlier rows below are kept as they were; where session 5 supersedes one, this t
 | B1 rollback | DONE | run 45090235367 (`Updater end to end`) | The first run failed (`proof/B1/e2e.txt`: stayed on rc2). After the fix, `--update --rollback` took rc2 back to rc1: "installed after rollback: 4.2.0-rc1 (wanted 4.2.0-rc1)". Earlier versions of this file still said unverified; that was out of date. |
 | B1 signature verification in the updater | NOT DONE | | Needs a certificate. Hash only. |
 | B2 FPS / system overlay | PARTIAL | `proof/B2/` | Hotkey command, three layouts, 0.013% CPU measured. Frame rate is the compositor's; per-game FPS, temperatures, power draw not offered. Drag, snap, hotkey press, fullscreen behaviour not exercised. |
-| B3 Dynamic island, presets | PARTIAL | `02-island-*` (run 45387185126) | Wired through `menubar/layout.rs::island_metrics` and a Settings row. Opened panel: measured 43k to 66k differing pixels against Classic for Compact, Wide, Expressive. Collapsed island: width is a fixed 134 px per provider when two or more are shown, so the four `02-island-*-closed.png` are pixel-identical (0 differing). Only the one-provider width follows the preset (unit test, no capture). |
-| B4 Window drag motion | PARTIAL, looks wrong | `07-drag-*` (run 45387185126), `apps/dock/src/drag.rs` | Hooked on `EVENT_SYSTEM_MOVESIZESTART`/`END`; thread exists only during a move; layered ghost overlay with shadow and snap preview; spring settle on release; `dragMotion` setting and Settings preview. Reviewed capture: held, the overlay is offset from the dragged window and drawn in front of it, with a dark fringe on its border; the snap preview position is sensible but has the fringe. `core::dragmotion` is not used by `drag.rs`. |
+| B3 Dynamic island, presets | DONE on a runner capture | see the Session 5 and 6 table | Superseded: all four presets differ, closed and open. |
+| B4 Window drag motion | PARTIAL | see the Session 5 and 6 table | Superseded by the row above. |
 | B5 Wallpaper rotation, per-monitor, fit, dark folder | PARTIAL | `proof/B5/` | Rotation steps verified on one display. Not done: custom crossfade, live preview, bundled-pack theme switching, separate sources per display, two-display test. |
-| B6 Launchpad-style Start grid | PARTIAL | `06-launchpad-*` (run 45387185126), `apps/settings/src/launchpad.rs` | Separate-process window (`--launchpad`, toggles), search, paged grid of Start Menu apps (real icons for some, letter tiles for others), focus ring, Escape closes, Ctrl+Alt+Space opens it (captured). Dock Start tile: code only. Arrow-key capture invalid: the driver typed "c1" and the shot reads "No apps match". |
+| B6 Launchpad-style Start grid | DONE on runner captures | see the Session 5 and 6 table | Superseded: tile click and arrow keys are captured validly now. |
 | B7 ARM64 build and installer | PARTIAL | release assets | Cross-compiled and packaged in CI; never run on ARM. |
 | B7 signing wiring | PARTIAL | release logs (DRY RUN) | Dry run works; Azure/SignPath/PFX paths unexercised. BLOCKED on a certificate: see SIGNING.md. Nothing is claimed signed. |
 | Quick settings redesign | PARTIAL | `proof/quick-settings/` | Wallpaper-adaptive, theme-aware. Tile blending bug found in the capture and fixed; not re-captured. |
@@ -54,3 +54,15 @@ Earlier rows below are kept as they were; where session 5 supersedes one, this t
 | Phase 6 clean-install test from published artifact | PARTIAL | `proof/B1/e2e.txt` | Install, update, uninstall done on a runner from published installers. Not the full feature walk. |
 | Update reminder | PARTIAL | `crates/whirlpool-update` tests, CI compile | Cadence (once per version, again after 3 days, 3 times max), clock-set-back and script-injection cases are unit-tested. The toast itself has NOT been seen on a real desktop; `whirlpool --update --remind-test` exists to check a machine. |
 | Website without logo, honest roadmap | DONE | `docs/renders/site-4.2-*.jpg` | Rendered in headless Chromium; no logo image on the page (checked by script). |
+
+## Session 6: requested work not done
+
+| Item | Status | Reason |
+| --- | --- | --- |
+| HUDs (Wi-Fi, Bluetooth, volume, brightness), custom volume slider | NOT STARTED | Needs new Windows code (audio endpoint, radio and brightness change events, a new overlay window) and a runner capture each. Rust is built only in CI here, so each attempt is a 15 to 25 minute loop. |
+| Bug pass at 100/150/200 percent DPI | NOT STARTED | The runner has one 1024x768 display at 100 percent and the driver cannot switch scale yet. `TESTING.md` section 5 covers it by hand. |
+| Copy audit | PARTIAL | Searched the site and `en.json` for generic marketing phrases: none found. Fixed the site roadmap, which said presets, drag and the Start grid were "not yet connected". The rest of the app text was not re-read line by line. |
+| Settings redesign | NOT STARTED | Depends on the HUD settings and the DPI pass. |
+| Three look-and-fix rounds per screen | PARTIAL | Presets, Start grid and drag had two rounds (read the capture, fix, recapture). Other screens were not reviewed again. |
+| `TESTING.md` | DONE | Ten sections: real desktop, several monitors, scale, ARM, battery. |
+| Release | NOT DONE | Waiting for PR #12 to merge and a decision on tagging `v4.2.0-rc4`. |

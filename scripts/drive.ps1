@@ -20,9 +20,34 @@ public static class U {
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr e);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int rop);
+  [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+  [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc p, IntPtr l);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+  // Visible top-level windows of one process: "class|left,top,right,bottom".
+  public static System.Collections.Generic.List<string> Of(uint pid) {
+    var r = new System.Collections.Generic.List<string>();
+    EnumWindows(delegate (IntPtr h, IntPtr l) {
+      uint p; GetWindowThreadProcessId(h, out p);
+      if (p == pid && IsWindowVisible(h)) {
+        RECT rc; GetWindowRect(h, out rc);
+        var sb = new System.Text.StringBuilder(256); GetClassName(h, sb, 256);
+        r.Add(sb.ToString() + "|" + rc.L + "," + rc.T + "," + rc.R + "," + rc.B);
+      }
+      return true;
+    }, IntPtr.Zero);
+    return r;
+  }
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);
+  [DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, ref int value, uint flags);
 }
 "@
 [void][U]::SetProcessDPIAware()
@@ -35,7 +60,14 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 function Shot($name) {
     $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+    # BitBlt with CAPTUREBLT (0x40000000) also copies layered windows, such as the drag overlay.
+    $copied = $false
+    try {
+        $dst = $g.GetHdc(); $src = [U]::GetDC([IntPtr]::Zero)
+        $copied = [U]::BitBlt($dst, 0, 0, $screen.Width, $screen.Height, $src, $screen.X, $screen.Y, 0x40CC0020)
+        [void][U]::ReleaseDC([IntPtr]::Zero, $src); $g.ReleaseHdc($dst)
+    } catch { Log "BitBlt failed: $_" }
+    if (-not $copied) { $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size) }
     $bmp.Save((Join-Path $Out "$name.png"))
     $g.Dispose(); $bmp.Dispose()
     Log "shot $name"
@@ -67,6 +99,7 @@ function Start-Dock($json) {
     Click 600 ($screen.Height - 220); Start-Sleep 1
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
 }
+function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 function Wait-Window($title, $seconds = 30) {
     $until = [DateTime]::Now.AddSeconds($seconds)
     while ([DateTime]::Now -lt $until) {
@@ -135,31 +168,61 @@ foreach ($page in 'dock', 'menubar', 'personalize', 'windows', 'system', 'about'
 }
 Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
 
-Scenario 'launchpad: dock button, hotkey, search, keys' {
+Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    $startX = 0; $startY = $screen.Height - 41
+    $wins = [U]::Of([uint32]$script:dock.Id)
+    foreach ($w in $wins) { Log "dock process window: $w" }
+    # The dock pill is the shortest window near the bottom edge (a taller sibling holds popups); its first tile is the Start tile.
+    $best = $null
+    foreach ($w in $wins) {
+        $n = ($w.Split('|')[1]).Split(',') | ForEach-Object { [int]$_ }
+        $width = $n[2] - $n[0]; $height = $n[3] - $n[1]
+        if ($n[3] -ge ($screen.Height - 160) -and $height -lt 200 -and $width -lt ($screen.Width - 40) -and $width -gt 150) {
+            if ($null -eq $best -or $height -lt $best.H) { $best = @{ L = $n[0]; T = $n[1]; R = $n[2]; B = $n[3]; W = $width; H = $height } }
+        }
+    }
+    if ($best) {
+        $startX = $best.L + 34; $startY = [int](($best.T + $best.B) / 2)
+        Log "dock rect $($best.L),$($best.T) $($best.R),$($best.B)"
+    } else { Log 'dock window not identified; clicking the default position' }
+    Log "clicking the Start tile at $startX,$startY"
+    Click $startX $startY
+    $opened = Wait-Window 'Whirlpool Launchpad' 20
+    Log "launchpad opened by the Start tile: $opened"
+    Shot '06-launchpad-start-tile'
+    Key ([byte[]](0x1B)); Start-Sleep 2
     # Hotkey: Ctrl+Alt+Space
     Key ([byte[]](0x11, 0x12, 0x20))
     [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-hotkey'
-    Key ([byte[]](0x43))     # c
-    Key ([byte[]](0x61))     # a (numpad 1 key code is not a letter; harmless)
-    Start-Sleep 1
-    Shot '06-launchpad-search'
-    Key ([byte[]](0x27))     # right arrow
-    Key ([byte[]](0x28))     # down arrow
+    # Arrow keys on the full grid: the focus ring must leave the first tile (Right, Right, Down).
+    Type-Keys ([byte[]](0x27, 0x27, 0x28))
     Start-Sleep 1
     Shot '06-launchpad-navigated'
-    Key ([byte[]](0x1B))     # escape
+    # Letters: C A L
+    Type-Keys ([byte[]](0x43, 0x41, 0x4C))
     Start-Sleep 1
-    Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $script:dock.Id }))"
+    Shot '06-launchpad-search'
+    Key ([byte[]](0x1B))
+    Start-Sleep 1
+    Key ([byte[]](0x1B))
+    Start-Sleep 1
+    Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Launchpad' }))"
     & $Exe --launchpad
     [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-cli'
     Key ([byte[]](0x1B))
 }
 
-Scenario 'drag motion: shadow, snap preview, settle' {
-    Start-Dock '{"menuBar":true,"menuBarPosition":"top","dragMotion":true}'
+foreach ($mode in @(@{ tag = ''; on = 'true' }, @{ tag = '-control'; on = 'false' })) {
+Scenario "drag motion$($mode.tag): shadow, snap preview, settle" {
+    # Server images drag a bare outline and leave the window where it is. Real desktops drag the whole
+    # window, which is the case Whirlpool decorates, so turn it on and say what the system reports.
+    [void][U]::SystemParametersInfo(0x0025, 1, [IntPtr]::Zero, 3)
+    $full = 0; [void][U]::SystemParametersInfo(0x0026, 0, [ref]$full, 0)
+    Log "full-window drag (SPI_GETDRAGFULLWINDOWS) = $full"
+    Start-Dock "{`"menuBar`":true,`"menuBarPosition`":`"top`",`"dragMotion`":$($mode.on)}"
     $np = Start-Process notepad.exe -PassThru
     Start-Sleep 4
     $np.Refresh()
@@ -171,20 +234,20 @@ Scenario 'drag motion: shadow, snap preview, settle' {
     [U]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 200
     foreach ($i in 1..12) { Move-Mouse ($gx - $i * 14) ($gy + $i * 9); Start-Sleep -Milliseconds 40 }
     Start-Sleep -Milliseconds 400
-    Shot '07-drag-held'
+    Shot "07-drag-held$($mode.tag)"
     foreach ($i in 1..30) { Move-Mouse (($gx - 168) - $i * 12) ($gy + 108 + $i * 4); Start-Sleep -Milliseconds 20 }
     Move-Mouse 3 400; Start-Sleep -Milliseconds 700
-    Shot '07-drag-snap-preview'
+    Shot "07-drag-snap-preview$($mode.tag)"
     [U]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
     Start-Sleep -Milliseconds 120
-    Shot '07-drag-release-120ms'
+    Shot "07-drag-release-120ms$($mode.tag)"
     Start-Sleep 1
-    Shot '07-drag-settled'
+    Shot "07-drag-settled$($mode.tag)"
     Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
+}
 }
 
 function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]($notches * -120)), 0), [UIntPtr]::Zero) }
-function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 
 Scenario 'search palette: apps, calculator, actions, clipboard' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
@@ -208,6 +271,35 @@ Scenario 'search palette: apps, calculator, actions, clipboard' {
     Start-Sleep 2
     Shot '08-palette-clipboard'
     Key ([byte[]](0x1B))
+}
+
+Scenario 'window overview: live cards, arrow keys, Enter switches' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    $apps = @()
+    foreach ($i in 1..3) {
+        $np = Start-Process notepad.exe -PassThru
+        $apps += $np
+        Start-Sleep 3
+        Type-Keys ([byte[]](0x57, 0x41, 0x56, 0x45, 0x20, [byte](0x30 + $i)))   # "wave N" so each preview differs
+    }
+    $apps += Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '$Host.UI.RawUI.WindowTitle = "Tide log"' -PassThru
+    Start-Sleep 3
+    Start-Process $Exe -ArgumentList '--overview'
+    $up = Wait-Window 'Whirlpool Overview'
+    Log "overview opened: $up"
+    Start-Sleep 1
+    Shot '15-overview-open'
+    Key ([byte[]](0x27)); Start-Sleep -Milliseconds 600       # Right arrow
+    Shot '15-overview-selected'
+    $card = ($screen.Width / 2); Move-Mouse $card ($screen.Height / 2); Start-Sleep -Milliseconds 700
+    Shot '15-overview-hover'
+    $before = [U]::GetForegroundWindow()
+    Key ([byte[]](0x0D)); Start-Sleep 2                         # Enter
+    $after = [U]::GetForegroundWindow()
+    $left = [bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Overview' })
+    Log "overview Enter: overview still open=$left; foreground changed=$($before -ne $after)"
+    Shot '15-overview-after-enter'
+    foreach ($a in $apps) { Stop-Process -Id $a.Id -Force -ErrorAction SilentlyContinue }
 }
 
 foreach ($page in 'windows', 'dock') {
