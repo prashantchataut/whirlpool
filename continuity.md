@@ -13,7 +13,7 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
-## Session 5 (branch `feat/gaps-session-5`, intended pre-release 4.2.0-rc4, not tagged yet)
+## Sessions 5 and 6 (PR #11 merged; PR #12 open; intended pre-release 4.2.0-rc4, not tagged yet)
 
 | Area | Change | Where |
 | --- | --- | --- |
@@ -25,21 +25,21 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 | Dock | Hot corner timer (only while a corner is set, never over full-screen), icon restyle at the single load point. | `apps/dock/src/app.rs`, `assets.rs` |
 | Study | `scripts/study.ps1`, `observe-install.ps1`, `study.yml` (reference supplied by repository secrets; never named in the repo). `drive.ps1` waits for windows by title and dismisses stray Windows flyouts. | `scripts/`, `.github/workflows/` |
 
-### Wiring state of presets, Launchpad and drag (checked against runner captures, run 45387185126)
-
-Earlier hand-offs called these "not wired". They are wired; the captures show what is still wrong.
+### Wiring state of presets, Launchpad and drag (checked against runner captures, run 45403289477, session 6)
 
 | Area | State | Where |
 | --- | --- | --- |
-| Island presets | Opened panel follows the preset. **Bug:** collapsed island ignores it with 2+ providers (`trigger_layout_for` uses `134 * count`). | `apps/dock/src/menubar/{layout,mod}.rs`, `crates/whirlpool-core/src/island.rs` |
-| Launchpad | Own process (`whirlpool --launchpad`, toggles). Dock Start tile opens it unless `launchpad` is off; dock registers `launchpadHotkey`. | `apps/settings/src/launchpad.rs`, `apps/dock/src/{app,main}.rs` |
-| Drag motion | `drag.rs`: thread only during a move, ghost overlay, spring settle. Ghost is misplaced and in front in the capture. `core::dragmotion` is unused by it. | `apps/dock/src/drag.rs` |
+| Island presets | Closed and open island follow the preset (collapsed width with 2+ providers fixed in `trigger_layout_for`). All four captured and different. | `apps/dock/src/menubar/{layout,mod}.rs`, `docs/captures/session6/02-island-*` |
+| Launchpad (Start grid) | Own process (`whirlpool --launchpad`, toggles). The dock Start tile (real click captured) and `launchpadHotkey` open it; search, arrow keys and the app list are captured. The placeholder is painted by us (egui's hint colour was invisible). | `apps/settings/src/launchpad.rs`, `apps/dock/src/{app,main}.rs` |
+| Drag motion | `drag.rs`: thread only during a move, shadow window directly behind the dragged window, snap preview, spring settle. Shadow aligned, subtle (strength raised in session 6). The grey box in drag captures is Windows' own snap preview (it also shows with motion off). `core::dragmotion` unused. | `apps/dock/src/drag.rs`, `docs/captures/session6/07-drag-*` |
 
-Not started: HUDs (wifi, Bluetooth, volume, brightness), DPI pass at 100/150/200 percent, copy audit, Settings redesign. `4.2.0-rc4` is described above but not tagged yet.
+Runner driver: `scripts/drive.ps1` captures with BitBlt+CAPTUREBLT (layered windows included), clicks the real Start tile and sends real arrow keys. The Screenshots workflow runs on push only for older branches; for a new branch start it with `workflow_dispatch`.
+
+Not started: HUDs (wifi, Bluetooth, volume, brightness), DPI pass at 100/150/200 percent, Settings redesign. Copy audit: partial (see STATUS.md). `4.2.0-rc4` is described above but not tagged yet.
 
 ### Next (ranked)
 
-0. Collapsed island follows the preset; fix the drag ghost; driver clicks the Start tile and sends real letters and arrows. 1. Panel memory and start time without OpenGL (about 300 MB, 7 s). 2. Own window overview with DWM thumbnails. 3. Palette action icons and placeholder contrast; snap preview look. 4. Feed the update reminder and charging events into the history. 5. Rename "Launchpad". 6. Real-desktop run of everything above; signing.
+0. HUDs, DPI pass, Settings redesign (see STATUS.md). 1. Panel memory and start time without OpenGL (about 300 MB, 7 s). 2. Own window overview with DWM thumbnails. 3. Palette action icons and placeholder contrast; snap preview look. 4. Feed the update reminder and charging events into the history. 5. Rename "Launchpad". 6. Real-desktop run of everything above; signing.
 
 Runner caveat: the screenshot runner shows its own system dialogs (paging file, performance options) behind panels; they appear refracted in the glass and are not Whirlpool.
 

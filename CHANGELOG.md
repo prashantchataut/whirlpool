@@ -14,7 +14,11 @@ copia la sección de la versión que se publica a la release de GitHub.
 - Dock icon styles: default, dark, clear, tinted (Dock page).
 - Glass with refraction for search and notifications; strength in Personalize.
 - Search and notification panels no longer show a black rectangle when the graphics driver has no OpenGL.
-- Known gaps: no own window overview; panels use about 300 MB while open without OpenGL. The collapsed island ignores the island preset when two or more providers are shown, and the drag ghost overlay is misplaced in the runner capture.
+- Island presets (Compact, Classic, Wide, Expressive) change the live island, closed and open, with one provider or several.
+- The dock's Start button and `Ctrl+Alt+Space` open the app grid (search, arrow keys, Enter). Its search placeholder is legible now.
+- Dragging a window: a shadow behind it, a snap preview at screen edges and corners, and a spring settle on release. Windows does not allow tilting another program's window, so there is none. The shadow is stronger than in the first build.
+- Website roadmap corrected to match what runs.
+- Known gaps: no own window overview; panels use about 300 MB while open without OpenGL; volume, Wi-Fi, Bluetooth and brightness pop-ups, the display-scale pass and the Settings redesign are not done. Everything above was checked on GitHub runners only (`TESTING.md` lists what needs a real desktop).
 
 ## [4.2.0-rc3]
 
