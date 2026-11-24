@@ -606,7 +606,10 @@ impl eframe::App for Launchpad {
             pos2(search.right() - 18.0, search.bottom() - 6.0),
         );
         let edit = egui::TextEdit::singleline(&mut self.query)
-            .hint_text(self.texts.get("launchpadSearch").to_owned())
+            .hint_text(
+                egui::RichText::new(self.texts.get("launchpadSearch").to_owned())
+                    .color(Color32::from_white_alpha(150)),
+            )
             .font(FontId::proportional(18.0))
             .frame(egui::Frame::NONE)
             .desired_width(edit_rect.width())
