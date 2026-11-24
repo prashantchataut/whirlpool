@@ -10,6 +10,7 @@ pub mod launchpad;
 pub mod layout;
 pub mod magnify;
 pub mod overlay;
+pub mod palette;
 pub mod roster;
 pub mod rotation;
 pub mod snap;

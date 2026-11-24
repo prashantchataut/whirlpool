@@ -7,6 +7,7 @@
 mod app;
 mod icons;
 mod launchpad;
+mod palette;
 pub mod photos;
 mod quick;
 pub mod rotate;
@@ -30,6 +31,14 @@ pub fn run_quick(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> efram
 pub fn run_launchpad(compat: bool) -> eframe::Result {
     launchpad::run(compat)
 }
+
+/// The command palette: apps, files, actions and clipboard history in one box.
+pub fn run_palette(compat: bool) -> eframe::Result {
+    palette::run(compat)
+}
+
+/// The title of the palette window, so the dock can close a running one.
+pub const PALETTE_TITLE: &str = palette::TITLE;
 
 /// The title of the Launchpad window, so the dock can close a running one.
 pub const LAUNCHPAD_TITLE: &str = launchpad::TITLE;

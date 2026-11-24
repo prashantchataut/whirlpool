@@ -225,6 +225,7 @@ const WALLPAPER_TIMER: usize = 41;
 /// Id of the global hotkey that shows and hides the system overlay.
 const OVERLAY_HOTKEY: i32 = 0x5750;
 const LAUNCHPAD_HOTKEY: i32 = 0x5751;
+const PALETTE_HOTKEY: i32 = 0x5752;
 const PREVIEW_TIMER: usize = 13;
 /// While the crab is out (a few seconds): is its act over, is the pointer on it.
 const MASCOT_TIMER: usize = 14;
@@ -2467,6 +2468,43 @@ impl App {
         }
     }
 
+    /// (Re)registers the search palette hotkey and the clipboard listener behind its history.
+    fn register_palette_hotkey(&self) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey,
+        };
+        const NO_REPEAT: u32 = 0x4000;
+        crate::clipboard::enable(
+            self.input,
+            self.config.palette && self.config.clipboard_history,
+        );
+        // SAFETY: Hotkey calls on our own window; unregistering one that is not set is harmless.
+        unsafe {
+            let _ = UnregisterHotKey(Some(self.input), PALETTE_HOTKEY);
+            if !self.config.palette {
+                return;
+            }
+            let Some((modifiers, key)) =
+                whirlpool_core::overlay::parse_hotkey(&self.config.palette_hotkey)
+            else {
+                return;
+            };
+            if RegisterHotKey(
+                Some(self.input),
+                PALETTE_HOTKEY,
+                HOT_KEY_MODIFIERS(modifiers | NO_REPEAT),
+                key,
+            )
+            .is_err()
+            {
+                whirlpool_shell::log::line(&format!(
+                    "palette hotkey {} is taken by another program",
+                    self.config.palette_hotkey
+                ));
+            }
+        }
+    }
+
     /// (Re)registers the Launchpad hotkey; off, empty or invalid means none.
     fn register_launchpad_hotkey(&self) {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -3997,6 +4035,7 @@ impl App {
         self.schedule_wallpaper();
         self.register_overlay_hotkey();
         self.register_launchpad_hotkey();
+        self.register_palette_hotkey();
         crate::drag::configure(self.config.drag_motion);
         self.sync_thumbnails();
         self.apply_menu_bar_setting();
@@ -5116,6 +5155,28 @@ pub fn drop_files(x: i32, y: i32) -> DROPEFFECT {
 }
 
 /// Starts the Launchpad process, or closes it if it is already open (`--launchpad` toggles).
+fn open_palette() {
+    use std::io::Write;
+    use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
+    // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
+    unsafe {
+        let _ = AllowSetForegroundWindow(ASFW_ANY);
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    // The clipboard history travels over a pipe: it is never written to disk.
+    let history = serde_json::to_string(&crate::clipboard::snapshot()).unwrap_or_default();
+    if let Ok(mut child) = std::process::Command::new(exe)
+        .arg("--palette")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        && let Some(mut pipe) = child.stdin.take()
+    {
+        let _ = pipe.write_all(history.as_bytes());
+    }
+}
+
 fn open_launchpad() {
     use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
     // SAFETY: No pointers; failure only means Windows keeps its default focus rules.
@@ -5445,6 +5506,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
         windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == LAUNCHPAD_HOTKEY => {
             open_launchpad();
         }
+        windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY if w.0 as i32 == PALETTE_HOTKEY => {
+            open_palette();
+        }
+        0x031D => crate::clipboard::changed(hwnd), // WM_CLIPBOARDUPDATE
         WM_TIMER if w.0 == WALLPAPER_TIMER => {
             with_app("fondo de pantalla", |app| {
                 app.rotate_wallpaper();
@@ -5902,6 +5967,7 @@ pub fn run() -> Result<()> {
         app.schedule_wallpaper();
         app.register_overlay_hotkey();
         app.register_launchpad_hotkey();
+        app.register_palette_hotkey();
         crate::drag::configure(app.config.drag_motion);
         APP.set(Some(app));
     }

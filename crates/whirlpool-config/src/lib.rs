@@ -84,6 +84,12 @@ pub struct Config {
     pub launchpad: bool,
     /// Global hotkey that opens the Launchpad, `Ctrl+Alt+Space` by default; empty means none.
     pub launchpad_hotkey: String,
+    /// Command palette: one box for apps, files, actions and clipboard history.
+    pub palette: bool,
+    /// Global hotkey that opens the palette, `Ctrl+Shift+Space` by default; empty means none.
+    pub palette_hotkey: String,
+    /// Keep the last 20 copied texts in the dock's memory (never on disk) for the palette.
+    pub clipboard_history: bool,
     /// Windows being dragged get a spring settle on release, a shadow behind them and a snap
     /// preview. Windows cannot transform another program's window, so this never moves pixels of it.
     pub drag_motion: bool,
@@ -628,6 +634,9 @@ impl Default for Config {
             menu_bar_island_preset: IslandPreset::Classic,
             launchpad: true,
             launchpad_hotkey: "Ctrl+Alt+Space".to_owned(),
+            palette: true,
+            palette_hotkey: "Ctrl+Shift+Space".to_owned(),
+            clipboard_history: true,
             drag_motion: true,
             accessory_battery: false,
             menu_bar_search: None,
@@ -1206,6 +1215,8 @@ mod tests {
         let fresh = Config::default();
         assert_eq!(fresh.menu_bar_island_preset, IslandPreset::Classic);
         assert!(fresh.launchpad && fresh.drag_motion);
+        assert!(fresh.palette && fresh.clipboard_history);
+        assert_eq!(fresh.palette_hotkey, "Ctrl+Shift+Space");
         let text = serde_json::to_string(&fresh).unwrap();
         assert!(text.contains("\"menuBarIslandPreset\":\"classic\""));
     }

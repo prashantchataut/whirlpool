@@ -1764,6 +1764,45 @@ impl Settings {
                 }
             }
         });
+        ui::card(ui, Some(t.get("groupPalette")), |ui| {
+            ui::toggle_row(
+                ui,
+                t.get("paletteOn"),
+                Some(t.get("paletteOnHint")),
+                &mut config.palette,
+            );
+            if config.palette {
+                ui::divider(ui);
+                let valid = config.palette_hotkey.trim().is_empty()
+                    || whirlpool_core::overlay::parse_hotkey(&config.palette_hotkey).is_some();
+                ui::row(
+                    ui,
+                    t.get("paletteHotkey"),
+                    Some(t.get("paletteHotkeyHint")),
+                    200.0,
+                    |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut config.palette_hotkey)
+                                .desired_width(170.0),
+                        );
+                    },
+                );
+                if !valid {
+                    ui.label(
+                        RichText::new(t.get("hotkeyInvalid"))
+                            .size(12.0)
+                            .color(ui::DANGER),
+                    );
+                }
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("clipboardHistory"),
+                    Some(t.get("clipboardHistoryHint")),
+                    &mut config.clipboard_history,
+                );
+            }
+        });
         ui::card(ui, Some(t.get("groupDragging")), |ui| {
             ui::toggle_row(
                 ui,
