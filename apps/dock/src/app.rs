@@ -188,6 +188,11 @@ const TASKBAR_TIMER: usize = 3;
 const TASKBAR_DELAY_MS: u32 = 600;
 const TASKBAR_MAX_ATTEMPTS: u8 = 50;
 const TRIM_TIMER: usize = 4;
+/// Every two minutes: if the person has been away from keyboard and mouse for half a minute and the dock
+/// is neither hovered nor animating, give the unused pages back. No work happens otherwise.
+const HOUSEKEEP_TIMER: usize = 17;
+const HOUSEKEEP_MS: u32 = 120_000;
+const AWAY_MS: u32 = 30_000;
 const TRIM_DELAY_MS: u32 = 3000;
 const BIN_TIMER: usize = 5;
 const BIN_DELAY_MS: u32 = 300;
@@ -1656,6 +1661,25 @@ impl App {
     fn schedule_trim(&self) {
         // SAFETY: `self.input` is this live window, and this call runs on its UI thread.
         unsafe { SetTimer(Some(self.input), TRIM_TIMER, TRIM_DELAY_MS, None) };
+    }
+
+    fn housekeeping(&self) {
+        use windows::Win32::{
+            System::SystemInformation::GetTickCount,
+            UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO},
+        };
+        let mut info = LASTINPUTINFO {
+            cbSize: size_of::<LASTINPUTINFO>() as u32,
+            dwTime: 0,
+        };
+        // SAFETY: Reads the time of the last input event into a correctly sized structure.
+        let away = unsafe {
+            GetLastInputInfo(&mut info).as_bool()
+                && GetTickCount().wrapping_sub(info.dwTime) >= AWAY_MS
+        };
+        if away && !self.hovering && !self.is_animating() {
+            power::trim_memory();
+        }
     }
 
     fn trim_if_idle(&self) {
@@ -5510,6 +5534,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             open_palette();
         }
         0x031D => crate::clipboard::changed(hwnd), // WM_CLIPBOARDUPDATE
+        WM_TIMER if w.0 == HOUSEKEEP_TIMER => with_app("mantenimiento", |app| {
+            app.housekeeping();
+            Ok(())
+        }),
         WM_TIMER if w.0 == WALLPAPER_TIMER => {
             with_app("fondo de pantalla", |app| {
                 app.rotate_wallpaper();
@@ -5963,6 +5991,8 @@ pub fn run() -> Result<()> {
         RegisterDragDrop(input, &target)?;
         DROP_WINDOW.store(input.0 as isize, Ordering::Relaxed);
 
+        // SAFETY: A timer on our own window.
+        unsafe { SetTimer(Some(input), HOUSEKEEP_TIMER, HOUSEKEEP_MS, None) };
         app.schedule_update();
         app.schedule_wallpaper();
         app.register_overlay_hotkey();

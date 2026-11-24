@@ -163,6 +163,8 @@ $startedAt = Get-Date
 Scene 'startup' 'launch' "launch:$Exe" 22000 250
 $alive = @(Tracked).Count
 Log "after startup: $alive tracked processes; names: $((Tracked | ForEach-Object Name | Sort-Object -Unique) -join ' ')"
+$targetNames = @(Tracked | ForEach-Object Name | Sort-Object -Unique)
+function Own { Get-Process | Where-Object { $targetNames -contains $_.Name -and -not $baseline.ContainsKey($_.Id) } }
 Start-Sleep 5
 
 # ---------- idle cost ----------
@@ -174,6 +176,7 @@ Log "idle: ws=$($idle.ws) MB private=$($idle.priv) MB cpu=$($idle.cpu)% procs=$(
 $bottom = $ScrH - 24
 if ($Target -eq 'whirlpool') {
     Scene 'dock-hover' 'icon' "move:470,$bottom" 1200
+    foreach ($y in 600, 650, 700) { [Cap]::Exec("move:470,$y"); Start-Sleep -Milliseconds 40 }
     Scene 'dock-hover' 'edge-sweep' "move:420,$bottom" 1200
     Scene 'search' 'bar-icon' 'click:819,14' 1500
     Scene 'quick-settings' 'bar-icon' 'click:853,14' 2500
@@ -204,13 +207,29 @@ if ($Target -eq 'whirlpool') {
     }
 }
 
+
+# ---------- memory while a window is open, and after it closes ----------
+function MemNow($label) {
+    $mine = @(Own); $ws = ($mine | Measure-Object WorkingSet64 -Sum).Sum; $pv = ($mine | Measure-Object PrivateMemorySize64 -Sum).Sum
+    Log ("mem {0}: processes={1} ws={2:F1} MB private={3:F1} MB" -f $label, $mine.Count, ($ws / 1MB), ($pv / 1MB))
+    Add-Content (Join-Path $Out 'memory.csv') ("{0},{1},{2},{3:F1},{4:F1}" -f $Target, $label, $mine.Count, ($ws / 1MB), ($pv / 1MB))
+}
+'target,state,processes,ws_mb,private_mb' | Set-Content (Join-Path $Out 'memory.csv')
+MemNow 'before-open'
+if ($Target -eq 'whirlpool') {
+    foreach ($w in @(@('start-grid', 'key:11,12,20'), @('palette', 'key:11,10,20'), @('quick-settings', 'click:853,14'))) {
+        [Cap]::Exec($w[1]); Start-Sleep 5; MemNow "$($w[0])-open"
+        [Cap]::Exec('key:1B'); Start-Sleep 3; [Cap]::Exec('move:512,400'); Start-Sleep 4; MemNow "$($w[0])-closed"
+    }
+}
+
 # ---------- exit ----------
 $sw = [Diagnostics.Stopwatch]::StartNew()
 if ($QuitKeys) { [Cap]::Exec("key:$QuitKeys") } else { [Cap]::Exec("run:$Exe|$QuitArgs") }
-while (@(Tracked).Count -gt 0 -and $sw.ElapsedMilliseconds -lt 20000) { Start-Sleep -Milliseconds 50 }
+while (@(Own).Count -gt 0 -and $sw.ElapsedMilliseconds -lt 20000) { Start-Sleep -Milliseconds 50 }
 $exitMs = $sw.ElapsedMilliseconds
-Log "exit: $exitMs ms until tracked processes ended; remaining=$(@(Tracked).Count)"
-Add-Content (Join-Path $Out 'exit.csv') "target,exit_ms,remaining`n$Target,$exitMs,$(@(Tracked).Count)"
+Log "exit: $exitMs ms until the program's own processes ended; remaining=$(@(Own).Count)"
+Add-Content (Join-Path $Out 'exit.csv') "target,exit_ms,remaining`n$Target,$exitMs,$(@(Own).Count)"
 Start-Sleep 3
 [Cap]::Burst(300, $ScrW, $ScrH, '', 0); [void][Cap]::Analyze((Join-Path $Out 'after-exit'))
 Get-Process | Where-Object { -not $baseline.ContainsKey($_.Id) -and ($ignore -notcontains $_.Name) } | Stop-Process -Force -ErrorAction SilentlyContinue

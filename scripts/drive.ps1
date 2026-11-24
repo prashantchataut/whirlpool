@@ -172,6 +172,62 @@ Scenario 'drag motion: shadow, snap preview, settle' {
     Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
 }
 
+function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [uint32]([int]($notches * -120)), [UIntPtr]::Zero) }
+function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
+
+Scenario 'search palette: apps, calculator, actions, clipboard' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    Set-Clipboard -Value 'water-blue 4a90d9'
+    Start-Sleep 1
+    Set-Clipboard -Value 'meeting notes: ripple the tide'
+    Start-Sleep 1
+    Key ([byte[]](0x11, 0x10, 0x20))     # Ctrl+Shift+Space
+    Start-Sleep 7
+    Shot '08-palette-open'
+    Type-Keys ([byte[]](0x43, 0x41, 0x4C))   # c a l
+    Start-Sleep 2
+    Shot '08-palette-apps'
+    Key ([byte[]](0x11, 0x41)); Type-Keys ([byte[]](0x08, 0x32, 0x6B, 0x33, 0x6A, 0x34))   # select all, delete, 2+3*4
+    Start-Sleep 2
+    Shot '08-palette-calc'
+    Key ([byte[]](0x11, 0x41)); Type-Keys ([byte[]](0x08)); Key ([byte[]](0x10, 0xBE))     # clear, then ">"
+    Start-Sleep 2
+    Shot '08-palette-actions'
+    Key ([byte[]](0x11, 0x41)); Type-Keys ([byte[]](0x08)); Key ([byte[]](0x10, 0x33))     # clear, then "#"
+    Start-Sleep 2
+    Shot '08-palette-clipboard'
+    Key ([byte[]](0x1B))
+}
+
+foreach ($page in 'windows', 'dock') {
+    Scenario "settings previews ($page)" {
+        KillAll
+        $env:WHIRLPOOL_PAGE = $page
+        $p = Start-Process $Exe -ArgumentList '--settings' -PassThru
+        Start-Sleep 10
+        Move-Mouse 520 400
+        foreach ($n in 1, 2, 3) { Wheel 4; Start-Sleep -Milliseconds 700; Shot "09-settings-$page-scroll$n" }
+        Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+        Start-Sleep 1
+    }
+}
+Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
+
+foreach ($pair in @(@('R', 0x52), @('Q', 0x51))) {
+    Scenario "emergency key Ctrl+Alt+Shift+$($pair[0])" {
+        Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+        Shot "10-before-$($pair[0])"
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        Key ([byte[]](0x11, 0x12, 0x10, [byte]$pair[1]))
+        while ((Get-Process whirlpool -ErrorAction SilentlyContinue) -and $sw.ElapsedMilliseconds -lt 20000) { Start-Sleep -Milliseconds 50 }
+        Log "key $($pair[0]): whirlpool gone after $($sw.ElapsedMilliseconds) ms; remaining=$(@(Get-Process whirlpool -ErrorAction SilentlyContinue).Count)"
+        Start-Sleep 2
+        $tray = [U]::FindWindow('Shell_TrayWnd', $null)
+        Log "key $($pair[0]): Windows taskbar window present=$($tray -ne [IntPtr]::Zero)"
+        Shot "10-after-$($pair[0])"
+    }
+}
+
 KillAll
 & $Exe --restore 2>$null
 Copy-Item "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" (Join-Path $Out 'whirlpool.log') -ErrorAction SilentlyContinue
