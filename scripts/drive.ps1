@@ -65,6 +65,15 @@ function Start-Dock($json) {
     Start-Sleep 14
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
 }
+function Wait-Window($title, $seconds = 30) {
+    $until = [DateTime]::Now.AddSeconds($seconds)
+    while ([DateTime]::Now -lt $until) {
+        if ([U]::FindWindow($null, $title) -ne [IntPtr]::Zero) { Start-Sleep -Milliseconds 1500; return $true }
+        Start-Sleep -Milliseconds 300
+    }
+    Log "window not found: $title"
+    return $false
+}
 function Scenario($name, [scriptblock]$body) {
     Log "== $name"
     try { & $body } catch { Log "FAILED ${name}: $_" }
@@ -128,7 +137,7 @@ Scenario 'launchpad: dock button, hotkey, search, keys' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
     # Hotkey: Ctrl+Alt+Space
     Key ([byte[]](0x11, 0x12, 0x20))
-    Start-Sleep 3
+    [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-hotkey'
     Key ([byte[]](0x43))     # c
     Key ([byte[]](0x61))     # a (numpad 1 key code is not a letter; harmless)
@@ -142,7 +151,7 @@ Scenario 'launchpad: dock button, hotkey, search, keys' {
     Start-Sleep 1
     Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $script:dock.Id }))"
     & $Exe --launchpad
-    Start-Sleep 3
+    [void](Wait-Window 'Whirlpool Launchpad')
     Shot '06-launchpad-cli'
     Key ([byte[]](0x1B))
 }
@@ -172,7 +181,7 @@ Scenario 'drag motion: shadow, snap preview, settle' {
     Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
 }
 
-function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [uint32]([int]($notches * -120)), [UIntPtr]::Zero) }
+function Wheel($notches) { [U]::mouse_event(0x0800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]($notches * -120)), 0), [UIntPtr]::Zero) }
 function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
 
 Scenario 'search palette: apps, calculator, actions, clipboard' {
@@ -182,7 +191,7 @@ Scenario 'search palette: apps, calculator, actions, clipboard' {
     Set-Clipboard -Value 'meeting notes: ripple the tide'
     Start-Sleep 1
     Key ([byte[]](0x11, 0x10, 0x20))     # Ctrl+Shift+Space
-    Start-Sleep 7
+    [void](Wait-Window 'Whirlpool Search')
     Shot '08-palette-open'
     Type-Keys ([byte[]](0x43, 0x41, 0x4C))   # c a l
     Start-Sleep 2
@@ -232,3 +241,52 @@ KillAll
 & $Exe --restore 2>$null
 Copy-Item "$env:LOCALAPPDATA\Whirlpool\whirlpool.log" (Join-Path $Out 'whirlpool.log') -ErrorAction SilentlyContinue
 Log 'done'
+
+Scenario 'notification center: history, repeat folding, grouping' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    Remove-Item (Join-Path $dir 'notifications.txt') -ErrorAction SilentlyContinue
+    & $Exe --notify 'Backup finished' '12 files copied to D:\Backups'
+    & $Exe --notify 'Build succeeded' 'whirlpool 4.2.0 in 3m 12s'
+    & $Exe --notify 'Backup finished' '12 files copied to D:\Backups'
+    & $Exe --notify 'Disk almost full' 'C: has 4 GB left'
+    Start-Sleep 2
+    & $Exe --notifications
+    [void](Wait-Window 'Whirlpool Notifications')
+    Shot '11-notifications'
+    Key ([byte[]](0x1B))
+    Start-Sleep 2
+    & $Exe --notifications
+    [void](Wait-Window 'Whirlpool Notifications')
+    Shot '11-notifications-reopened'
+    Key ([byte[]](0x1B))
+}
+
+Scenario 'quick settings with an edited tile grid' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top","quickTiles":[{"kind":"wifi","size":"wide"},{"kind":"bluetooth"},{"kind":"focus"},{"kind":"display"},{"kind":"sound","size":"wide"}]}'
+    & $Exe --quick-settings ($screen.Width - 12) 40 top
+    [void](Wait-Window 'Whirlpool Quick Settings')
+    Shot '12-quick-tiles'
+    Key ([byte[]](0x1B))
+}
+
+Scenario 'hot corners: top-left opens search, top-right opens notifications' {
+    Start-Dock '{"menuBar":false,"hotCornerTopLeft":"palette","hotCornerTopRight":"notifications"}'
+    Move-Mouse 300 300; Start-Sleep 1
+    Move-Mouse 0 0
+    [void](Wait-Window 'Whirlpool Search')
+    Shot '13-corner-top-left'
+    Key ([byte[]](0x1B)); Start-Sleep 2
+    Move-Mouse 400 400; Start-Sleep 1
+    Move-Mouse ($screen.Width - 1) 0
+    [void](Wait-Window 'Whirlpool Notifications')
+    Shot '13-corner-top-right'
+    Key ([byte[]](0x1B))
+}
+
+foreach ($style in 'dark', 'clear', 'tinted') {
+    Scenario "dock icon style $style" {
+        Start-Dock "{`"menuBar`":true,`"menuBarPosition`":`"top`",`"dockIconStyle`":`"$style`"}"
+        Move-Mouse ($screen.Width / 2) 300; Start-Sleep 1
+        Shot "14-dock-$style"
+    }
+}

@@ -31,6 +31,30 @@ jobs:
           name: study-whirlpool
           path: out-whirlpool
 
+  # The same measurements on the code as it was before this branch (main), for before/after numbers.
+  baseline:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/checkout@v4
+        with:
+          path: branch
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: study-baseline
+      - run: cargo build --release -p whirlpool
+      - name: Study
+        shell: powershell
+        run: ./branch/scripts/study.ps1 -Target whirlpool -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out-baseline
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: study-baseline
+          path: out-baseline
+
   other:
     runs-on: windows-latest
     steps:
