@@ -1,3 +1,19 @@
+# Session 7 (branch `feat/session-7-design`)
+
+**Done and captured:** Start grid and quick settings redesigned (three directions each, A chosen for both), real
+frosted backdrop (`whirlpool_core::glass::frost`, tested), shared `design.rs`, Inter loaded in the Start grid (it was
+rendering in egui's default font), winget and scoop manifests (written, CI-checked, **not submitted**), OpenGL-to-DirectX
+fallback for the panels, capture driver scenarios for all of it. Bottom bar vs dock: no overlap in the x64 capture
+(`docs/captures/session7/round1-03-bar-bottom-with-dock.png`). Notch (island) opens from the top edge in the x64 capture.
+
+**Not verified:** Start grid after the round-2 tweaks (rows centred, label shadow): the round-2 runner had no OpenGL 2.0
+and the panel did not start, which led to the fallback above; it has not been captured since. The update toast: no capture
+exists. ARM64 captures of the new screens exist only for round 1 build (compiled and ran green).
+
+**Not done (blocked by the step budget of this session, not by a technical wall):** Wi-Fi/Bluetooth/volume/brightness HUDs,
+the 100/150/200% DPI pass, the Settings redesign, wallpaper crossfade and per-display sources, the copy pass, the site
+rebuild, and the release (see PR for the recommended order). Nothing has been tested on real hardware.
+
 # Status
 
 Release gate **not passed**. `4.2.0-rc4` is the intended next pre-release but is **not tagged yet** (newest tag and release: `v4.2.0-rc3`). Stable stays held back: signing is unavailable, nothing ran on a personal desktop, and the HUDs, the DPI pass and the Settings redesign are NOT DONE. PR #11 (session 5) is merged; session 6 is PR #12 (`feat/gaps-session-6`). Captures in `docs/captures/session6/` come from runner run 45403289477 (windows-latest, x64) on commit `027d24d`; they are screenshots of a running Windows Server 2025 session, not renders.
