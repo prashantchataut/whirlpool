@@ -93,6 +93,23 @@ pub struct Config {
     /// Windows being dragged get a spring settle on release, a shadow behind them and a snap
     /// preview. Windows cannot transform another program's window, so this never moves pixels of it.
     pub drag_motion: bool,
+    /// Quick settings tiles in order, each small or wide. Unknown kinds and repeats are dropped.
+    pub quick_tiles: Vec<TileSpec>,
+    /// What resting the pointer in each screen corner does (nothing by default).
+    pub hot_corner_top_left: CornerAction,
+    pub hot_corner_top_right: CornerAction,
+    pub hot_corner_bottom_left: CornerAction,
+    pub hot_corner_bottom_right: CornerAction,
+    /// Dock icon look: default, dark, clear or tinted.
+    pub dock_icon_style: IconStyle,
+    /// Colour of the tinted style, red, green, blue.
+    pub dock_icon_tint: [u8; 3],
+    /// Draw Whirlpool panels as refracting glass (needs a one-off picture of what is behind them).
+    pub glass_refraction: bool,
+    /// How strongly the glass bends the view, 0 to 100.
+    pub glass_strength: u8,
+    /// Keep a history of Whirlpool's own notifications in `notifications.txt`.
+    pub notification_history: bool,
     /// Opt-in peripheral monitoring. Off means no accessory reader or queries.
     pub accessory_battery: bool,
     /// Show search button in the menu bar (`None` follows Windows taskbar setting).
@@ -533,6 +550,158 @@ pub enum IslandStyle {
     Notch,
 }
 
+/// What a screen corner does when the pointer rests in it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CornerAction {
+    StartGrid,
+    Palette,
+    WindowOverview,
+    Notifications,
+    QuickSettings,
+    ShowDesktop,
+    LockScreen,
+    #[default]
+    #[serde(other)]
+    None,
+}
+
+impl CornerAction {
+    pub const ALL: [Self; 8] = [
+        Self::None,
+        Self::StartGrid,
+        Self::Palette,
+        Self::WindowOverview,
+        Self::Notifications,
+        Self::QuickSettings,
+        Self::ShowDesktop,
+        Self::LockScreen,
+    ];
+}
+
+/// Dock icon look.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IconStyle {
+    Dark,
+    Clear,
+    Tinted,
+    #[default]
+    #[serde(other)]
+    Default,
+}
+
+impl IconStyle {
+    pub const ALL: [Self; 4] = [Self::Default, Self::Dark, Self::Clear, Self::Tinted];
+}
+
+/// A quick settings tile kind. A kind written by a newer version reads as `Unknown` and is dropped.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TileKind {
+    Wifi,
+    Bluetooth,
+    Airplane,
+    Cast,
+    NightLight,
+    BatterySaver,
+    Focus,
+    Display,
+    Hotspot,
+    Sound,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+impl TileKind {
+    /// Every kind a user can add, in the order Add offers them.
+    pub const ALL: [Self; 10] = [
+        Self::Wifi,
+        Self::Bluetooth,
+        Self::Airplane,
+        Self::Cast,
+        Self::NightLight,
+        Self::BatterySaver,
+        Self::Focus,
+        Self::Display,
+        Self::Hotspot,
+        Self::Sound,
+    ];
+
+    /// Stable key, equal to the serialized name.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Wifi => "wifi",
+            Self::Bluetooth => "bluetooth",
+            Self::Airplane => "airplane",
+            Self::Cast => "cast",
+            Self::NightLight => "nightLight",
+            Self::BatterySaver => "batterySaver",
+            Self::Focus => "focus",
+            Self::Display => "display",
+            Self::Hotspot => "hotspot",
+            Self::Sound => "sound",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TileSize {
+    Wide,
+    #[default]
+    #[serde(other)]
+    Small,
+}
+
+/// One tile of the quick settings grid.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TileSpec {
+    pub kind: TileKind,
+    pub size: TileSize,
+}
+
+impl TileSpec {
+    /// The six tiles Whirlpool has always shown.
+    pub fn defaults() -> Vec<Self> {
+        [
+            TileKind::Wifi,
+            TileKind::Bluetooth,
+            TileKind::Airplane,
+            TileKind::Cast,
+            TileKind::NightLight,
+            TileKind::BatterySaver,
+        ]
+        .into_iter()
+        .map(|kind| Self {
+            kind,
+            size: TileSize::Small,
+        })
+        .collect()
+    }
+
+    /// Drops unknown kinds and repeats (the first one stays) and caps the grid at one of each kind.
+    pub fn cleaned(list: Vec<Self>) -> Vec<Self> {
+        let mut seen: Vec<TileKind> = Vec::new();
+        let mut out = Vec::new();
+        for tile in list {
+            if tile.kind != TileKind::Unknown && !seen.contains(&tile.kind) {
+                seen.push(tile.kind);
+                out.push(tile);
+            }
+        }
+        out
+    }
+
+    /// Column span in the grid.
+    pub fn span(self) -> usize {
+        usize::from(self.size == TileSize::Wide) + 1
+    }
+}
+
 /// Size of the dynamic island. `Classic` is what Whirlpool has always drawn; an unknown value
 /// written by a newer version reads as `Classic`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -580,6 +749,8 @@ impl Config {
         self.menu_bar_width = self.menu_bar_width.clamp(40, 100);
         self.wallpaper_every_minutes = self.wallpaper_every_minutes.clamp(1, 1440);
         self.overlay_opacity = self.overlay_opacity.clamp(30, 100);
+        self.glass_strength = self.glass_strength.min(100);
+        self.quick_tiles = TileSpec::cleaned(std::mem::take(&mut self.quick_tiles));
         self.overlay_scale = self.overlay_scale.clamp(70, 200);
         self.overlay_interval_ms = self.overlay_interval_ms.clamp(250, 5000);
         for folder in [&mut self.wallpaper_folder, &mut self.wallpaper_dark_folder] {
@@ -638,6 +809,16 @@ impl Default for Config {
             palette_hotkey: "Ctrl+Shift+Space".to_owned(),
             clipboard_history: true,
             drag_motion: true,
+            quick_tiles: TileSpec::defaults(),
+            hot_corner_top_left: CornerAction::None,
+            hot_corner_top_right: CornerAction::None,
+            hot_corner_bottom_left: CornerAction::None,
+            hot_corner_bottom_right: CornerAction::None,
+            dock_icon_style: IconStyle::Default,
+            dock_icon_tint: [47, 143, 216],
+            glass_refraction: true,
+            glass_strength: 60,
+            notification_history: true,
             accessory_battery: false,
             menu_bar_search: None,
             menu_bar_task_view: None,
@@ -1198,6 +1379,41 @@ mod tests {
         let odd: Config = serde_json::from_str(r#"{"menuBarPosition":"sideways"}"#).unwrap();
         assert_eq!(odd.menu_bar_position, BarPosition::Top);
         assert_eq!(Config::default().menu_bar_position, BarPosition::Top);
+    }
+
+    #[test]
+    fn tiles_corners_icon_style_and_glass_round_trip_and_clean() {
+        let fresh = Config::default();
+        assert_eq!(fresh.quick_tiles.len(), 6);
+        assert_eq!(fresh.hot_corner_top_left, CornerAction::None);
+        assert_eq!(fresh.dock_icon_style, IconStyle::Default);
+        assert!(fresh.glass_refraction && fresh.notification_history);
+        let config = serde_json::from_str::<Config>(
+            r#"{"quickTiles":[{"kind":"focus","size":"wide"},{"kind":"focus"},{"kind":"fromTheFuture"},{"kind":"wifi"}],
+                "hotCornerTopRight":"startGrid","hotCornerBottomLeft":"nonsense",
+                "dockIconStyle":"tinted","dockIconTint":[1,2,3],"glassStrength":250}"#,
+        )
+        .unwrap()
+        .sanitized();
+        assert_eq!(config.quick_tiles.len(), 2);
+        assert_eq!(config.quick_tiles[0].kind, TileKind::Focus);
+        assert_eq!(config.quick_tiles[0].span(), 2);
+        assert_eq!(config.quick_tiles[1].span(), 1);
+        assert_eq!(config.hot_corner_top_right, CornerAction::StartGrid);
+        assert_eq!(config.hot_corner_bottom_left, CornerAction::None);
+        assert_eq!(config.dock_icon_style, IconStyle::Tinted);
+        assert_eq!(config.dock_icon_tint, [1, 2, 3]);
+        assert_eq!(config.glass_strength, 100);
+        let text = serde_json::to_string(&config).unwrap();
+        assert_eq!(serde_json::from_str::<Config>(&text).unwrap(), config);
+    }
+
+    #[test]
+    fn tile_kind_keys_should_match_their_serialized_names() {
+        for kind in TileKind::ALL {
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(json, format!("\"{}\"", kind.key()));
+        }
     }
 
     #[test]
