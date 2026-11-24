@@ -46,6 +46,7 @@
   "launchpadSearch": "Rechercher des applications",
   "launchpadEmpty": "Aucune application ne correspond à « {query} »",
   "launchpadLoading": "Chargement des applications…",
+  "launchpadCount": "{count} applications",
   "groupLaunchpad": "Launchpad",
   "launchpadOn": "Launchpad à la place de Démarrer",
   "launchpadOnHint": "Le bouton Démarrer du dock et le raccourci ouvrent une grille d'applications plein écran avec recherche. Désactivé, le menu Démarrer de Windows s'ouvre.",

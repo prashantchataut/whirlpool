@@ -46,6 +46,7 @@
   "launchpadSearch": "Search apps",
   "launchpadEmpty": "No apps match “{query}”",
   "launchpadLoading": "Loading apps…",
+  "launchpadCount": "{count} apps",
   "groupLaunchpad": "Launchpad",
   "launchpadOn": "Launchpad instead of Start",
   "launchpadOnHint": "The dock's Start button and the hotkey open a full-screen app grid with search. Off opens the Windows Start menu.",

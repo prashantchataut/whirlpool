@@ -1,0 +1,36 @@
+{
+  "version": "4.2.0-rc4",
+  "description": "A dock that moves like water: magnifying dock, menu bar with an island, Start grid and command palette for Windows.",
+  "homepage": "https://github.com/prashantchataut/whirlpool",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc4/Whirlpool-x64.zip",
+      "hash": "d23d7c03718283b98ad841ca980fee451954759e4ef0d7d1562134bc086f9fa7"
+    },
+    "arm64": {
+      "url": "https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc4/Whirlpool-arm64.zip",
+      "hash": "c1c34d23cd09ef644e168af32cd8483941eeaf2e9605c2dc4f5a769b8cb488bc"
+    }
+  },
+  "bin": "whirlpool.exe",
+  "shortcuts": [
+    [
+      "whirlpool.exe",
+      "Whirlpool"
+    ]
+  ],
+  "checkver": {
+    "github": "https://github.com/prashantchataut/whirlpool"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/prashantchataut/whirlpool/releases/download/v$version/Whirlpool-x64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/prashantchataut/whirlpool/releases/download/v$version/Whirlpool-arm64.zip"
+      }
+    }
+  }
+}

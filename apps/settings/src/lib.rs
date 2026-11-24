@@ -6,6 +6,7 @@
 
 mod app;
 mod chrome;
+mod design;
 mod extras;
 mod glyphs;
 mod icons;

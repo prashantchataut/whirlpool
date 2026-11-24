@@ -26,16 +26,15 @@ use whirlpool_core::launchpad::{self as pad, Nav};
 use whirlpool_shell::{icons, launcher, system};
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx};
 
-use crate::text::Texts;
+use crate::{
+    chrome,
+    design::{self, Backdrop, Direction},
+    text::Texts,
+    ui,
+};
 
-/// Edge of one grid cell (icon and label) and the space between cells, in logical pixels.
-const CELL: f32 = 116.0;
-const GAP: f32 = 14.0;
-const MAX_COLUMNS: u32 = 9;
-const ICON: f32 = 64.0;
-const SEARCH_TOP: f32 = 84.0;
-const GRID_TOP: f32 = 168.0;
-const GRID_BOTTOM_MARGIN: f32 = 84.0;
+/// The design used unless `WHIRLPOOL_START_DESIGN` (a, b or c) asks for another.
+const DEFAULT_DIRECTION: Direction = Direction::A;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// The window title the dock looks for to close a running Launchpad.
 pub const TITLE: &str = "Whirlpool Launchpad";
@@ -203,11 +202,112 @@ pub(crate) fn spawn_loader(ctx: egui::Context) -> Receiver<Message> {
     receive
 }
 
+/// Geometry of one design: cell size, icon size and where the search field and grid sit.
+#[derive(Clone, Copy)]
+struct Metrics {
+    cell: f32,
+    gap: f32,
+    max_columns: u32,
+    icon: f32,
+    search_w: f32,
+    search_h: f32,
+}
+
+fn metrics(direction: Direction) -> Metrics {
+    match direction {
+        Direction::A => Metrics {
+            cell: 136.0,
+            gap: 10.0,
+            max_columns: 8,
+            icon: 80.0,
+            search_w: 580.0,
+            search_h: 58.0,
+        },
+        Direction::B => Metrics {
+            cell: 132.0,
+            gap: 16.0,
+            max_columns: 8,
+            icon: 62.0,
+            search_w: 520.0,
+            search_h: 54.0,
+        },
+        Direction::C => Metrics {
+            cell: 120.0,
+            gap: 8.0,
+            max_columns: 8,
+            icon: 64.0,
+            search_w: 400.0,
+            search_h: 46.0,
+        },
+    }
+}
+
+/// Where everything sits for one frame, in window points.
+struct Layout {
+    search: Rect,
+    area: pad::Rect,
+    dots_y: f32,
+    sheet: Option<Rect>,
+}
+
+fn layout(direction: Direction, m: &Metrics, full: Rect) -> Layout {
+    let (width, height) = (full.width(), full.height());
+    match direction {
+        Direction::A | Direction::B => {
+            let search_y = if direction == Direction::A {
+                96.0
+            } else {
+                92.0
+            };
+            let top = search_y + m.search_h / 2.0 + 44.0;
+            Layout {
+                search: Rect::from_center_size(
+                    pos2(width / 2.0, search_y),
+                    vec2(m.search_w, m.search_h),
+                ),
+                area: pad::Rect {
+                    x: width * 0.07,
+                    y: top,
+                    w: width * 0.86,
+                    h: (height - top - 84.0).max(2.0 * m.cell),
+                },
+                dots_y: height - 42.0,
+                sheet: None,
+            }
+        }
+        Direction::C => {
+            let sheet = Rect::from_center_size(
+                pos2(width / 2.0, height / 2.0),
+                vec2(
+                    (width * 0.86).min(1240.0),
+                    (height - 96.0).max(3.0 * m.cell),
+                ),
+            );
+            Layout {
+                search: Rect::from_min_size(
+                    pos2(sheet.left() + 36.0, sheet.top() + 28.0),
+                    vec2(m.search_w, m.search_h),
+                ),
+                area: pad::Rect {
+                    x: sheet.left() - full.left() + 36.0,
+                    y: sheet.top() - full.top() + 112.0,
+                    w: sheet.width() - 72.0,
+                    h: (sheet.height() - 112.0 - 60.0).max(2.0 * m.cell),
+                },
+                dots_y: sheet.bottom() - 30.0,
+                sheet: Some(sheet),
+            }
+        }
+    }
+}
+
 struct Launchpad {
     apps: Vec<App>,
     icons: HashMap<String, TextureHandle>,
     messages: Receiver<Message>,
     texts: Texts,
+    direction: Direction,
+    backdrop: Backdrop,
     query: String,
     last_query: String,
     /// Indices into `apps`, best match first.
@@ -218,12 +318,14 @@ struct Launchpad {
     swipe: f32,
     scroll: f32,
     started: Instant,
+    /// When the tiles began arriving: the first moment there was something to show.
+    revealed: Option<Instant>,
     focused_once: bool,
     frames: u32,
 }
 
 impl Launchpad {
-    fn new(ctx: &egui::Context) -> Self {
+    fn new(ctx: &egui::Context, backdrop: Backdrop) -> Self {
         let language = whirlpool_config::load(&whirlpool_config::default_path())
             .ok()
             .flatten()
@@ -234,6 +336,8 @@ impl Launchpad {
             icons: HashMap::new(),
             messages: spawn_loader(ctx.clone()),
             texts: Texts::for_language(language),
+            direction: Direction::from_env("WHIRLPOOL_START_DESIGN", DEFAULT_DIRECTION),
+            backdrop,
             query: String::new(),
             last_query: String::new(),
             shown: Vec::new(),
@@ -242,6 +346,7 @@ impl Launchpad {
             swipe: 0.0,
             scroll: 0.0,
             started: Instant::now(),
+            revealed: None,
             focused_once: false,
             frames: 0,
         }
@@ -296,42 +401,35 @@ fn placeholder_color(name: &str) -> Color32 {
     Color32::from_rgb(channel(0), channel(8), channel(16))
 }
 
-fn draw_slot(
-    painter: &egui::Painter,
-    rect: Rect,
-    app: &App,
-    icon: Option<&TextureHandle>,
-    selected: bool,
-) {
-    if selected {
-        painter.rect_filled(rect, CornerRadius::same(18), Color32::from_white_alpha(30));
-        painter.rect_stroke(
-            rect,
-            CornerRadius::same(18),
-            Stroke::new(1.5, Color32::from_rgb(0x9f, 0xf0, 0xe6)),
-            StrokeKind::Inside,
-        );
-    }
-    let icon_rect = Rect::from_center_size(
-        pos2(rect.center().x, rect.top() + 12.0 + ICON / 2.0),
-        vec2(ICON, ICON),
-    );
-    match icon {
+/// What one tile needs to be drawn this frame.
+struct Slot<'a> {
+    app: &'a App,
+    icon: Option<&'a TextureHandle>,
+    /// 0..=1: how selected it is (eased, so the highlight glides rather than jumps).
+    lift: f32,
+    /// 0..=1 entrance progress (1 when settled or when motion is off).
+    enter: f32,
+}
+
+fn paint_icon(painter: &egui::Painter, rect: Rect, slot: &Slot<'_>) {
+    match slot.icon {
         Some(texture) => {
             painter.image(
                 texture.id(),
-                icon_rect,
+                rect,
                 Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 Color32::WHITE,
             );
         }
         None => {
+            let radius = (rect.width() * 0.24) as u8;
             painter.rect_filled(
-                icon_rect,
-                CornerRadius::same(15),
-                placeholder_color(&app.name),
+                rect,
+                CornerRadius::same(radius),
+                placeholder_color(&slot.app.name),
             );
-            let letter = app
+            let letter = slot
+                .app
                 .name
                 .chars()
                 .next()
@@ -339,21 +437,180 @@ fn draw_slot(
                 .to_uppercase()
                 .to_string();
             painter.text(
-                icon_rect.center(),
+                rect.center(),
                 Align2::CENTER_CENTER,
                 letter,
-                FontId::proportional(28.0),
-                Color32::from_white_alpha(230),
+                ui::heading(rect.width() * 0.42),
+                Color32::from_white_alpha(235),
             );
         }
     }
-    painter.text(
-        pos2(rect.center().x, icon_rect.bottom() + 10.0),
-        Align2::CENTER_TOP,
-        short(&app.name, 15),
-        FontId::proportional(13.0),
-        Color32::from_white_alpha(if selected { 255 } else { 225 }),
-    );
+}
+
+fn draw_slot(
+    painter: &egui::Painter,
+    base_opacity: f32,
+    rect: Rect,
+    slot: &Slot<'_>,
+    m: &Metrics,
+    direction: Direction,
+) {
+    // Entrance: rises 20 points while fading in, and the icon settles from 90% with a small
+    // overshoot. Position and fade share one expo curve; the scale gets the spring.
+    let rise = design::out_expo(slot.enter);
+    let spring = design::out_back(slot.enter);
+    let mut painter = painter.clone();
+    painter.set_opacity(base_opacity * rise);
+    let rect = rect.translate(vec2(0.0, (1.0 - rise) * 20.0));
+    let scale = (0.9 + 0.1 * spring) * (1.0 + 0.06 * slot.lift);
+    let label_color = design::mix(Color32::from_white_alpha(222), Color32::WHITE, slot.lift);
+    match direction {
+        Direction::A => {
+            if slot.lift > 0.0 {
+                let bubble = CornerRadius::same(28);
+                painter.rect_filled(
+                    rect,
+                    bubble,
+                    Color32::from_white_alpha((26.0 * slot.lift) as u8),
+                );
+                painter.rect_stroke(
+                    rect,
+                    bubble,
+                    Stroke::new(1.0, Color32::from_white_alpha((64.0 * slot.lift) as u8)),
+                    StrokeKind::Inside,
+                );
+            }
+            let side = (m.icon + 14.0) * scale;
+            let plate = Rect::from_center_size(
+                pos2(
+                    rect.center().x,
+                    rect.top() + 14.0 + (m.icon + 14.0) / 2.0 - 3.0 * slot.lift,
+                ),
+                vec2(side, side),
+            );
+            design::drop_shadow(&painter, plate, 24, 20, 8, 70);
+            painter.rect_filled(plate, CornerRadius::same(24), Color32::from_white_alpha(34));
+            painter.rect_stroke(
+                plate,
+                CornerRadius::same(24),
+                Stroke::new(1.0, Color32::from_white_alpha(48)),
+                StrokeKind::Inside,
+            );
+            paint_icon(&painter, plate.shrink(side * 0.1), slot);
+            painter.text(
+                pos2(rect.center().x, plate.bottom() + 14.0),
+                Align2::CENTER_TOP,
+                short(&slot.app.name, 16),
+                ui::heading(13.5),
+                label_color,
+            );
+        }
+        Direction::B => {
+            let card = CornerRadius::same(26);
+            design::drop_shadow(
+                &painter,
+                rect,
+                26,
+                (22.0 + 10.0 * slot.lift) as u8,
+                10,
+                (60.0 + 40.0 * slot.lift) as u8,
+            );
+            painter.rect_filled(
+                rect,
+                card,
+                Color32::from_white_alpha((20.0 + 16.0 * slot.lift) as u8),
+            );
+            painter.rect_stroke(
+                rect,
+                card,
+                Stroke::new(
+                    1.0 + 0.5 * slot.lift,
+                    design::mix(Color32::from_white_alpha(34), design::TEAL, slot.lift),
+                ),
+                StrokeKind::Inside,
+            );
+            let side = m.icon * scale;
+            let icon_rect = Rect::from_center_size(
+                pos2(rect.center().x, rect.top() + 18.0 + m.icon / 2.0),
+                vec2(side, side),
+            );
+            paint_icon(&painter, icon_rect, slot);
+            painter.text(
+                pos2(rect.center().x, rect.bottom() - 18.0),
+                Align2::CENTER_CENTER,
+                short(&slot.app.name, 15),
+                ui::heading(12.5),
+                label_color,
+            );
+        }
+        Direction::C => {
+            if slot.lift > 0.0 {
+                let bubble = CornerRadius::same(18);
+                painter.rect_filled(rect, bubble, design::TEAL.gamma_multiply(0.22 * slot.lift));
+                painter.rect_stroke(
+                    rect,
+                    bubble,
+                    Stroke::new(1.5, design::TEAL.gamma_multiply(0.8 * slot.lift)),
+                    StrokeKind::Inside,
+                );
+            }
+            let side = m.icon * scale;
+            let icon_rect = Rect::from_center_size(
+                pos2(rect.center().x, rect.top() + 14.0 + m.icon / 2.0),
+                vec2(side, side),
+            );
+            design::drop_shadow(&painter, icon_rect.shrink(8.0), 16, 14, 6, 56);
+            paint_icon(&painter, icon_rect, slot);
+            painter.text(
+                pos2(rect.center().x, icon_rect.bottom() + 12.0),
+                Align2::CENTER_TOP,
+                short(&slot.app.name, 15),
+                ui::heading(12.5),
+                label_color,
+            );
+        }
+    }
+}
+
+/// The search field's frame, magnifier and the key hint.
+fn paint_search(painter: &egui::Painter, rect: Rect, direction: Direction, empty: bool) {
+    let radius = match direction {
+        Direction::A => (rect.height() / 2.0) as u8,
+        Direction::B => 18,
+        Direction::C => 14,
+    };
+    let corner = CornerRadius::same(radius);
+    if direction != Direction::C {
+        design::drop_shadow(painter, rect, radius, 26, 10, 80);
+    }
+    let (fill, line) = match direction {
+        Direction::A => (Color32::from_white_alpha(40), Color32::from_white_alpha(70)),
+        Direction::B => (Color32::from_black_alpha(96), Color32::from_white_alpha(36)),
+        Direction::C => (Color32::from_white_alpha(18), Color32::from_white_alpha(34)),
+    };
+    painter.rect_filled(rect, corner, fill);
+    painter.rect_stroke(rect, corner, Stroke::new(1.0, line), StrokeKind::Inside);
+    let stroke = Stroke::new(1.9, Color32::from_white_alpha(190));
+    let glass = pos2(rect.left() + 26.0, rect.center().y - 1.5);
+    painter.circle_stroke(glass, 6.8, stroke);
+    painter.line_segment([glass + vec2(5.0, 5.0), glass + vec2(10.5, 10.5)], stroke);
+    if empty {
+        let chip =
+            Rect::from_center_size(pos2(rect.right() - 36.0, rect.center().y), vec2(42.0, 24.0));
+        painter.rect_stroke(
+            chip,
+            CornerRadius::same(7),
+            Stroke::new(1.0, Color32::from_white_alpha(80)),
+            StrokeKind::Inside,
+        );
+        painter.text(
+            chip.center(),
+            Align2::CENTER_CENTER,
+            "Esc",
+            ui::heading(11.0),
+            Color32::from_white_alpha(170),
+        );
+    }
 }
 
 impl eframe::App for Launchpad {
@@ -375,6 +632,9 @@ impl eframe::App for Launchpad {
                 Message::Apps(apps) => {
                     self.apps = apps;
                     apps_changed = true;
+                    if self.revealed.is_none() && !self.apps.is_empty() {
+                        self.revealed = Some(Instant::now());
+                    }
                 }
                 Message::Icon(id, image) => {
                     let texture = ctx.load_texture(&id, image, TextureOptions::LINEAR);
@@ -396,13 +656,10 @@ impl eframe::App for Launchpad {
 
         let full = ui.max_rect();
         let (width, height) = (full.width(), full.height());
-        let area = pad::Rect {
-            x: width * 0.07,
-            y: GRID_TOP,
-            w: width * 0.86,
-            h: (height - GRID_TOP - GRID_BOTTOM_MARGIN).max(2.0 * CELL),
-        };
-        let grid = pad::fit(area.w, area.h, CELL, GAP, MAX_COLUMNS);
+        let m = metrics(self.direction);
+        let lay = layout(self.direction, &m, full);
+        let area = lay.area;
+        let grid = pad::fit(area.w, area.h, m.cell, m.gap, m.max_columns);
         let count = self.shown.len();
         let pages = pad::page_count(count, grid);
         self.page = self.page.min(pages - 1);
@@ -458,7 +715,8 @@ impl eframe::App for Launchpad {
             }
         }
 
-        // Open: a short fade, none when Windows asks for reduced motion.
+        // Open: the blur fades in over 160 ms (nothing when Windows asks for reduced motion) and
+        // the tiles rise in a diagonal stagger after it.
         let reduced = !system::animations_enabled();
         let appear = if reduced {
             1.0
@@ -466,11 +724,43 @@ impl eframe::App for Launchpad {
             ctx.animate_value_with_time(ui.make_persistent_id("appear"), 1.0, 0.16)
         };
         ui.set_opacity(appear);
-        ui.painter().rect_filled(
+        let painter = ui.painter().clone();
+        self.backdrop.paint(
+            &painter,
             full,
-            CornerRadius::ZERO,
-            Color32::from_rgba_unmultiplied(8, 12, 20, 214),
+            Color32::from_rgba_unmultiplied(6, 16, 27, 150),
+            Color32::from_rgba_unmultiplied(8, 16, 26, 238),
         );
+        // Depth: the water darkens toward the bottom edge.
+        design::vertical_gradient(
+            &painter,
+            full,
+            Color32::from_rgba_unmultiplied(4, 24, 36, 0),
+            Color32::from_rgba_unmultiplied(3, 12, 22, 120),
+        );
+        if let Some(sheet) = lay.sheet {
+            design::drop_shadow(&painter, sheet, 34, 60, 22, 150);
+            painter.rect_filled(
+                sheet,
+                CornerRadius::same(34),
+                Color32::from_rgba_unmultiplied(10, 26, 40, 176),
+            );
+            painter.rect_stroke(
+                sheet,
+                CornerRadius::same(34),
+                Stroke::new(1.0, Color32::from_white_alpha(40)),
+                StrokeKind::Inside,
+            );
+            painter.text(
+                pos2(sheet.right() - 40.0, lay.search.center().y),
+                Align2::RIGHT_CENTER,
+                self.texts
+                    .get("launchpadCount")
+                    .replace("{count}", &count.to_string()),
+                ui::heading(13.0),
+                Color32::from_white_alpha(150),
+            );
+        }
 
         // Background: swipe to turn a page, click on nothing to close.
         let background = ui.interact(full, ui.id().with("background"), Sense::click_and_drag());
@@ -489,9 +779,16 @@ impl eframe::App for Launchpad {
         let pointer = ctx.input(|input| input.pointer.hover_pos());
         let moved = ctx.input(|input| input.pointer.delta().length() > 0.0);
         let hovered = pointer.and_then(|at| {
-            pad::hit(grid, area, CELL, GAP, at.x - full.left(), at.y - full.top())
-                .map(|slot| self.page * grid.per_page() + slot)
-                .filter(|&position| position < count)
+            pad::hit(
+                grid,
+                area,
+                m.cell,
+                m.gap,
+                at.x - full.left(),
+                at.y - full.top(),
+            )
+            .map(|slot| self.page * grid.per_page() + slot)
+            .filter(|&position| position < count)
         });
         if moved && let Some(position) = hovered {
             self.selected = position;
@@ -500,13 +797,11 @@ impl eframe::App for Launchpad {
             match hovered {
                 Some(position) => self.launch(&ctx, position),
                 None => {
-                    let over_search = background.interact_pointer_pos().is_some_and(|at| {
-                        at.y < GRID_TOP - 20.0 && (at.x - width / 2.0).abs() < 230.0
-                    });
-                    let over_dots = background
-                        .interact_pointer_pos()
-                        .is_some_and(|at| at.y > height - GRID_BOTTOM_MARGIN + 20.0);
-                    if !over_search && !over_dots {
+                    let at = background.interact_pointer_pos();
+                    let over_search = at.is_some_and(|at| lay.search.expand(12.0).contains(at));
+                    let over_dots = at.is_some_and(|at| (at.y - lay.dots_y).abs() < 16.0);
+                    let over_sheet = at.is_some_and(|at| lay.sheet.is_some_and(|s| s.contains(at)));
+                    if !over_search && !over_dots && !over_sheet {
                         Self::close(&ctx);
                     }
                 }
@@ -519,7 +814,15 @@ impl eframe::App for Launchpad {
         } else {
             ctx.animate_value_with_time(ui.id().with("page"), self.page as f32, 0.22)
         };
-        let painter = ui.painter().clone();
+        let since_reveal = self
+            .revealed
+            .map_or(0.0, |at| at.elapsed().as_secs_f32())
+            .max(0.0);
+        let entering =
+            !reduced && self.revealed.is_some() && design::entrance_running(since_reveal);
+        if entering {
+            ctx.request_repaint();
+        }
         let first = position.floor().max(0.0) as usize;
         for page in [first, first + 1] {
             if page >= pages {
@@ -530,15 +833,35 @@ impl eframe::App for Launchpad {
                 continue;
             }
             for (slot, item) in pad::page_range(page, count, grid).enumerate() {
-                let rect = to_rect(pad::slot_rect(grid, area, CELL, GAP, slot), offset)
+                let rect = to_rect(pad::slot_rect(grid, area, m.cell, m.gap, slot), offset)
                     .translate(full.min.to_vec2());
                 let app = &self.apps[self.shown[item]];
+                let selected = item == self.selected && page == self.page;
+                let lift = if reduced {
+                    f32::from(selected)
+                } else {
+                    ctx.animate_bool_with_time(ui.id().with(("lift", item)), selected, 0.14)
+                };
+                let order = slot as u32 / grid.columns + slot as u32 % grid.columns;
+                let enter = if reduced || page != self.page {
+                    1.0
+                } else if self.revealed.is_none() {
+                    0.0
+                } else {
+                    design::stagger(since_reveal, order as usize, 0.034, 0.34)
+                };
                 draw_slot(
                     &painter,
+                    appear,
                     rect,
-                    app,
-                    self.icons.get(&app.id),
-                    item == self.selected && page == self.page,
+                    &Slot {
+                        app,
+                        icon: self.icons.get(&app.id),
+                        lift,
+                        enter,
+                    },
+                    &m,
+                    self.direction,
                 );
             }
         }
@@ -554,70 +877,67 @@ impl eframe::App for Launchpad {
                 pos2(width / 2.0, height / 2.0),
                 Align2::CENTER_CENTER,
                 message,
-                FontId::proportional(18.0),
-                Color32::from_white_alpha(170),
+                ui::heading(18.0),
+                Color32::from_white_alpha(190),
             );
         }
 
-        // Page dots.
+        // Page dots: the current page is a longer pill, so it reads without relying on colour.
         if pages > 1 {
-            let spacing = 22.0;
+            let spacing = 20.0;
             let left = width / 2.0 - spacing * (pages as f32 - 1.0) / 2.0;
             for page in 0..pages {
-                let center = pos2(
-                    left + spacing * page as f32,
-                    height - GRID_BOTTOM_MARGIN / 2.0,
-                );
+                let center = pos2(left + spacing * page as f32, lay.dots_y);
                 let hit = Rect::from_center_size(center, vec2(spacing, spacing));
                 let response = ui.interact(hit, ui.id().with(("dot", page)), Sense::click());
                 if response.clicked() {
                     self.go_to_page(page, grid);
                 }
                 let active = page == self.page;
-                painter.circle_filled(
+                let dot = Rect::from_center_size(
                     center,
-                    if active { 4.5 } else { 3.5 },
-                    Color32::from_white_alpha(if active { 235 } else { 90 }),
+                    if active {
+                        vec2(16.0, 7.0)
+                    } else {
+                        vec2(7.0, 7.0)
+                    },
+                );
+                painter.rect_filled(
+                    dot,
+                    CornerRadius::same(4),
+                    if active {
+                        Color32::from_white_alpha(240)
+                    } else {
+                        Color32::from_white_alpha(96)
+                    },
                 );
             }
         }
 
-        // Search: a pill at the top that always has the focus, so typing just works.
-        let search = Rect::from_center_size(pos2(width / 2.0, SEARCH_TOP), vec2(440.0, 46.0));
-        painter.rect_filled(
-            search,
-            CornerRadius::same(23),
-            Color32::from_white_alpha(26),
-        );
-        painter.rect_stroke(
-            search,
-            CornerRadius::same(23),
-            Stroke::new(1.0, Color32::from_white_alpha(52)),
-            StrokeKind::Inside,
-        );
-        let glass = pos2(search.left() + 25.0, search.center().y - 1.0);
-        painter.circle_stroke(glass, 6.5, Stroke::new(1.8, Color32::from_white_alpha(170)));
-        painter.line_segment(
-            [glass + vec2(4.8, 4.8), glass + vec2(10.0, 10.0)],
-            Stroke::new(1.8, Color32::from_white_alpha(170)),
-        );
+        // Search: a field that always has the focus, so typing just works.
+        paint_search(&painter, lay.search, self.direction, self.query.is_empty());
         let edit_rect = Rect::from_min_max(
-            pos2(search.left() + 48.0, search.top() + 6.0),
-            pos2(search.right() - 18.0, search.bottom() - 6.0),
+            pos2(lay.search.left() + 50.0, lay.search.top() + 6.0),
+            pos2(lay.search.right() - 74.0, lay.search.bottom() - 6.0),
         );
+        let size = if self.direction == Direction::A {
+            20.0
+        } else {
+            18.0
+        };
         if self.query.is_empty() {
             // Painted here rather than as the field's hint: the hint colour follows the theme's weak
-            // text, which is nearly invisible on this dark backdrop.
+            // text, which is nearly invisible on a dark backdrop.
             painter.text(
                 pos2(edit_rect.left() + 2.0, edit_rect.center().y),
-                egui::Align2::LEFT_CENTER,
+                Align2::LEFT_CENTER,
                 self.texts.get("launchpadSearch"),
-                FontId::proportional(18.0),
-                Color32::from_white_alpha(165),
+                FontId::proportional(size),
+                Color32::from_white_alpha(180),
             );
         }
         let edit = egui::TextEdit::singleline(&mut self.query)
-            .font(FontId::proportional(18.0))
+            .font(FontId::proportional(size))
             .frame(egui::Frame::NONE)
             .desired_width(edit_rect.width())
             .text_color(Color32::WHITE);
@@ -635,18 +955,24 @@ pub fn run(compat: bool) -> eframe::Result {
         .with_resizable(false)
         .with_always_on_top()
         .with_taskbar(false);
+    // A picture of the screen, taken before the window exists, so the panel can show it blurred.
+    let mut shot = None;
+    let mut factor = 4;
     viewport = match system::primary_monitor() {
         Some(monitor) => {
             let scale = monitor.scale.max(1.0);
+            let (w, h) = (
+                monitor.screen.right - monitor.screen.left,
+                monitor.screen.bottom - monitor.screen.top,
+            );
+            shot = chrome::capture(monitor.screen.left, monitor.screen.top, w, h);
+            factor = (w / 480).max(2) as usize;
             viewport
                 .with_position([
                     monitor.screen.left as f32 / scale,
                     monitor.screen.top as f32 / scale,
                 ])
-                .with_inner_size([
-                    (monitor.screen.right - monitor.screen.left) as f32 / scale,
-                    (monitor.screen.bottom - monitor.screen.top) as f32 / scale,
-                ])
+                .with_inner_size([w as f32 / scale, h as f32 / scale])
         }
         None => viewport.with_fullscreen(true),
     };
@@ -662,7 +988,11 @@ pub fn run(compat: bool) -> eframe::Result {
     eframe::run_native(
         TITLE,
         options,
-        Box::new(|creation| Ok(Box::new(Launchpad::new(&creation.egui_ctx)))),
+        Box::new(move |creation| {
+            ui::install_theme(&creation.egui_ctx);
+            let backdrop = Backdrop::new(&creation.egui_ctx, shot, factor, 5);
+            Ok(Box::new(Launchpad::new(&creation.egui_ctx, backdrop)))
+        }),
     )
 }
 
