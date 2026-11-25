@@ -507,8 +507,11 @@ impl Quick {
         let (speaker, track, inset) = match dir {
             Direction::A => (
                 Rect::from_center_size(pos2(well.left() + 26.0, well.center().y), vec2(36.0, 36.0)),
-                well,
-                well.height() / 2.0,
+                Rect::from_min_max(
+                    pos2(well.left() + 54.0, well.top()),
+                    pos2(well.right() - 58.0, well.bottom()),
+                ),
+                design::SLIDER_INSET,
             ),
             Direction::B => (
                 Rect::from_center_size(pos2(well.left() + 24.0, well.center().y), vec2(36.0, 36.0)),
@@ -598,51 +601,31 @@ impl Quick {
             Direction::A => {
                 let h = well.height();
                 let corner = CornerRadius::same((h / 2.0) as u8);
-                painter.rect_filled(well, corner, Color32::from_white_alpha(26));
+                painter.rect_filled(well, corner, Color32::from_white_alpha(18));
                 painter.rect_stroke(
                     well,
                     corner,
-                    Stroke::new(1.0, Color32::from_white_alpha(36)),
+                    Stroke::new(1.0, Color32::from_white_alpha(30)),
                     StrokeKind::Inside,
                 );
-                // The water level: never narrower than the capsule is tall, so the icon always
-                // sits on the fill.
-                let fill_w = h + (well.width() - h) * shown;
-                let fill = Rect::from_min_size(well.min, vec2(fill_w, h));
-                let fill_color = if silent {
-                    Color32::from_white_alpha(46)
+                painter.circle_filled(
+                    speaker.center(),
+                    18.0,
+                    Color32::from_white_alpha((24.0 + 24.0 * speaker_hover) as u8),
+                );
+                icons::paint(&painter, speaker.shrink(8.0), glyph, look.text);
+                let accent = if silent {
+                    Color32::from_white_alpha(70)
                 } else {
                     blend(look.accent, Color32::WHITE, 0.10 * held)
                 };
-                painter.rect_filled(fill, corner, fill_color);
-                if !silent {
-                    // A bright edge where the water meets the air.
-                    painter.line_segment(
-                        [
-                            pos2(fill.right() - 6.0, fill.top() + 12.0),
-                            pos2(fill.right() - 6.0, fill.bottom() - 12.0),
-                        ],
-                        Stroke::new(2.5, look.on_accent.gamma_multiply(0.35 + 0.3 * held)),
-                    );
-                }
-                let ink = if silent { look.text } else { look.on_accent };
-                icons::paint(
-                    &painter,
-                    speaker.shrink(7.0 - 1.5 * speaker_hover),
-                    glyph,
-                    ink,
-                );
-                let covered = fill.right() > well.right() - 52.0;
+                design::slider(&painter, track, shown, accent, held);
                 painter.text(
-                    pos2(well.right() - 20.0, well.center().y),
+                    pos2(well.right() - 18.0, well.center().y),
                     Align2::RIGHT_CENTER,
                     percent.to_string(),
                     ui::heading(14.0),
-                    if covered && !silent {
-                        look.on_accent
-                    } else {
-                        look.text
-                    },
+                    look.text,
                 );
             }
             Direction::B => {
@@ -750,7 +733,9 @@ fn tile(
     let rise = design::out_expo(look.enter);
     let spring = design::out_back(look.enter);
     let mut painter = ui.painter().clone();
-    painter.set_opacity(look.opacity * rise);
+    // Three states, not two: on (accent), off (glass), unavailable (the same glass, dimmed).
+    let unavailable = sub.starts_with("Not available");
+    painter.set_opacity(look.opacity * rise * if unavailable { 0.55 } else { 1.0 });
     let mut rect = rect.translate(vec2(0.0, (1.0 - rise) * 14.0));
     let grow = 0.94 + 0.06 * spring;
     rect = Rect::from_center_size(rect.center(), rect.size() * grow);
@@ -808,6 +793,12 @@ fn tile(
                 ),
             );
             icons::paint(&painter, badge.shrink(8.0), icon, ink);
+            // The state again as a shape, so it does not rest on colour alone.
+            painter.circle_filled(
+                pos2(rect.right() - 16.0, rect.top() + 16.0),
+                3.5,
+                blend(Color32::from_white_alpha(46), look.on_accent, active),
+            );
             let text_x = badge.right() + 10.0;
             painter.text(
                 pos2(text_x, rect.center().y - 9.0),
@@ -1001,8 +992,14 @@ fn ghost(ui: &mut Ui, look: &Look, right: f32, mid: f32, label: &str) -> (Respon
     );
     ui.painter().rect_filled(
         rect,
-        CornerRadius::same(10),
-        look.text.gamma_multiply(0.08 * hover),
+        CornerRadius::same(15),
+        look.text.gamma_multiply(0.06 + 0.08 * hover),
+    );
+    ui.painter().rect_stroke(
+        rect,
+        CornerRadius::same(15),
+        Stroke::new(1.0, look.text.gamma_multiply(0.18 + 0.2 * hover)),
+        StrokeKind::Inside,
     );
     if response.has_focus() {
         ui.painter().rect_stroke(
@@ -1017,7 +1014,7 @@ fn ghost(ui: &mut Ui, look: &Look, right: f32, mid: f32, label: &str) -> (Respon
         Align2::CENTER_CENTER,
         label,
         FontId::proportional(12.5),
-        look.accent_ink,
+        look.text,
     );
     (response, rect.left() - 4.0)
 }
