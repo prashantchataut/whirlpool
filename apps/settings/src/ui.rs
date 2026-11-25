@@ -283,6 +283,98 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     response
 }
 
+/// The slider every numeric setting uses. A rounded rail with an accent fill, a
+/// white knob that grows under the pointer, a focus ring, arrow keys, and the
+/// value in a chip on its left (rows lay their control out right to left).
+pub fn slider<N: egui::emath::Numeric>(
+    ui: &mut Ui,
+    value: &mut N,
+    range: std::ops::RangeInclusive<N>,
+    suffix: &str,
+) -> Response {
+    let palette = Palette::of(ui);
+    let (lo, hi) = (range.start().to_f64(), range.end().to_f64());
+    let span = (hi - lo).max(f64::EPSILON);
+    let rail_width = ui.spacing().slider_width;
+    let (rect, mut response) =
+        ui.allocate_exact_size(vec2(rail_width, 28.0), Sense::click_and_drag());
+    let reach = 11.0;
+    let (x0, x1) = (rect.left() + reach, rect.right() - reach);
+    let mut current = value.to_f64().clamp(lo, hi);
+    let mut next = current;
+    if response.is_pointer_button_down_on()
+        && let Some(pos) = response.interact_pointer_pos()
+    {
+        let t = f64::from(((pos.x - x0) / (x1 - x0)).clamp(0.0, 1.0));
+        next = lo + t * span;
+    }
+    if response.has_focus() {
+        let step = if N::INTEGRAL { 1.0 } else { span / 100.0 };
+        let keys = ui.input(|input| {
+            i32::from(
+                input.key_pressed(egui::Key::ArrowRight) || input.key_pressed(egui::Key::ArrowUp),
+            ) - i32::from(
+                input.key_pressed(egui::Key::ArrowLeft) || input.key_pressed(egui::Key::ArrowDown),
+            )
+        });
+        next += f64::from(keys) * step;
+    }
+    let next = if N::INTEGRAL { next.round() } else { next }.clamp(lo, hi);
+    if (next - current).abs() > f64::EPSILON {
+        *value = N::from_f64(next);
+        current = next;
+        response.mark_changed();
+    }
+    let lit = response.hovered() || response.dragged() || response.has_focus();
+    let grow = ui.ctx().animate_bool_with_time(response.id, lit, 0.12);
+    let t = ((current - lo) / span) as f32;
+    let knob = pos2(egui::lerp(x0..=x1, t), rect.center().y);
+    let rail = Rect::from_center_size(rect.center(), vec2(x1 - x0 + 2.0 * reach - 6.0, 6.0));
+    let painter = ui.painter();
+    painter.rect_filled(rail, CornerRadius::same(3), palette.track);
+    let filled = Rect::from_min_max(rail.min, pos2(knob.x, rail.max.y));
+    painter.rect_filled(filled, CornerRadius::same(3), ACCENT);
+    let radius = 8.5 + 1.5 * grow;
+    painter.circle_filled(
+        knob + vec2(0.0, 2.0),
+        radius + 3.0,
+        Color32::from_black_alpha(26),
+    );
+    painter.circle_filled(
+        knob + vec2(0.0, 1.0),
+        radius + 1.2,
+        Color32::from_black_alpha(36),
+    );
+    painter.circle_filled(knob, radius, Color32::WHITE);
+    painter.circle_stroke(knob, radius - 1.0, Stroke::new(2.0, ACCENT));
+    if response.has_focus() {
+        painter.circle_stroke(
+            knob,
+            radius + 4.0,
+            Stroke::new(2.0, ACCENT.gamma_multiply(0.55)),
+        );
+    }
+    let text = if N::INTEGRAL {
+        format!("{}{suffix}", current.round() as i64)
+    } else {
+        format!("{current:.1}{suffix}")
+    };
+    let (chip, _) = ui.allocate_exact_size(vec2(64.0, 24.0), Sense::hover());
+    ui.painter().rect_filled(
+        chip,
+        CornerRadius::same(12),
+        palette.border.gamma_multiply(0.55),
+    );
+    ui.painter().text(
+        chip.center(),
+        Align2::CENTER_CENTER,
+        text,
+        FontId::proportional(12.5),
+        palette.text,
+    );
+    response
+}
+
 /// A toggle row: the whole thing in one call.
 pub fn toggle_row(ui: &mut Ui, label: &str, hint: Option<&str>, value: &mut bool) {
     row(ui, label, hint, 60.0, |ui| {

@@ -637,7 +637,7 @@ pub fn glass_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         ui::divider(ui);
         let mut strength = i32::from(config.glass_strength);
         ui::row(ui, t.get("glassStrength"), None, 220.0, |ui| {
-            ui.add(egui::Slider::new(&mut strength, 0..=100));
+            ui::slider(ui, &mut strength, 0..=100, "");
         });
         config.glass_strength = strength.clamp(0, 100) as u8;
         ui.add_space(8.0);

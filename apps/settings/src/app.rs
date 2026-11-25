@@ -1247,12 +1247,11 @@ impl Settings {
             ui::visual_choices(ui, &mut config.dock_position, &backdrop, &options);
             ui::divider(ui);
             ui::row(ui, t.get("size"), None, 280.0, |ui| {
-                ui.add(
-                    egui::Slider::new(
-                        &mut config.icon_size,
-                        whirlpool_config::ICON_SIZE_RANGE.0..=whirlpool_config::ICON_SIZE_RANGE.1,
-                    )
-                    .suffix(" px"),
+                ui::slider(
+                    ui,
+                    &mut config.icon_size,
+                    whirlpool_config::ICON_SIZE_RANGE.0..=whirlpool_config::ICON_SIZE_RANGE.1,
+                    " px",
                 );
             });
             ui::divider(ui);
@@ -1266,12 +1265,11 @@ impl Settings {
                 ui::divider(ui);
                 let low = config.icon_size;
                 ui::row(ui, t.get("magnifiedSize"), None, 280.0, |ui| {
-                    ui.add(
-                        egui::Slider::new(
-                            &mut config.magnified_size,
-                            low..=whirlpool_config::MAX_MAGNIFIED_SIZE,
-                        )
-                        .suffix(" px"),
+                    ui::slider(
+                        ui,
+                        &mut config.magnified_size,
+                        low..=whirlpool_config::MAX_MAGNIFIED_SIZE,
+                        " px",
                     );
                 });
             }
@@ -1603,13 +1601,12 @@ impl Settings {
         });
         ui::card(ui, Some(t.get("groupMenuBarLook")), |ui| {
             ui::row(ui, t.get("menuBarOpacity"), None, 280.0, |ui| {
-                ui.add(
-                    egui::Slider::new(
-                        &mut config.menu_bar_opacity,
-                        whirlpool_config::MENU_BAR_OPACITY_RANGE.0
-                            ..=whirlpool_config::MENU_BAR_OPACITY_RANGE.1,
-                    )
-                    .suffix(" %"),
+                ui::slider(
+                    ui,
+                    &mut config.menu_bar_opacity,
+                    whirlpool_config::MENU_BAR_OPACITY_RANGE.0
+                        ..=whirlpool_config::MENU_BAR_OPACITY_RANGE.1,
+                    " %",
                 );
             });
             ui::divider(ui);
@@ -2113,10 +2110,7 @@ impl Settings {
                         Some(t.get("barInsetHint")),
                         230.0,
                         |ui| {
-                            ui.add(
-                                egui::Slider::new(&mut config.menu_bar_inset, 0..=160)
-                                    .suffix(" px"),
-                            );
+                            ui::slider(ui, &mut config.menu_bar_inset, 0..=160, " px");
                         },
                     );
                     ui::divider(ui);
@@ -2126,16 +2120,12 @@ impl Settings {
                         Some(t.get("barGapHint")),
                         230.0,
                         |ui| {
-                            ui.add(
-                                egui::Slider::new(&mut config.menu_bar_gap, 0..=32).suffix(" px"),
-                            );
+                            ui::slider(ui, &mut config.menu_bar_gap, 0..=32, " px");
                         },
                     );
                     ui::divider(ui);
                     ui::row(ui, t.get("barRadius"), None, 230.0, |ui| {
-                        ui.add(
-                            egui::Slider::new(&mut config.menu_bar_radius, 0..=24).suffix(" px"),
-                        );
+                        ui::slider(ui, &mut config.menu_bar_radius, 0..=24, " px");
                     });
                     ui::divider(ui);
                     ui::row(
@@ -2144,10 +2134,7 @@ impl Settings {
                         Some(t.get("barWidthHint")),
                         230.0,
                         |ui| {
-                            ui.add(
-                                egui::Slider::new(&mut config.menu_bar_width, 40..=100)
-                                    .suffix(" %"),
-                            );
+                            ui::slider(ui, &mut config.menu_bar_width, 40..=100, " %");
                         },
                     );
                     if config.menu_bar_width < 100 {
@@ -2275,11 +2262,11 @@ impl Settings {
             );
             ui::divider(ui);
             ui::row(ui, t.get("overlayOpacity"), None, 220.0, |ui| {
-                ui.add(egui::Slider::new(&mut config.overlay_opacity, 30..=100).suffix("%"));
+                ui::slider(ui, &mut config.overlay_opacity, 30..=100, "%");
             });
             ui::divider(ui);
             ui::row(ui, t.get("overlaySize"), None, 220.0, |ui| {
-                ui.add(egui::Slider::new(&mut config.overlay_scale, 70..=200).suffix("%"));
+                ui::slider(ui, &mut config.overlay_scale, 70..=200, "%");
             });
             ui::divider(ui);
             ui::row(
