@@ -262,7 +262,7 @@ impl GlassSurface {
         rim_brush.SetInterpolationSpace(CompositionColorSpace::RgbLinear)?;
         let stops = rim_brush.ColorStops()?;
         for (at, alpha) in [(0.0, 150), (0.35, 40), (0.65, 30), (1.0, 105)] {
-            let alpha = (f32::from(alpha) * rim_scale).round().clamp(0.0, 255.0) as u8;
+            let alpha = (alpha as f32 * rim_scale).round().clamp(0.0, 255.0) as u8;
             stops.Append(
                 &c.CreateColorGradientStopWithOffsetAndColor(at, rgba(255, 255, 255, alpha))?,
             )?;
