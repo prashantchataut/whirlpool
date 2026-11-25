@@ -1,0 +1,18 @@
+{
+  "_about": "Screen x scale x runner. scripts/check-matrix.mjs reads this in CI: every Shot-Panel call in scripts/drive.ps1 must belong to a screen here, and every screen must list both runners and every scale in 'scales'. Add a screen here when you add a panel; CI fails otherwise. 'shots' are the file stems the driver writes (no extension).",
+  "runners": ["windows-latest", "windows-11-arm"],
+  "scales": [100, 150, 175],
+  "blockedScales": { "200": "Windows offers 200% only when the display is at least about 2048x1536; the hosted runners (Windows Server 2025, x64 and ARM64) offer 1920x1080 at most, so 100-175% is the real range (dpi-log.txt in the artifact lists the modes and the scale range). 200% is in TESTING.md as a real-hardware item." },
+  "screens": [
+    { "id": "start-grid",          "scenario": "redesign directions",   "shots": ["20-start-a"] },
+    { "id": "quick-settings",      "scenario": "quick settings and volume", "shots": ["04-quick-settings"] },
+    { "id": "palette",             "scenario": "search palette",        "shots": ["08-palette-open", "08-palette-actions"] },
+    { "id": "notification-centre", "scenario": "notification center",   "shots": ["11-notifications"] },
+    { "id": "overview",            "scenario": "window overview",       "shots": ["15-overview-open"] },
+    { "id": "settings",            "scenario": "settings dock",         "shots": ["05-settings-dock"] }
+  ],
+  "panelShotsOutsideTheMatrix": {
+    "_why": "Shot-Panel names that are variants of a screen above (same window, other state or entry point).",
+    "names": ["06-launchpad-start-tile", "06-launchpad-hotkey", "06-launchpad-cli", "21-quick-"]
+  }
+}

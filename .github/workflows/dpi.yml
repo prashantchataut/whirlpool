@@ -1,0 +1,46 @@
+name: DPI pass
+
+# The 100 / 150 / 175 % row (200% cannot be set on a hosted runner, see blockedScales in the matrix) of the capture matrix (docs/capture-matrix.json). Sets the runner's
+# resolution and scale with scripts/set-dpi.ps1, drives every panel, uploads the frames. If the runner
+# refuses a scale the job FAILS after uploading (DPI_APPLIED=false) rather than labelling 100% frames as 150%.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["scripts/set-dpi.ps1", ".github/workflows/dpi.yml", "docs/capture-matrix.json"]
+
+jobs:
+  dpi:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+        scale: [100, 150, 175]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots-${{ matrix.os }}
+      - name: Build
+        run: cargo build --release -p whirlpool
+      - name: Set resolution and scale
+        shell: pwsh
+        run: ./scripts/set-dpi.ps1 -Scale ${{ matrix.scale }} -Out out
+      - name: Drive every panel
+        shell: pwsh
+        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only 'redesign directions,quick settings and volume,search palette,notification center,window overview,settings dock'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dpi-${{ matrix.os }}-${{ matrix.scale }}
+          path: out
+      - name: Every screen written at this scale
+        if: always()
+        run: node scripts/check-matrix.mjs --verify out --scale ${{ matrix.scale }}
+      - name: The scale really applied
+        if: always() && env.DPI_APPLIED == 'false'
+        shell: pwsh
+        run: |
+          Write-Host "the runner did not apply ${{ matrix.scale }}%; see dpi-log.txt in the artifact"
+          exit 1

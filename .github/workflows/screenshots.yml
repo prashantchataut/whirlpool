@@ -9,6 +9,11 @@ on:
       only:
         description: 'Run only scenarios whose name contains this text (empty runs all)'
         default: ''
+      sabotage:
+        description: 'Proof run only: overview or blank. Breaks one window on purpose; the job must then fail.'
+        default: ''
+  # Required on every pull request, with no path filter: a docs-only PR still proves the app starts and paints.
+  pull_request:
   push:
     branches: [feat/usable-island-launchpad-drag, feat/gaps-session-5]
     paths:
@@ -19,6 +24,13 @@ on:
       - "Cargo.*"
 
 jobs:
+  matrix:
+    name: capture matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/check-matrix.mjs
+
   screenshots:
     strategy:
       fail-fast: false
@@ -33,12 +45,29 @@ jobs:
           key: shots-${{ matrix.os }}
       - name: Build
         run: cargo build --release -p whirlpool
-      - name: Drive the app and photograph it
+      - name: Probe a panel start on its own (diagnostic, never fails the job)
         shell: pwsh
         continue-on-error: true
-        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only '${{ inputs.only }}'
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $exe = (Resolve-Path target/release/whirlpool.exe).Path
+          $p = Start-Process $exe -ArgumentList '--launchpad' -PassThru -RedirectStandardError out/probe-err.txt -RedirectStandardOutput out/probe-out.txt
+          Start-Sleep 25
+          "arch=$env:PROCESSOR_ARCHITECTURE exited=$($p.HasExited) code=$(if ($p.HasExited) { $p.ExitCode })  title='$($p.MainWindowTitle)'" | Tee-Object out/probe.txt
+          Get-Content out/probe-err.txt, out/probe-out.txt -ErrorAction SilentlyContinue | Select-Object -First 30 | Tee-Object -Append out/probe.txt
+          Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = [DateTime]::Now.AddMinutes(-5) } -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -match 'whirlpool' } | Select-Object -First 3 | ForEach-Object { ($_.Message -split "`n")[0..6] -join ' | ' } | Tee-Object -Append out/probe.txt
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force
+      - name: Drive the app and photograph it
+        shell: pwsh
+        # No continue-on-error: the driver exits 1 when a window never appears or a frame is blank.
+        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only '${{ inputs.only }}' -Sabotage '${{ inputs.sabotage }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots-${{ matrix.os }}
           path: out
+      - name: Every screen in the capture matrix was written
+        if: always() && inputs.only == ''
+        run: node scripts/check-matrix.mjs --verify out

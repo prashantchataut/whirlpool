@@ -1,0 +1,5 @@
+09:32:59 runner display before: 1024x768; modes at 32 bit: 1024x768 1152x864 1280x1024 1280x720 1280x800 1366x768 1440x900 1600x1200 1600x900 1680x1050 1920x1080 640x480 800x600
+09:32:59 set resolution 1920x1080: ChangeDisplaySettings returned 0
+09:33:02 runner display now: 1920x1080
+09:33:02 set scale 150%: applied=150 (offered 100% to 175%, current 100%)
+09:33:06 DPI_APPLIED=True (requested 150%)
