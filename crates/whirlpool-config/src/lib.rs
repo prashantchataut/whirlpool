@@ -192,6 +192,8 @@ pub struct Config {
     /// The charging scene when the charger is plugged in. Independent of the
     /// other mascot moments, which `mascot` controls.
     pub charging_animation: bool,
+    /// A small pill for volume, brightness, Wi-Fi and Bluetooth changes.
+    pub hud_enabled: bool,
     /// How strong the menu bar's tint is over the glass, in percent. 100 is
     /// solid; the default matches the original look.
     pub menu_bar_opacity: u32,
@@ -858,6 +860,7 @@ impl Default for Config {
             animation_style: AnimationStyle::Smooth,
             startup_animation: StartupAnimation::Rise,
             charging_animation: true,
+            hud_enabled: true,
             menu_bar_opacity: 50,
             menu_bar_date: true,
             menu_bar_24h: None,
@@ -1051,6 +1054,7 @@ mod tests {
         assert_eq!(old.startup_animation, StartupAnimation::Rise);
         assert_eq!(old.animation_style, AnimationStyle::Smooth);
         assert!(old.charging_animation);
+        assert!(old.hud_enabled);
         assert_eq!(old.menu_bar_opacity, 50);
     }
 

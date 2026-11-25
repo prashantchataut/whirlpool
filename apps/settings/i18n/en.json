@@ -137,6 +137,8 @@
   "startupSwift": "Swift",
   "chargingAnimation": "Charging animation",
   "chargingAnimationHint": "Play an animation when you connect the charger.",
+  "hudEnabled": "Volume and Wi-Fi pop-ups",
+  "hudEnabledHint": "A small pill when the volume, Wi-Fi or Bluetooth changes.",
   "groupMenuBarLook": "Menu bar look",
   "menuBarOpacity": "Tint strength",
   "menuBarDate": "Show the date",

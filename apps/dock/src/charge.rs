@@ -185,13 +185,13 @@ impl Drop for Charge {
 
 /* ------------------------------------------------------------ Animation */
 
-fn span(seconds: f32) -> TimeSpan {
+pub(crate) fn span(seconds: f32) -> TimeSpan {
     TimeSpan {
         Duration: (f64::from(seconds) * 1e7) as i64,
     }
 }
 
-fn scalar(
+pub(crate) fn scalar(
     c: &Compositor,
     keys: &[(f32, f32)],
     delay: f32,
@@ -207,7 +207,7 @@ fn scalar(
     Ok(animation)
 }
 
-fn vector(
+pub(crate) fn vector(
     c: &Compositor,
     keys: &[(f32, Vector3)],
     delay: f32,
@@ -223,11 +223,11 @@ fn vector(
     Ok(animation)
 }
 
-fn uniform(value: f32) -> Vector3 {
+pub(crate) fn uniform(value: f32) -> Vector3 {
     Vector3::new(value, value, 1.0)
 }
 
-fn sprite(gfx: &Gfx, image: &IconImage) -> Result<SpriteVisual> {
+pub(crate) fn sprite(gfx: &Gfx, image: &IconImage) -> Result<SpriteVisual> {
     let c = &gfx.compositor;
     let brush = c.CreateSurfaceBrushWithSurface(&gfx.image_surface(image)?)?;
     brush.SetStretch(CompositionStretch::None)?;
@@ -365,9 +365,9 @@ fn choreograph(
 
 /* ------------------------------------------------------------- Bitmaps */
 
-type Rgba = [f32; 4];
+pub(crate) type Rgba = [f32; 4];
 
-fn mix3(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
+pub(crate) fn mix3(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
     let t = t.clamp(0.0, 1.0);
     [
         a[0] + (b[0] - a[0]) * t,
@@ -376,7 +376,7 @@ fn mix3(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
     ]
 }
 
-fn smooth(a: f32, b: f32, x: f32) -> f32 {
+pub(crate) fn smooth(a: f32, b: f32, x: f32) -> f32 {
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
@@ -481,7 +481,11 @@ fn medal_at(u: f32, v: f32, fraction: f32, text: &[char]) -> Rgba {
     out
 }
 
-fn to_image(width: u32, height: u32, mut sample: impl FnMut(u32, u32) -> Rgba) -> IconImage {
+pub(crate) fn to_image(
+    width: u32,
+    height: u32,
+    mut sample: impl FnMut(u32, u32) -> Rgba,
+) -> IconImage {
     let mut bgra = Vec::with_capacity((width * height * 4) as usize);
     for y in 0..height {
         for x in 0..width {
@@ -572,7 +576,7 @@ fn stretched(gfx: &Gfx, image: &IconImage, width: f32, height: f32) -> Result<Sp
     Ok(sprite)
 }
 
-fn ease_out(c: &Compositor) -> Result<CompositionEasingFunction> {
+pub(crate) fn ease_out(c: &Compositor) -> Result<CompositionEasingFunction> {
     Ok(
         c.CreateCubicBezierEasingFunction(Vector2::new(0.2, 0.9), Vector2::new(0.3, 1.0))?
             .cast()?,

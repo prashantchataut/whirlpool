@@ -129,6 +129,8 @@
   "barAlign": "Alignement",
   "wallpapersHint": "Photos de Pexels incluses dans l'application. Cliquez sur l'une d'elles pour l'appliquer.",
   "chargingAnimationHint": "Joue une animation quand vous branchez le chargeur.",
+  "hudEnabled": "Pastilles de volume et Wi-Fi",
+  "hudEnabledHint": "Une petite pastille quand le volume, le Wi-Fi ou le Bluetooth change.",
   "updateOnStartup": "Vérifier aussi au démarrage de Whirlpool",
   "updateOnStartupHint": "Quelques minutes après l'ouverture de session, en arrière-plan. Ne télécharge ni n'installe jamais rien seule.",
   "updateReminders": "Me prévenir quand une mise à jour est disponible",

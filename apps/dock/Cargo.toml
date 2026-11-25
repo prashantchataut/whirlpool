@@ -32,6 +32,7 @@ windows-numerics.workspace = true
 windows = { workspace = true, features = [
     "Devices_Enumeration",
     "Devices_HumanInterfaceDevice",
+    "Devices_Radios",
     "Foundation",
     "Graphics",
     "Graphics_DirectX",

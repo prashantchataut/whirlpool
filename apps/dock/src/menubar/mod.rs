@@ -1442,6 +1442,15 @@ impl MenuBar {
         self.refresh(gfx)
     }
 
+    /// The reading the volume HUD shows: none while the bar's own volume
+    /// popup is open (the popup is the feedback then).
+    pub fn hud_volume(&self) -> Option<Volume> {
+        if self.volume_controls.is_some() {
+            return None;
+        }
+        self.status.volume
+    }
+
     /// Ordinary audio notifications do not requery network, registry, providers
     /// or clock. A default-device change still restarts enabled accessories.
     pub fn audio_changed(&mut self, gfx: &Gfx) -> Result<()> {

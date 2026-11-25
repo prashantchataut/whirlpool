@@ -1565,6 +1565,13 @@ impl Settings {
             ui::divider(ui);
             ui::toggle_row(
                 ui,
+                t.get("hudEnabled"),
+                Some(t.get("hudEnabledHint")),
+                &mut config.hud_enabled,
+            );
+            ui::divider(ui);
+            ui::toggle_row(
+                ui,
                 t.get("chargingAnimation"),
                 Some(t.get("chargingAnimationHint")),
                 &mut config.charging_animation,

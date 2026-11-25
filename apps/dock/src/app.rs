@@ -95,6 +95,7 @@ use windows::{
 
 use crate::{
     assets::{Visuals, fallback_name},
+    bluetooth::BluetoothWatch,
     charge,
     drop::DropTarget,
     edge_watch::{self, EdgeWatch, Reveal, Target as EdgeTarget},
@@ -102,7 +103,7 @@ use crate::{
     folder_menu,
     gfx::{Gfx, LabelBrush},
     group_view::{DragGhost, GroupItem, GroupView, Placement, Released},
-    mascot,
+    hud, mascot,
     menu::{self, MenuItem},
     menubar::{self, MenuBar, MenuBarWidgets},
     multi_window_view::{self, MultiWindowView},
@@ -267,6 +268,13 @@ const PREVIEW_TIMER: usize = 13;
 const MASCOT_TIMER: usize = 14;
 const MASCOT_POLL_MS: u32 = 50;
 const EDGE_TIMER: usize = 15;
+/// While a volume, brightness, Wi-Fi or Bluetooth HUD is up (about two seconds).
+const HUD_TIMER: usize = 41;
+const HUD_POLL_MS: u32 = 60;
+/// `whirlpool --hud kind value` posts this to the running dock (a way to see a HUD on demand).
+const HUD_COMMAND: u32 = WM_APP + 60;
+const BLUETOOTH_CHANGED: u32 = WM_APP + 61;
+const NETWORK_CHANGED: u32 = WM_APP + 62;
 /// The charger act at most this often, however many times it is plugged.
 const CHARGING_AGAIN: std::time::Duration = std::time::Duration::from_secs(10 * 60);
 const PREVIEW_DWELL_MS: u32 = 420;
@@ -913,6 +921,14 @@ struct App {
     /// The crab, while it is out (see `perform`).
     mascot: Option<mascot::Mascot>,
     charge: Option<charge::Charge>,
+    /// The volume, brightness, Wi-Fi or Bluetooth pill, while it is up.
+    hud: Option<hud::Hud>,
+    /// What the HUDs last showed, so only a real change shows one.
+    hud_volume: Option<(u8, bool)>,
+    hud_network: status::Network,
+    hud_bluetooth: Option<bool>,
+    bluetooth_watch: Option<BluetoothWatch>,
+    network_watch: Option<status::NetworkWatch>,
     /// Charging and energy saver at the last power change.
     power_seen: Option<(Option<bool>, bool)>,
     /// When the charger act last played.
@@ -2870,6 +2886,99 @@ impl App {
             top: rim as i32,
             edge: frame.edge,
         })
+    }
+
+    /// Shows (or updates) the HUD for `kind`, unless the user turned them off,
+    /// a full-screen program owns the screen, or the matching bar popup is open.
+    fn show_hud(&mut self, kind: hud::Kind) {
+        if !self.config.hud_enabled || self.fullscreen {
+            return;
+        }
+        match &mut self.hud {
+            Some(hud) if hud.can_update(kind) => hud.update(&self.gfx, kind),
+            slot => *slot = hud::Hud::show(&self.gfx, kind, animations_enabled()),
+        }
+        if self.hud.is_some() {
+            // SAFETY: A timer on our own window; `hud_tick` ends it with the HUD.
+            unsafe {
+                SetTimer(Some(self.input), HUD_TIMER, HUD_POLL_MS, None);
+            }
+        }
+    }
+
+    fn hud_tick(&mut self) -> Result<()> {
+        if self.hud.as_ref().is_none_or(hud::Hud::finished) || self.fullscreen {
+            self.hud = None;
+            // SAFETY: Our own timer.
+            unsafe {
+                let _ = KillTimer(Some(self.input), HUD_TIMER);
+            }
+        }
+        Ok(())
+    }
+
+    /// The volume changed (reported by the audio watch the menu bar owns).
+    fn hud_volume_changed(&mut self, reading: Option<status::Volume>) {
+        let Some(volume) = reading else {
+            return;
+        };
+        let now = (volume.percent, volume.muted);
+        if self.hud_volume.replace(now) != Some(now) {
+            self.show_hud(hud::Kind::Volume {
+                percent: volume.percent,
+                muted: volume.muted,
+            });
+        }
+    }
+
+    fn bluetooth_changed(&mut self) -> Result<()> {
+        let on = self
+            .bluetooth_watch
+            .as_ref()
+            .and_then(BluetoothWatch::is_on);
+        if let Some(on) = on
+            && self.hud_bluetooth.replace(on) != Some(on)
+        {
+            self.show_hud(hud::Kind::Bluetooth { on });
+        }
+        Ok(())
+    }
+
+    /// Wi-Fi connected or lost. Signal-strength wobble and wired changes show nothing.
+    fn network_changed(&mut self) -> Result<()> {
+        use status::Network;
+        let now = status::network();
+        let before = std::mem::replace(&mut self.hud_network, now);
+        match (before, now) {
+            (Network::Offline, Network::Wifi { bars, .. }) => {
+                self.show_hud(hud::Kind::Wifi {
+                    bars: bars.clamp(1, 4),
+                });
+            }
+            (Network::Wifi { .. }, Network::Offline) => {
+                self.show_hud(hud::Kind::Wifi { bars: 0 });
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// `whirlpool --hud kind value`: code 1 volume (bit 8 set: muted), 2 brightness, 3 Wi-Fi bars, 4 Bluetooth.
+    fn hud_command(&mut self, code: usize, value: isize) {
+        let percent = (value & 0xff).clamp(0, 100) as u8;
+        let kind = match code {
+            1 => hud::Kind::Volume {
+                percent,
+                muted: value & 0x100 != 0,
+            },
+            2 => hud::Kind::Brightness { percent },
+            3 => hud::Kind::Wifi {
+                bars: (value & 0xff).clamp(0, 4) as u8,
+            },
+            4 => hud::Kind::Bluetooth { on: value != 0 },
+            _ => return,
+        };
+        self.show_hud(kind);
     }
 
     fn mascot_tick(&mut self) -> Result<()> {
@@ -5090,10 +5199,24 @@ pub fn menu_bar_media_changed() {
 }
 
 pub fn menu_bar_audio_changed() {
-    with_app("audio", |app| match &mut app.menubar {
-        Some(bar) => bar.audio_changed(&app.gfx),
-        None => Ok(()),
+    with_app("audio", |app| {
+        if let Some(bar) = &mut app.menubar {
+            bar.audio_changed(&app.gfx)?;
+        }
+        let reading = app.menubar.as_ref().and_then(MenuBar::hud_volume);
+        app.hud_volume_changed(reading);
+        Ok(())
     });
+}
+
+/// `whirlpool --hud volume|brightness|wifi|bluetooth value`: shows a HUD in the running dock.
+pub fn request_hud(code: usize, value: isize) {
+    // SAFETY: Searches for the window and posts a message with no pointer in it.
+    unsafe {
+        if let Ok(hwnd) = FindWindowW(WINDOW_CLASS, None) {
+            let _ = PostMessageW(Some(hwnd), HUD_COMMAND, WPARAM(code), LPARAM(value));
+        }
+    }
 }
 
 pub fn menu_bar_accessories_changed() {
@@ -5694,6 +5817,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             with_app_then("arrastre sobre una app", App::spring_open);
         }
         WM_TIMER if w.0 == MASCOT_TIMER => with_app("cangrejo", App::mascot_tick),
+        WM_TIMER if w.0 == HUD_TIMER => with_app("HUD", App::hud_tick),
+        BLUETOOTH_CHANGED => with_app("Bluetooth", App::bluetooth_changed),
+        NETWORK_CHANGED => with_app("red", App::network_changed),
+        HUD_COMMAND => with_app("HUD", |app| {
+            app.hud_command(w.0, l.0);
+            Ok(())
+        }),
         edge_watch::CHANGED => with_app("borde de pantalla", App::edge_changed),
         WM_TIMER if w.0 == EDGE_TIMER => with_app("mostrar al llegar al borde", App::edge_rested),
         WM_TIMER if w.0 == PREVIEW_TIMER => with_app("selector de ventanas", App::preview_tick),
@@ -6041,6 +6171,12 @@ pub fn run() -> Result<()> {
             menu_open: false,
             mascot: None,
             charge: None,
+            hud: None,
+            hud_volume: None,
+            hud_network: status::network(),
+            hud_bluetooth: None,
+            bluetooth_watch: None,
+            network_watch: None,
             // Initial registration notifications establish the baseline after
             // the queue starts, without playing a startup charging/saver act.
             power_seen: None,
@@ -6067,6 +6203,8 @@ pub fn run() -> Result<()> {
         if let Err(error) = app.sync_taskbar_pins() {
             eprintln!("whirlpool: apps fijadas de la barra de Windows: {error:#}");
         }
+        app.bluetooth_watch = Some(BluetoothWatch::new(input.0 as isize, BLUETOOTH_CHANGED));
+        app.network_watch = status::NetworkWatch::new(input.0 as isize, NETWORK_CHANGED);
         app.sync()?;
         // `sync` recomposes only when the list changes; run it unconditionally at startup.
         if app.stage.is_none() {

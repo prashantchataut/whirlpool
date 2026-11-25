@@ -14,6 +14,7 @@
 mod accessories;
 mod app;
 mod assets;
+mod bluetooth;
 mod charge;
 mod clipboard;
 mod drag;
@@ -24,6 +25,7 @@ mod folder_menu;
 mod gfx;
 mod group_view;
 mod guard;
+mod hud;
 mod mascot;
 mod media;
 mod menu;
@@ -119,6 +121,19 @@ fn main() -> Result<()> {
         ["--palette-compat"] => open_palette(true),
         ["--overview"] => open_overview(false),
         ["--overview-compat"] => open_overview(true),
+        ["--hud", kind, value] => {
+            let value = value.parse::<isize>().unwrap_or(0);
+            let (code, value) = match *kind {
+                "volume" => (1, value),
+                "muted" => (1, value | 0x100),
+                "brightness" => (2, value),
+                "wifi" => (3, value),
+                "bluetooth" => (4, value),
+                _ => bail!("whirlpool --hud volume|muted|brightness|wifi|bluetooth <value>"),
+            };
+            app::request_hud(code, value);
+            Ok(())
+        }
         ["--notifications"] => open_notifications(false),
         ["--notifications-compat"] => open_notifications(true),
         ["--notify", title, rest @ ..] => {
