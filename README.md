@@ -3,7 +3,7 @@
 **The Windows taskbar, rebuilt as a dock.** A glass dock and a menu bar you can restyle, in one small native program.
 No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and the taskbar comes back when you quit.
 
-[**Download**](https://github.com/prashantchataut/whirlpool/releases/latest/download/Whirlpool-Setup.exe) ·
+[**Download**](https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc7/Whirlpool-Setup.exe) ·
 [Website](https://prashantchataut.github.io/whirlpool/) · [Changelog](CHANGELOG.md) · [Trust](docs/TRUST.md)
 
 ![The desktop](docs/renders/desktop.jpg)
@@ -63,7 +63,7 @@ These two are renders of the built site in headless Chromium, not captures of th
 
 ## Install
 
-1. Download `Whirlpool-Setup.exe` from the [latest release](https://github.com/prashantchataut/whirlpool/releases/latest). It installs per user and needs no administrator rights.
+1. Download `Whirlpool-Setup.exe` from the [v4.2.0-rc7 release](https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc7) (a pre-release: GitHub's "latest" still shows the older stable 4.1.0). It installs per user and needs no administrator rights.
 2. If SmartScreen says *Windows protected your PC*: **More info**, then **Run anyway**. New unsigned programs have no reputation yet; see [docs/TRUST.md](docs/TRUST.md).
 3. Verify if you like: `Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256` against `SHA256SUMS.txt`, or `gh attestation verify Whirlpool-Setup.exe --repo prashantchataut/whirlpool`.
 

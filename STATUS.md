@@ -1,3 +1,13 @@
+# Session 10 (direct commits to main)
+
+**Release:** `v4.2.0-rc7`, pre-release (gate not passed: unsigned, no personal-desktop run, no ARM hardware run). Built by the Release workflow from tag `v4.2.0-rc7` (run on commit `e6b7342`, CI and Site green). Assets: x64 and ARM64 installers, zips, bare executables, `install.ps1`, `SHA256SUMS.txt`. The two installers were downloaded after publishing and their SHA-256 matches the sums. In-app updater, run `45639523629` (`updater-e2e.yml`, clean runner): installed rc6, updated to rc7, Whirlpool relaunched, check says up to date, rollback to rc6 worked.
+
+**Landed on main:** the session 8 work from PR #17 (Start grid monogram tiles and two-line labels, quick settings slider and readable tiles) by a direct merge (`488ebf3`); CI compiled and tested it. PR #17 is closed.
+
+**Site fixed:** the download buttons pointed at `releases/latest`, which resolves to the old stable v4.1.0 because every 4.2 build is a pre-release. They now name the tag, there is an ARM64 button and a checksum link, and the roadmap lists what is not built. There is no Android package: Whirlpool is a Windows program, so no APK exists or was uploaded.
+
+**Not done this session, and why:** this environment has no Rust toolchain and no Windows, so every code change would only be checked by a CI round trip and no new captures could be taken. Nothing in this list was started: brightness pop-up trigger (needs a laptop panel), wallpaper crossfade and a source per display, Settings redesign (sidebar labels at 1024 px, first card under the scrollbar), the 200 % pass (runners cannot offer it), the app copy audit, new Start grid and quick settings directions, three look-fix-recapture rounds for the remaining screens, winget and scoop submission, signing. Design skills were not opened (see `SKILLS_USED.md`). The update toast still has no capture.
+
 # Session 9 (direct commits to main)
 
 **Done and captured on a runner (x64, 100 %):** volume, Wi-Fi and Bluetooth pop-ups (`apps/dock/src/hud.rs`, `bluetooth.rs`; `docs/captures/session8/hud-sheet-round1.png` then `-round2.png`). Round 1 showed two real faults, both fixed: the pill never left (timer id 41 was the wallpaper timer) and the pixel digits were unreadable (now stroke digits). One custom slider replaces ten default ones (`05-settings-dock` capture, `docs/captures/session8/round2/`). Site has a captures section of real screenshots and an updated roadmap.

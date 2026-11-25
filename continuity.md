@@ -13,6 +13,10 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Session 10 (main, pre-release 4.2.0-rc7)
+
+Merged the PR #17 code to main, fixed the site's download links (they used `releases/latest`, which is v4.1.0), published `v4.2.0-rc7` and ran the updater rc6 to rc7 on a runner (green). No Rust was changed beyond the merge. Next: the items under "Not done" in `STATUS.md`, starting with the Settings sidebar at 1024 px and the wallpaper crossfade. Use explicit tag URLs on the site until a stable release exists.
+
 ## Session 9 (main, pre-release 4.2.0-rc6)
 
 | Area | Change | Where |

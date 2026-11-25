@@ -91,3 +91,12 @@ runner as a real-desktop result (AGENTS.md, Rule 4).
 - **Legacy icons on the Start plates.** Old 32 px icons with their own square frame (for example 7-Zip) show that frame inside the plate. Seen in captures, not yet fixed.
 - **Slider feel.** The custom volume slider in quick settings: drag, wheel, keyboard arrows and touch, with a real audio device. The runner has no audio endpoint, so the 50 % shown is a default.
 - **Update toast, notch and bottom bar vs dock.** The notch (island) opens in runner captures. The toast and a real bottom-bar-plus-dock layout on a physical display remain unverified.
+
+
+## Added for 4.2.0-rc7 (needs real hardware)
+- [ ] Install `Whirlpool-Setup.exe` from the rc7 release on a personal desktop and use it for a day; read `%LOCALAPPDATA%\Whirlpool\whirlpool.log`.
+- [ ] Start grid: monogram tiles for apps without an icon, two-line labels, search and arrow keys.
+- [ ] Quick settings: the volume slider moves the real volume; the Wi-Fi and Bluetooth tiles read correctly when the radio is off or missing.
+- [ ] Windows on ARM: run `Whirlpool-Setup-arm64.exe` on an ARM device (never run on ARM hardware yet).
+- [ ] 200 percent scaling on a display of about 2048 x 1536 or larger.
+- [ ] Brightness: no pop-up appears yet, by design (no trigger).

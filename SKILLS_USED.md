@@ -1,3 +1,7 @@
+## Session 10
+
+Honest record: **no skill file was opened this session**, so none is credited with a change. The session was a merge, a link fix on the site, a release and an updater run; the only visual edit was adding a button and two roadmap rows to the site, which was not reviewed against any skill.
+
 # Skills used
 
 Honest record for session 3. The web skill libraries named in the brief (open-design.ai, skills.sh, skillissue.in)
