@@ -1,6 +1,7 @@
 import { Charging } from "./components/Charging";
 import { SettingsLab } from "./components/SettingsLab";
 import { DockDemo, Footer, Hero, Install, Nav, Section, Stats, Trust, Wallpapers, WhatsNew } from "./components/Sections";
+import { Captures } from "./components/Captures";
 
 export default function App() {
   return (
@@ -18,15 +19,22 @@ export default function App() {
         <Section
           id="dock"
           eyebrow="The dock"
-          title="Everything in reach, nothing in the way."
-          lead="Apps, files and open windows on one glass shelf. Put it on any edge and keep only what you use."
+          title="A dock on any edge of the screen."
+          lead="Apps, files and open windows on one glass shelf. It can sit on the bottom, top, left or right and hide when you want the whole screen."
         >
           <DockDemo />
         </Section>
         <Section
+          id="captures"
+          eyebrow="From the real build"
+          title="Pop-ups, Start grid, quick settings."
+        >
+          <Captures />
+        </Section>
+        <Section
           id="customize"
           eyebrow="Settings"
-          title="Every edge is adjustable."
+          title="The Settings page, to try in the browser."
           lead="An interactive model of the Settings page, built for the web so you can try the options. The window itself is in the screenshots above."
         >
           <SettingsLab />

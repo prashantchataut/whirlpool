@@ -13,6 +13,18 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Session 9 (main, pre-release 4.2.0-rc6)
+
+| Area | Change | Where |
+| --- | --- | --- |
+| HUDs | In-process DirectComposition pill for volume (from the menu bar's `AudioWatch` via `menu_bar_audio_changed`), Wi-Fi (second `NetworkWatch`, only offline/Wi-Fi flips), Bluetooth (`Radio.StateChanged`, one short thread at start). CPU-drawn bitmaps, compositor animation (inset clip for the fill). Timer 61 while up. Config `hudEnabled`. Brightness: drawn, no trigger. | `apps/dock/src/{hud,bluetooth,app}.rs`, `menubar/mod.rs::hud_volume` |
+| CLI | `whirlpool --hud volume\|muted\|brightness\|wifi\|bluetooth N` posts `HUD_COMMAND` to the running dock (used by the capture driver). | `main.rs`, `app.rs::request_hud` |
+| Settings | `ui::slider` replaces every `egui::Slider`. | `apps/settings/src/ui.rs` |
+| Driver | Scenario `hud: ...` (matrix id `hud`), in the DPI pass as `hud`. | `scripts/drive.ps1`, `docs/capture-matrix.json` |
+| Site | `Captures.tsx` with real runner screenshots; roadmap and headlines. | `site/` |
+
+Gotcha: timer ids share one namespace per window; `app.rs` already used 41 (wallpaper). Next: brightness event source, Settings sidebar at narrow widths, wallpaper crossfade, app copy audit.
+
 ## Sessions 5 and 6 (PR #11 merged; PR #12 open; intended pre-release 4.2.0-rc4, not tagged yet)
 
 | Area | Change | Where |

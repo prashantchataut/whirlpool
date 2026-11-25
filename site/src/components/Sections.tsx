@@ -400,6 +400,8 @@ export function Install() {
 
 export function WhatsNew() {
   const rows: [string, string][] = [
+    ["Volume, Wi-Fi and Bluetooth pop-ups", "A small glass pill with a drawn speaker, a gradient fill, a knob and a number. Wi-Fi shows four signal steps and Bluetooth a switch. Volume follows the audio device, Wi-Fi the connection, Bluetooth the radio. One switch in Settings turns them off. Captured on a runner; not yet on a personal desktop."],
+    ["One slider for every number", "Settings had ten default sliders. They are now one control: accent rail, growing knob, focus ring, arrow keys, value chip."],
     ["Update reminders", "When a newer release exists, Windows shows one notification. It repeats after three days, three times at most per version, and never downloads anything on its own. One switch turns it off."],
     ["Updates that install, and roll back", "Settings downloads the release for your CPU, checks its SHA-256 against the published sums, installs and restarts. Rolling back to the previous version was run end to end on a clean Windows runner."],
     ["System overlay", "CPU, memory, GPU, network, battery and the desktop frame rate behind one hotkey. It is a separate process, so nothing runs while it is hidden."],
@@ -412,8 +414,8 @@ export function WhatsNew() {
     ["Dynamic island presets", "Compact, Classic, Wide and Expressive change the live island, closed and open. Seen in four runner captures; not yet on a personal desktop."],
     ["Motion for dragged windows", "A soft shadow behind the window you drag, a preview of where it will snap, and a spring settle on release. Windows does not let a program tilt another program's window, so there is no tilt. Seen in runner captures."],
     ["Launchpad-style Start grid", "The dock's Start button and Ctrl+Alt+Space open a grid of your apps with search and arrow-key selection. Seen in runner captures; icons fill in a moment after it opens."],
-    ["Volume, Wi-Fi, Bluetooth and brightness pop-ups", "Not started."],
-    ["Display scaling pass at 100, 150 and 200 percent", "Not started."],
+    ["Brightness pop-up", "The picture is built and captured. Nothing triggers it yet: brightness has no simple change notification, and there was no laptop panel to test on."],
+    ["Display scaling at 200 percent", "Panels are captured at 100, 150 and 175 percent on both runners. 200 percent needs a display of about 2048 x 1536, which hosted runners do not offer, so it waits for a real machine."],
     ["Verified on ARM hardware", "The ARM64 build has not been run on an ARM device by the maintainer yet."],
     ["Signed installers", "Needs a code-signing certificate. Until then each release publishes SHA-256 sums and build provenance."],
   ];

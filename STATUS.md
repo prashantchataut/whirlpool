@@ -1,3 +1,11 @@
+# Session 9 (direct commits to main)
+
+**Done and captured on a runner (x64, 100 %):** volume, Wi-Fi and Bluetooth pop-ups (`apps/dock/src/hud.rs`, `bluetooth.rs`; `docs/captures/session8/hud-sheet-round1.png` then `-round2.png`). Round 1 showed two real faults, both fixed: the pill never left (timer id 41 was the wallpaper timer) and the pixel digits were unreadable (now stroke digits). One custom slider replaces ten default ones (`05-settings-dock` capture, `docs/captures/session8/round2/`). Site has a captures section of real screenshots and an updated roadmap.
+
+**Checked against the old claims:** bottom bar vs dock, no overlap in the x64 capture (`session7/round1-03`). Notch: opens from the top edge in the session 7 x64 capture; not re-checked. Update toast: still no capture; the reminder is code plus the updater end-to-end run, not a screenshot.
+
+**Not done, and why:** brightness pop-up trigger (needs a laptop panel and a WMI or key event source); Settings redesign beyond the slider (sidebar labels vanish at 1024 px, first card runs under the scrollbar: open); wallpaper crossfade and per-display sources; copy pass in the app (site headlines done, app strings not audited); 200 % scale (hosted runners cannot offer it); winget and scoop submission; signed installers; three look-fix-recapture rounds per screen (HUD got two, Settings one). Design skills in `.agents/skills/` were not opened this session (see `SKILLS_USED.md`). The pop-up glide is code plus end-state frames: a still cannot show motion.
+
 # Session 7 (branch `feat/session-7-design`)
 
 **Done and captured:** Start grid and quick settings redesigned (three directions each, A chosen for both), real

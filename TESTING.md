@@ -76,3 +76,11 @@ runner as a real-desktop result (AGENTS.md, Rule 4).
 - **Volume capsule dragging with a real mouse, wheel and touch**, and muting from the speaker icon.
 - **Update toast**: no runner capture exists. It is still unverified.
 - **Light system theme**: both panels are always dark glass; check they still look intentional on a light desktop.
+
+## Added in 4.2.0-rc6 (needs a real desktop)
+
+- Press the volume keys: the pill should appear once per change, glide, and leave after about two seconds. Mute shows the crossed speaker. Opening the menu bar volume popup should show no pill.
+- Turn Wi-Fi off and on from Windows: the Wi-Fi pill appears on connect and on loss. Turn Bluetooth off and on: the switch pill follows.
+- `whirlpool --hud brightness 60` shows the brightness pill; changing brightness with the keys does not yet (not wired).
+- Settings > Personalize: the "Volume and Wi-Fi pop-ups" switch turns all of them off. Drag and arrow-key every slider.
+- 200 % display scale for every panel.

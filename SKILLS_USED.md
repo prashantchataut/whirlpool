@@ -43,3 +43,7 @@ The impeccable launcher scripts target web pages and were not run; checks were d
 | `animation-vocabulary` | Names used in review notes: scale-in, fade-in. Not done: origin-aware motion (cards do not fly out of their windows). |
 
 Three looks at the real palette and overview captures (`docs/captures/session7/review-*.jpg`); findings are in `STATUS.md`.
+
+## Session 9
+
+Honest record: **no skill file in `.agents/skills/` was opened this session**, so none of them is credited with a change. The work was reviewed by looking at runner captures only (HUD: two rounds, `docs/captures/session8/hud-sheet-round{1,2}.png`; Settings: one). What a skill pass would still owe: `accessibility` on the HUD (it is a transient, click-through, non-focusable pill with no screen-reader announcement; Windows already speaks volume changes) and on the new slider (arrow keys work; no accessible name is exposed), `web-design-guidelines` on the site captures section, `impeccable` on the Settings sidebar and card edges.

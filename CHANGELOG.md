@@ -1,10 +1,3 @@
-## Unreleased
-
-- Start grid: redesigned. Blurred picture of the screen behind it, Inter type, glass icon plates, diagonal stagger on open, rows centred. Alternates `WHIRLPOOL_START_DESIGN=b|c`.
-- Quick settings: redesigned. Glass tiles, a water-level volume capsule, blurred backdrop, always dark glass. Alternates `WHIRLPOOL_QUICK_DESIGN=b|c`.
-- Panels retry with DirectX when OpenGL 2.0 is not available instead of exiting silently.
-- Added `packaging/` winget and scoop manifests and `scripts/make-manifests.ps1`.
-
 # Changelog / Cambios
 
 Each release lists its changes in English and in Spanish. The release workflow
@@ -12,6 +5,25 @@ copies the section of the version being published into the GitHub release.
 
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
+
+## [4.2.0-rc6]
+
+Pre-release. Checked on GitHub runners only; nothing was run on a personal desktop (see TESTING.md).
+
+### Added / Añadido
+- **Pop-ups for volume, Wi-Fi and Bluetooth.** A small glass pill (drawn speaker, gradient fill that glides to the new level, knob, number; Wi-Fi shows four signal steps, Bluetooth a switch) appears when the value changes and leaves after about two seconds. It lives in the dock process: no extra process, nothing running while it is away. A switch in Settings turns it off. `whirlpool --hud volume|muted|brightness|wifi|bluetooth <value>` shows one on demand. Brightness has the picture but no change notification feeds it yet.
+  Ventanas emergentes de volumen, Wi-Fi y Bluetooth, con un interruptor en Ajustes. El brillo tiene el dibujo, pero todavía ningún evento lo activa.
+- **One custom slider in Settings** (accent rail, growing knob, focus ring, arrow keys, value chip) in place of ten default sliders.
+  Un único control deslizante propio en Ajustes.
+- Start grid and quick settings redesigned (blurred backdrop, glass plates, Inter type, water-level volume capsule), OpenGL-to-DirectX fallback for the panels, winget and scoop manifests (written and CI-checked, not submitted).
+- Window overview (`whirlpool --overview`), search palette with drawn icons.
+
+### Fixed / Corregido
+- The pop-up timer id collided with the wallpaper timer in the first build of this feature; found in a runner capture (the pill never left) and fixed before this release.
+
+### Known gaps / Pendiente
+- Settings redesign is partial: sliders only. At 1024 px the sidebar folds to icons and the first card runs under the scrollbar.
+- Wallpaper crossfade and per-display sources, the 200 % display-scale pass (hosted runners top out at 175 %), signed installers, and a run on real hardware are not done.
 
 ## 4.2.0-rc5 (pre-release)
 
