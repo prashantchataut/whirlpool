@@ -46,7 +46,7 @@ pub fn run_palette(compat: bool) -> eframe::Result {
 
 /// The window overview: every open window as a live card, full screen.
 pub fn run_overview(compat: bool) -> eframe::Result {
-    overview::run(compat)
+    with_fallback(compat, overview::run)
 }
 
 /// The title of the overview window, so the dock can close a running one.

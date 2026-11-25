@@ -1,7 +1,8 @@
 {
-  "_about": "Screen x scale x runner. scripts/check-matrix.mjs reads this in CI: every Shot-Panel call in scripts/drive.ps1 must belong to a screen here, and every screen must list both runners and all three scales. Add a screen here when you add a panel; CI fails otherwise. 'shots' are the file stems the driver writes (no extension).",
+  "_about": "Screen x scale x runner. scripts/check-matrix.mjs reads this in CI: every Shot-Panel call in scripts/drive.ps1 must belong to a screen here, and every screen must list both runners and every scale in 'scales'. Add a screen here when you add a panel; CI fails otherwise. 'shots' are the file stems the driver writes (no extension).",
   "runners": ["windows-latest", "windows-11-arm"],
-  "scales": [100, 150, 200],
+  "scales": [100, 150, 175],
+  "blockedScales": { "200": "Windows offers 200% only when the display is at least about 2048x1536; the hosted runners (Windows Server 2025, x64 and ARM64) offer 1920x1080 at most, so 100-175% is the real range (dpi-log.txt in the artifact lists the modes and the scale range). 200% is in TESTING.md as a real-hardware item." },
   "screens": [
     { "id": "start-grid",          "scenario": "redesign directions",   "shots": ["20-start-a"] },
     { "id": "quick-settings",      "scenario": "quick settings and volume", "shots": ["04-quick-settings"] },

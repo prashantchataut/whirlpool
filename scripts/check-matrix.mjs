@@ -21,7 +21,7 @@ if (verifyAt < 0) {
   const known = new Set();
   for (const s of matrix.screens) {
     need(matrix.runners, ['windows-latest', 'windows-11-arm'], 'runner', 'matrix');
-    need(matrix.scales, [100, 150, 200], 'scale', 'matrix');
+    need(matrix.scales, [100, 150, 175], 'scale', 'matrix');
     if (!scenarios.some((n) => n.includes(s.scenario) || pattern(n).test(s.scenario) || new RegExp(n.replace(/\$\w+/g, '.+')).test(s.scenario))) errors.push(`${s.id}: no Scenario in drive.ps1 contains "${s.scenario}"`);
     for (const shot of s.shots) {
       known.add(shot);

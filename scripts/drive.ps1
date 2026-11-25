@@ -4,7 +4,10 @@
 param(
     [Parameter(Mandatory = $true)][string]$Exe,
     [Parameter(Mandatory = $true)][string]$Out,
-    [string]$Only = ''
+    [string]$Only = '',
+    # Proof that the gate can fail: 'overview' never starts the overview, 'blank' never starts the Start grid
+    # for the last Start capture. Used once by hand (workflow_dispatch input), never by default.
+    [string]$Sabotage = ''
 )
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -143,6 +146,25 @@ function Start-Dock($json) {
     Shot 'dock-only' $refDir
 }
 function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
+function Diagnose($title) {
+    # What was running and what crashed, so a missing window is explained and not just reported.
+    $procs = @(Get-Process whirlpool -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id):'$($_.MainWindowTitle)'" }) -join ' '
+    Log "diagnose ${title}: whirlpool processes = [$procs]"
+    try {
+        Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = [DateTime]::Now.AddMinutes(-3) } -ErrorAction Stop |
+            Where-Object { $_.Message -match 'whirlpool' -and $_.LevelDisplayName -in 'Error', 'Warning' } | Select-Object -First 3 |
+            ForEach-Object { Log ("diagnose event: " + (($_.Message -split "`n")[0..3] -join ' | ')) }
+    } catch { Log "diagnose: no crash events ($($_.Exception.Message))" }
+}
+function Wait-Gone($title, $seconds = 15) {
+    # A panel that was just closed is still a window for a moment; starting the next one now would meet its mutex and exit.
+    $until = [DateTime]::Now.AddSeconds($seconds)
+    while ([DateTime]::Now -lt $until) {
+        if (-not (Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title })) { Start-Sleep -Milliseconds 800; return }
+        Start-Sleep -Milliseconds 300
+    }
+    Log "window still open after $seconds s: $title"
+}
 function Wait-Window($title, $seconds = 30) {
     $until = [DateTime]::Now.AddSeconds($seconds)
     while ([DateTime]::Now -lt $until) {
@@ -150,6 +172,7 @@ function Wait-Window($title, $seconds = 30) {
         Start-Sleep -Milliseconds 300
     }
     Fail "window never appeared: $title"
+    Diagnose $title
     return $false
 }
 function Scenario($name, [scriptblock]$body) {
@@ -254,7 +277,8 @@ Scenario 'launchpad: dock Start tile, hotkey, keys, search' {
     Key ([byte[]](0x1B))
     Start-Sleep 1
     Log "launchpad closed by Escape: running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Whirlpool Launchpad' }))"
-    & $Exe --launchpad
+    Wait-Gone 'Whirlpool Launchpad'
+    if ($Sabotage -ne 'blank') { & $Exe --launchpad }
     [void](Wait-Window 'Whirlpool Launchpad')
     Shot-Panel '06-launchpad-cli'
     Key ([byte[]](0x1B))
@@ -373,9 +397,9 @@ Scenario 'window overview: live cards, arrow keys, Enter switches' {
         Start-Sleep 3
         Type-Keys ([byte[]](0x57, 0x41, 0x56, 0x45, 0x20, [byte](0x30 + $i)))   # "wave N" so each preview differs
     }
-    $apps += Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '$Host.UI.RawUI.WindowTitle = "Tide log"' -PassThru
+    $apps += Start-Process powershell.exe -ArgumentList '-NoExit', '-Command', '$Host.UI.RawUI.WindowTitle = ''Tide log''' -PassThru
     Start-Sleep 3
-    Start-Process $Exe -ArgumentList '--overview'
+    if ($Sabotage -ne 'overview') { Start-Process $Exe -ArgumentList '--overview' }
     $up = Wait-Window 'Whirlpool Overview'
     Log "overview opened: $up"
     Start-Sleep 1
