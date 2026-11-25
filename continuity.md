@@ -220,3 +220,14 @@ Read `STATUS.md` first. New: `apps/settings/src/design.rs` (tokens, easing, stag
 deletes them). The capture driver takes `-Only <text>` and the Screenshots workflow has an `only` input, so one
 scenario can be re-run in minutes: `gh workflow run screenshots.yml -f only=redesign`. Next: re-capture the Start grid on
 the fallback build, then HUDs, DPI, Settings, crossfade, site.
+
+## Session 8 (PR #17, `feat/session-8-redesign`, partial)
+
+| Area | State | Where |
+| --- | --- | --- |
+| Capture gate | Merged in #16; fails on a missing window or a blank panel; sabotage proven red. Matrix: screens x 100/150/175 x x64/ARM64 (200 % is a real-hardware item). | `scripts/drive.ps1`, `docs/capture-matrix.json`, `.github/workflows/dpi.yml` |
+| Start grid | Round 1 only: plate, monogram tile, two-line labels. Known: legacy icon frames, dots over the dock blur. | `apps/settings/src/launchpad.rs` |
+| Quick settings | Rounds 1 to 4: custom slider (`design::slider`), dark tile tint, subtitle contrast measured 5.9:1. | `apps/settings/src/quick.rs`, `design.rs` |
+| Not started | HUDs, Settings redesign, wallpaper crossfade and per-display sources, new site captures, release. | see STATUS.md |
+
+How to iterate: push, run `dpi.yml` with `workflow_dispatch` on the branch (about 12 to 35 minutes), download the `dpi-*` artifacts, look, measure, repeat. The sandbox used here had no Rust toolchain; CI compiled everything.

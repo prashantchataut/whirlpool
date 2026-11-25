@@ -51,8 +51,8 @@ Honest record. **Opened this session:** `impeccable` (`SKILL.md` and `reference/
 
 | Skill | What it changed |
 | --- | --- |
-| `impeccable` craft floor, Verify list ("batch the checks, fix what one look shows"; contrast 4.5:1; states incl. disabled) | Each round is one batched look at the captures, then one commit. Round 2 fixed the disabled tile state found in that look (Wi-Fi and Bluetooth tiles were dimmed to 55 % and unreadable; now 85 %). |
+| `impeccable` craft floor, Verify list ("batch the checks, fix what one look shows"; contrast 4.5:1; states incl. disabled) | Each round is one batched look at the captures, then one commit. Round 2: unavailable tiles were dimmed to 55 % and unreadable, now 85 %. Round 3: measured the subtitle on the capture at 2.87:1 (Wi-Fi) and 2.91:1 (Off), so Round 2 had not fixed it. Round 4: dark tile tint and brighter subtitles, measured 5.92:1 and 6.20:1 (brightest text pixel against the mean of a tile-only strip; x64, 150 %; anti-aliasing makes this a rough measure, not an audit). |
 | `impeccable` craft floor, Refuse list (glass as decoration, one-sided accent bars, nested cards) | Kept: no side bars, shadows with offset and blur. Open: the Start grid still uses glass plates on every icon, which is close to the "glass as decoration" default. Not resolved. |
-| `accessibility` (1.4.3 contrast) | Defines the 4.5:1 line the disabled tiles failed. Not yet measured with a tool: the check was by eye on the captures. |
+| `accessibility` (1.4.3 contrast) | Defines the 4.5:1 line the tile subtitles failed (2.9:1) and now pass (5.9 to 6.2:1 by the pixel measure above). Only quick settings tile subtitles were measured; nothing else in the Start grid or quick settings was. |
 | `ui-ux-pro-max` (priority 1 and 2: contrast, 44 px targets) | Read the table only; the 44 px touch-target rule was **not** audited against the tiles. |
 | `review-animations` | Read the posture only. The entrance and slider motion were **not** reviewed against its standards this session. |

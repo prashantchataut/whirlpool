@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Quick settings (session 8, PR #17, not released): custom volume slider with a knob, state dots, outlined footer pills; tiles use a dark glass tint so subtitles read at about 5.9:1 (measured on a runner capture); unavailable tiles are no longer faded out.
+- Start grid (session 8, PR #17, not released): monogram tiles for apps without an icon, two-line labels.
 - Start grid: redesigned. Blurred picture of the screen behind it, Inter type, glass icon plates, diagonal stagger on open, rows centred. Alternates `WHIRLPOOL_START_DESIGN=b|c`.
 - Quick settings: redesigned. Glass tiles, a water-level volume capsule, blurred backdrop, always dark glass. Alternates `WHIRLPOOL_QUICK_DESIGN=b|c`.
 - Panels retry with DirectX when OpenGL 2.0 is not available instead of exiting silently.
