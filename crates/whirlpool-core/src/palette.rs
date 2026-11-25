@@ -141,92 +141,14 @@ pub fn rank(items: &[Item], query: &Query, limit: usize) -> Vec<usize> {
         .collect()
 }
 
-/// Evaluates `+ - * / ^` with parentheses and unary minus. `None` if it is not plain arithmetic.
+/// Evaluates a calculation typed into the palette: `+ - * / ^ %`, brackets, `!`, constants and
+/// functions such as `sqrt(16)` or `200 + 10%` (see [`crate::calc`]). `None` if the text is not a
+/// calculation, so `42` and `notes` stay plain searches.
 pub fn calculate(text: &str) -> Option<f64> {
-    struct Parser<'a> {
-        bytes: &'a [u8],
-        at: usize,
-    }
-    impl Parser<'_> {
-        fn peek(&mut self) -> Option<u8> {
-            while self.bytes.get(self.at).is_some_and(|b| *b == b' ') {
-                self.at += 1;
-            }
-            self.bytes.get(self.at).copied()
-        }
-        fn sum(&mut self) -> Option<f64> {
-            let mut value = self.product()?;
-            while let Some(op @ (b'+' | b'-')) = self.peek() {
-                self.at += 1;
-                let rhs = self.product()?;
-                value = if op == b'+' { value + rhs } else { value - rhs };
-            }
-            Some(value)
-        }
-        fn product(&mut self) -> Option<f64> {
-            let mut value = self.power()?;
-            while let Some(op @ (b'*' | b'/' | b'x')) = self.peek() {
-                self.at += 1;
-                let rhs = self.power()?;
-                value = if op == b'/' { value / rhs } else { value * rhs };
-            }
-            Some(value)
-        }
-        fn power(&mut self) -> Option<f64> {
-            let base = self.unary()?;
-            if self.peek() == Some(b'^') {
-                self.at += 1;
-                let exponent = self.power()?;
-                return Some(base.powf(exponent));
-            }
-            Some(base)
-        }
-        fn unary(&mut self) -> Option<f64> {
-            match self.peek()? {
-                b'-' => {
-                    self.at += 1;
-                    Some(-self.unary()?)
-                }
-                b'(' => {
-                    self.at += 1;
-                    let value = self.sum()?;
-                    if self.peek() != Some(b')') {
-                        return None;
-                    }
-                    self.at += 1;
-                    Some(value)
-                }
-                _ => self.number(),
-            }
-        }
-        fn number(&mut self) -> Option<f64> {
-            let start = self.at;
-            while self
-                .bytes
-                .get(self.at)
-                .is_some_and(|b| b.is_ascii_digit() || *b == b'.')
-            {
-                self.at += 1;
-            }
-            std::str::from_utf8(&self.bytes[start..self.at])
-                .ok()?
-                .parse()
-                .ok()
-        }
-    }
-    // Plain numbers are not calculations; there must be an operator or a bracket.
-    if !text
-        .bytes()
-        .any(|b| matches!(b, b'+' | b'-' | b'*' | b'/' | b'^' | b'(' | b'x'))
-    {
+    if !crate::calc::is_calculation(text) {
         return None;
     }
-    let mut parser = Parser {
-        bytes: text.as_bytes(),
-        at: 0,
-    };
-    let value = parser.sum()?;
-    (parser.peek().is_none() && value.is_finite()).then_some(value)
+    crate::calc::evaluate(text).ok()
 }
 
 /// `12`, `0.5`, `1234567` without trailing zeros or exponent noise.

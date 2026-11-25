@@ -282,6 +282,26 @@ enum Action {
     Bluetooth,
 }
 
+/// How the clock is written and what a click on it does.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ClockSettings {
+    pub options: whirlpool_core::clock::ClockOptions,
+    /// A click opens the clock panel (otherwise the Windows notification centre).
+    pub panel: bool,
+}
+
+/// Opens (or closes) the clock panel, a short-lived window of its own.
+fn open_hub(tab: &str) {
+    use std::os::windows::process::CommandExt;
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe)
+            .arg("--hub")
+            .arg(tab)
+            .creation_flags(0x0800_0000)
+            .spawn();
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuBarWidgets {
     pub search: Option<bool>,
@@ -362,6 +382,8 @@ struct Look {
     glass: bool,
     app_name: String,
     clock: String,
+    /// Family and weight the clock is drawn in.
+    clock_font: (Option<&'static str>, i32),
     /// The input language indicator, when more than one is installed.
     input: Option<String>,
     battery: Option<Battery>,
@@ -557,6 +579,7 @@ pub struct MenuBar {
     auto_hide: bool,
     /// With auto-hide on: the pointer is at the top edge, so the bar shows.
     revealed: bool,
+    clock: ClockSettings,
     hide_until: Option<Instant>,
     animation_epoch: usize,
     exit_animation: Option<ExitAnimation>,
@@ -839,6 +862,7 @@ impl MenuBar {
             visible: true,
             auto_hide,
             revealed: false,
+            clock: ClockSettings::default(),
             hide_until: None,
             animation_epoch: 0,
             exit_animation: None,
@@ -953,6 +977,7 @@ impl MenuBar {
             return Ok(());
         }
         self.visible = visible;
+        self.schedule_next_minute();
         if !visible && self.auto_hide {
             self.revealed = false;
         }
@@ -1052,6 +1077,8 @@ impl MenuBar {
         self.animation_epoch = self.animation_epoch.wrapping_add(1);
         self.exit_animation = None;
         self.revealed = inside;
+        // Seconds tick only while the bar is on screen.
+        self.schedule_next_minute();
         self.hide_until = (!inside && animated)
             .then(|| Instant::now() + Duration::from_millis(u64::from(HIDE_FALLBACK_MS)));
         if !animated {
@@ -1501,20 +1528,38 @@ impl MenuBar {
         };
     }
 
-    /// One wake-up per minute, aligned to the minute, instead of polling.
+    /// One wake-up per minute, aligned to the minute, instead of polling. With seconds turned on
+    /// it is one per second, but only while the bar is on screen: hidden, covered by a full-screen
+    /// program or auto-hidden away, it drops back to one per minute.
     fn schedule_next_minute(&self) {
+        let shown = self.visible && (!self.auto_hide || self.revealed);
+        let seconds = whirlpool_core::clock::should_tick_seconds(
+            self.clock.options.seconds,
+            shown,
+            false,
+            false,
+        );
         // SAFETY: Read-only query, then a timer on our own window (setting an
         // existing timer id replaces it).
         unsafe {
             let now: SYSTEMTIME = GetLocalTime();
-            let elapsed = u32::from(now.wSecond) * 1000 + u32::from(now.wMilliseconds);
-            SetTimer(
-                Some(self.hwnd),
-                CLOCK_TIMER,
-                60_000 - elapsed.min(59_900) + 50,
-                None,
+            let wait = whirlpool_core::clock::next_tick_ms(
+                u32::from(now.wSecond),
+                u32::from(now.wMilliseconds),
+                seconds,
             );
+            SetTimer(Some(self.hwnd), CLOCK_TIMER, wait, None);
         }
+    }
+
+    /// Applies the clock's look. Redraws when it changed.
+    pub fn set_clock(&mut self, gfx: &Gfx, clock: ClockSettings) -> Result<()> {
+        if self.clock == clock {
+            return Ok(());
+        }
+        self.clock = clock;
+        self.schedule_next_minute();
+        self.refresh(gfx)
     }
 
     pub fn click(&mut self, gfx: &Gfx, x: f32, y: f32) -> Result<()> {
@@ -1581,7 +1626,14 @@ impl MenuBar {
             Some(Action::QuickSettings) => {
                 open_quick_panel(self.bounds.right, self.anchor_y(), self.at_bottom());
             }
-            Some(Action::Notifications) => launcher::open_notifications(),
+            // The clock: its panel, or the Windows notification centre when the panel is off.
+            Some(Action::Notifications) => {
+                if self.clock.panel {
+                    open_hub("clock");
+                } else {
+                    launcher::open_notifications();
+                }
+            }
             Some(Action::Sound) => launcher::open_sound(),
             Some(Action::Search) => launcher::open_search(),
             Some(Action::TaskView) => launcher::open_task_view(),
@@ -1653,7 +1705,11 @@ impl MenuBar {
             light: system::uses_light_theme(),
             glass: system::transparency_enabled(),
             app_name: self.app_name.clone(),
-            clock: system::clock_text_with(self.widgets.date, self.widgets.hour24),
+            clock: system::clock_text_for(&self.clock.options),
+            clock_font: (
+                self.clock.options.font.family(),
+                self.clock.options.weight.value(),
+            ),
             input: system::input_language(),
             battery: system::battery(),
             status: self.status,
@@ -1891,7 +1947,14 @@ impl MenuBar {
         let symbol = |layers: &[(char, f32)]| gfx.glyph_brush(layers, scale, ink);
         let mut items: Vec<(LabelBrush, Action)> = vec![
             (
-                gfx.text_brush(&look.clock, scale, false, ink)?,
+                gfx.text_brush_styled(
+                    &look.clock,
+                    scale,
+                    13.0,
+                    look.clock_font.0,
+                    look.clock_font.1,
+                    ink,
+                )?,
                 Action::Notifications,
             ),
             (gfx.control_center_brush(scale, ink)?, Action::QuickSettings),

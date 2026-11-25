@@ -16,6 +16,7 @@ pub mod launchpad;
 pub mod layout;
 pub mod lrc;
 pub mod magnify;
+pub mod material;
 pub mod notify;
 pub mod overlay;
 pub mod overview;

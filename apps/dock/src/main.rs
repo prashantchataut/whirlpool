@@ -134,6 +134,9 @@ fn main() -> Result<()> {
             app::request_hud(code, value);
             Ok(())
         }
+        ["--hub"] => open_hub("clock", false),
+        ["--hub", tab] => open_hub(tab, false),
+        ["--hub-compat", tab] => open_hub(tab, true),
         ["--notifications"] => open_notifications(false),
         ["--notifications-compat"] => open_notifications(true),
         ["--notify", title, rest @ ..] => {
@@ -262,6 +265,41 @@ fn open_overview(compat: bool) -> Result<()> {
                 .spawn();
         }
         anyhow::anyhow!("overview: {error}")
+    })
+}
+
+/// Opens the clock panel (clock, focus timer, file shelf), or closes it if it is already open.
+fn open_hub(tab: &str, compat: bool) -> Result<()> {
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE},
+    };
+    let title = HSTRING::from(whirlpool_settings::HUB_TITLE);
+    // SAFETY: Looks a window up by title and posts it a close request.
+    unsafe {
+        if let Ok(window) = FindWindowW(None, &title)
+            && !window.is_invalid()
+        {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+            return Ok(());
+        }
+    }
+    let _single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Hub"))?) };
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_hub(tab, compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("hub (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        if !compat && let Ok(exe) = env::current_exe() {
+            remember_compat();
+            let _ = std::process::Command::new(exe)
+                .arg("--hub-compat")
+                .arg(tab)
+                .spawn();
+        }
+        anyhow::anyhow!("hub: {error}")
     })
 }
 

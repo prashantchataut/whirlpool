@@ -1508,6 +1508,7 @@ impl Settings {
     fn personalize_page(&mut self, ui: &mut Ui, t: &Texts) {
         let ctx = ui.ctx().clone();
         crate::extras::glass_card(ui, t, &mut self.config);
+        crate::extras::material_card(ui, t, &mut self.config);
         ui.add_space(10.0);
         if self.wall_thumbs.is_empty() && self.wall_thumbs_rx.is_none() {
             self.wall_thumbs_rx = Some(spawn_thumbnails(&ctx));
@@ -1653,6 +1654,7 @@ impl Settings {
                 ui.selectable_value(&mut config.menu_bar_24h, Some(false), t.get("clock12"));
             });
         });
+        crate::extras::clock_card(ui, t, config);
 
         let mut chosen: Option<&'static str> = None;
         let mut shuffle = false;
@@ -2341,6 +2343,7 @@ impl Settings {
                     Language::Es => "Español",
                     Language::En => "English",
                     Language::Fr => "Français",
+                    Language::Id => "Bahasa Indonesia",
                 };
                 egui::ComboBox::from_id_salt("language")
                     .selected_text(label)
@@ -2354,6 +2357,7 @@ impl Settings {
                         ui.selectable_value(&mut config.language, Language::En, "English");
                         ui.selectable_value(&mut config.language, Language::Es, "Español");
                         ui.selectable_value(&mut config.language, Language::Fr, "Français");
+                        ui.selectable_value(&mut config.language, Language::Id, "Bahasa Indonesia");
                     });
             });
         });

@@ -132,6 +132,14 @@ fn run_action(id: &str) {
     };
     match id {
         "settings" => own("--settings"),
+        "clock" | "focus" | "shelf" => {
+            if let Ok(exe) = std::env::current_exe() {
+                let _ = Command::new(exe)
+                    .args(["--hub", id])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .spawn();
+            }
+        }
         "start-grid" => own("--launchpad"),
         "overview" => own("--overview"),
         "overlay" => own("--overlay-toggle"),
@@ -186,6 +194,9 @@ impl Palette {
         let actions = vec![
             action("settings", "paletteActSettings", "paletteActSettingsHint"),
             action("start-grid", "paletteActStart", "paletteActStartHint"),
+            action("clock", "paletteActClock", "paletteActClockHint"),
+            action("focus", "paletteActFocus", "paletteActFocusHint"),
+            action("shelf", "paletteActShelf", "paletteActShelfHint"),
             action("overview", "paletteActOverview", "paletteActOverviewHint"),
             action("overlay", "paletteActOverlay", "paletteActOverlayHint"),
             action("lock", "paletteActLock", "paletteActLockHint"),

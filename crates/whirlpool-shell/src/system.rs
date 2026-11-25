@@ -383,3 +383,164 @@ pub fn clock_text_with(show_date: bool, hour24: Option<bool>) -> String {
         text(&time, time_len)
     }
 }
+
+// ---- the configurable clock ----------------------------------------------------------------
+
+use whirlpool_core::clock::{self as clk, ClockOptions, HourCycle, LocalTime};
+
+fn local_from(st: &windows::Win32::Foundation::SYSTEMTIME) -> LocalTime {
+    LocalTime {
+        year: i32::from(st.wYear),
+        month: st.wMonth as u8,
+        day: st.wDay as u8,
+        weekday: st.wDayOfWeek as u8,
+        hour: st.wHour as u8,
+        minute: st.wMinute as u8,
+        second: st.wSecond as u8,
+    }
+}
+
+/// The local time now.
+#[must_use]
+pub fn local_time() -> LocalTime {
+    // SAFETY: Read-only query returning a plain structure.
+    local_from(&unsafe { windows::Win32::System::SystemInformation::GetLocalTime() })
+}
+
+static ZONE_CACHE: std::sync::Mutex<
+    Vec<(
+        String,
+        windows::Win32::System::Time::DYNAMIC_TIME_ZONE_INFORMATION,
+    )>,
+> = std::sync::Mutex::new(Vec::new());
+
+fn zone_info(key: &str) -> Option<windows::Win32::System::Time::DYNAMIC_TIME_ZONE_INFORMATION> {
+    use windows::Win32::System::Time::{
+        DYNAMIC_TIME_ZONE_INFORMATION, EnumDynamicTimeZoneInformation,
+    };
+    let mut cache = ZONE_CACHE.lock().ok()?;
+    if let Some((_, info)) = cache.iter().find(|(k, _)| k == key) {
+        return Some(*info);
+    }
+    for index in 0..512 {
+        let mut info = DYNAMIC_TIME_ZONE_INFORMATION::default();
+        // SAFETY: `info` is a valid structure to write; a non-zero return ends the list.
+        if unsafe { EnumDynamicTimeZoneInformation(index, &raw mut info) } != 0 {
+            return None;
+        }
+        let end = info
+            .TimeZoneKeyName
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(info.TimeZoneKeyName.len());
+        if String::from_utf16_lossy(&info.TimeZoneKeyName[..end]) == key {
+            cache.push((key.to_owned(), info));
+            return Some(info);
+        }
+    }
+    None
+}
+
+/// The local time in a Windows time zone (by registry key such as `Tokyo Standard Time`), with
+/// daylight saving applied. `None` for a key this Windows does not know.
+#[must_use]
+pub fn zone_time(key: &str) -> Option<LocalTime> {
+    use windows::Win32::{
+        Foundation::SYSTEMTIME,
+        System::{SystemInformation::GetSystemTime, Time::SystemTimeToTzSpecificLocalTimeEx},
+    };
+    // SAFETY: Read-only query.
+    let utc = unsafe { GetSystemTime() };
+    if key == "UTC" {
+        return Some(local_from(&utc));
+    }
+    let info = zone_info(key)?;
+    let mut local = SYSTEMTIME::default();
+    // SAFETY: All three pointers refer to live structures for the call.
+    unsafe {
+        SystemTimeToTzSpecificLocalTimeEx(Some(&raw const info), &raw const utc, &raw mut local)
+    }
+    .ok()?;
+    Some(local_from(&local))
+}
+
+/// Whether the regional setting writes the time on a 24-hour clock.
+#[must_use]
+pub fn system_uses_24h() -> bool {
+    clock_text_with(false, None)
+        .chars()
+        .all(|c| c.is_ascii_digit() || matches!(c, ':' | '.' | ' ' | '\u{a0}'))
+}
+
+/// A date in the regional language for a Windows date picture such as `dddd, d MMMM`.
+#[must_use]
+pub fn date_text(pattern: &str) -> String {
+    use windows::{Win32::Globalization::GetDateFormatEx, core::PCWSTR};
+    let wide: Vec<u16> = pattern.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut out = [0u16; 96];
+    // SAFETY: `wide` is NUL-terminated and `out` is a valid buffer; the call returns the length
+    // written including the terminator (0 on failure).
+    let len = unsafe {
+        GetDateFormatEx(
+            None,
+            Default::default(),
+            None,
+            PCWSTR(wide.as_ptr()),
+            Some(&mut out),
+            None,
+        )
+    };
+    String::from_utf16_lossy(&out[..(len - 1).max(0) as usize])
+}
+
+/// The bar's clock text for the user's options: time (12 or 24 hours, optional seconds), optional
+/// date in the regional language, and up to three other time zones.
+#[must_use]
+pub fn clock_text_for(options: &ClockOptions) -> String {
+    let now = local_time();
+    let h24 = system_uses_24h();
+    let time = if options.hour == HourCycle::System && !options.seconds {
+        // The regional format exactly as Windows writes it.
+        clock_text_with(false, None)
+    } else {
+        clk::format_time(&now, options.hour, h24, options.seconds)
+    };
+    let date = options.date.0.pattern().map(date_text);
+    let zones: Vec<(String, String)> = options
+        .zones
+        .iter()
+        .filter_map(|key| {
+            let there = zone_time(key)?;
+            let mut text = clk::format_time(&there, options.hour, h24, false);
+            match clk::day_offset(&now, &there) {
+                0 => {}
+                days => text.push_str(&format!(" {days:+}d")),
+            }
+            Some((clk::zone_tag(key), text))
+        })
+        .collect();
+    clk::compose_bar(date.as_deref(), &time, &zones, 3)
+}
+
+/// One row of the clock panel: where, what time, and how many days away from here.
+pub struct ZoneRow {
+    pub city: String,
+    pub time: LocalTime,
+    pub days: i64,
+}
+
+#[must_use]
+pub fn zone_rows(keys: &[String]) -> Vec<ZoneRow> {
+    let now = local_time();
+    keys.iter()
+        .filter_map(|key| {
+            let time = zone_time(key)?;
+            let city = clk::zone(key).map_or_else(|| key.clone(), |z| z.city.to_owned());
+            Some(ZoneRow {
+                city,
+                days: clk::day_offset(&now, &time),
+                time,
+            })
+        })
+        .collect()
+}

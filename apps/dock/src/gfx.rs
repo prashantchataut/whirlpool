@@ -49,7 +49,7 @@ use windows::{
         },
         System::WinRT::Composition::{ICompositionDrawingSurfaceInterop, ICompositorInterop},
     },
-    core::{Interface, w},
+    core::{HSTRING, Interface, PCWSTR, w},
 };
 use windows_numerics::{Matrix3x2, Vector2};
 
@@ -860,7 +860,28 @@ impl Gfx {
         bold: bool,
         ink: Ink,
     ) -> Result<LabelBrush> {
-        self.draw_text_brush(text, scale, font_size, bold, ink, None)
+        self.draw_text_brush(text, scale, font_size, bold, ink, None, None)
+    }
+
+    /// Text in a chosen family (`None`: the interface font) and DirectWrite weight (the clock).
+    pub fn text_brush_styled(
+        &self,
+        text: &str,
+        scale: f32,
+        font_size: f32,
+        family: Option<&str>,
+        weight: i32,
+        ink: Ink,
+    ) -> Result<LabelBrush> {
+        self.draw_text_brush(
+            text,
+            scale,
+            font_size,
+            false,
+            ink,
+            None,
+            Some((family, weight)),
+        )
     }
 
     /// Single line, elided to the available physical width.
@@ -873,7 +894,7 @@ impl Gfx {
         ink: Ink,
         max_width: f32,
     ) -> Result<LabelBrush> {
-        self.draw_text_brush(text, scale, font_size, bold, ink, Some(max_width))
+        self.draw_text_brush(text, scale, font_size, bold, ink, Some(max_width), None)
     }
 
     fn draw_text_brush(
@@ -884,6 +905,7 @@ impl Gfx {
         bold: bool,
         ink: Ink,
         fitted: Option<f32>,
+        style: Option<(Option<&str>, i32)>,
     ) -> Result<LabelBrush> {
         let mut utf16: Vec<u16> = text.encode_utf16().collect();
         if fitted.is_some() {
@@ -894,15 +916,18 @@ impl Gfx {
             }
         }
         let max_width = fitted.map_or(4096.0, |width| width.floor().max(1.0));
-        let weight = if bold {
-            DWRITE_FONT_WEIGHT_SEMI_BOLD
-        } else {
-            DWRITE_FONT_WEIGHT_NORMAL
+        let weight = match style {
+            Some((_, value)) => windows::Win32::Graphics::DirectWrite::DWRITE_FONT_WEIGHT(value),
+            None if bold => DWRITE_FONT_WEIGHT_SEMI_BOLD,
+            None => DWRITE_FONT_WEIGHT_NORMAL,
         };
+        let family = style.and_then(|(family, _)| family).map(HSTRING::from);
         // SAFETY: Strings and structures passed to each call remain alive for its duration.
         let (layout, metrics) = unsafe {
             let format = self.dwrite.CreateTextFormat(
-                text_font(),
+                family
+                    .as_ref()
+                    .map_or_else(text_font, |name| PCWSTR(name.as_ptr())),
                 None,
                 weight,
                 DWRITE_FONT_STYLE_NORMAL,

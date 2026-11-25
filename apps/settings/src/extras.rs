@@ -484,6 +484,8 @@ fn style_of(style: IconStyle) -> Style {
         IconStyle::Dark => Style::Dark,
         IconStyle::Clear => Style::Clear,
         IconStyle::Tinted => Style::Tinted,
+        IconStyle::Squircle => Style::Squircle,
+        IconStyle::Normalized => Style::Normalized,
     }
 }
 
@@ -499,7 +501,23 @@ fn style_texture(
     }
     let mut rgba = sample_icon(hue, 64);
     iconstyle::apply_rgba(style_of(style), tint, &mut rgba);
-    let image = egui::ColorImage::from_rgba_unmultiplied([64, 64], &rgba);
+    let image = if matches!(style, IconStyle::Squircle | IconStyle::Normalized) {
+        // The geometric styles work on premultiplied BGRA, as the dock's icons are.
+        let mut bgra = vec![0u8; rgba.len()];
+        for (src, dst) in rgba.chunks_exact(4).zip(bgra.chunks_exact_mut(4)) {
+            let a = u16::from(src[3]);
+            let pre = |c: u8| ((u16::from(c) * a + 127) / 255) as u8;
+            dst.copy_from_slice(&[pre(src[2]), pre(src[1]), pre(src[0]), src[3]]);
+        }
+        let shaped = iconstyle::reshape(style_of(style), &bgra, 64);
+        let flipped: Vec<u8> = shaped
+            .chunks_exact(4)
+            .flat_map(|p| [p[2], p[1], p[0], p[3]])
+            .collect();
+        egui::ColorImage::from_rgba_premultiplied([64, 64], &flipped)
+    } else {
+        egui::ColorImage::from_rgba_unmultiplied([64, 64], &rgba)
+    };
     let texture = ctx.load_texture(format!("icon-style-{key:?}"), image, TextureOptions::LINEAR);
     ctx.data_mut(|d| d.insert_temp(key, texture.clone()));
     texture
@@ -510,7 +528,7 @@ pub fn icon_style_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         hint(ui, t.get("iconStyleHint"));
         let ctx = ui.ctx().clone();
         let width = ui.available_width().min(520.0);
-        let cell = (width - 3.0 * 8.0) / 4.0;
+        let cell = (width - 5.0 * 8.0) / 6.0;
         let (area, _) = ui.allocate_exact_size(vec2(width, cell * 0.95 + 28.0), Sense::hover());
         let hues = [[46u8, 140, 230], [244, 150, 50], [70, 190, 120]];
         let (ink, weak) = (ui.visuals().text_color(), ui.visuals().weak_text_color());
@@ -581,6 +599,8 @@ pub fn icon_style_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
                     IconStyle::Dark => "iconStyleDark",
                     IconStyle::Clear => "iconStyleClear",
                     IconStyle::Tinted => "iconStyleTinted",
+                    IconStyle::Squircle => "iconStyleSquircle",
+                    IconStyle::Normalized => "iconStyleNormalized",
                 }),
                 egui::FontId::proportional(12.5),
                 if picked { ink } else { weak },
@@ -689,5 +709,272 @@ pub fn glass_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
             Stroke::new(1.0, Color32::from_white_alpha(70)),
             StrokeKind::Inside,
         );
+    });
+}
+
+// ---------------------------------------------------------------- clock
+
+fn clock_options(config: &Config) -> whirlpool_core::clock::ClockOptions {
+    use whirlpool_core::clock::{
+        ClockFont, ClockOptions, ClockWeight, DateStyle, DateStyleOpt, HourCycle,
+    };
+    ClockOptions {
+        hour: match config.menu_bar_24h {
+            Some(true) => HourCycle::H24,
+            Some(false) => HourCycle::H12,
+            None => HourCycle::System,
+        },
+        seconds: config.clock_seconds,
+        date: DateStyleOpt(if config.menu_bar_date {
+            DateStyle::from_id(&config.clock_date)
+        } else {
+            DateStyle::Off
+        }),
+        zones: config.clock_zones.iter().take(3).cloned().collect(),
+        font: ClockFont::from_id(&config.clock_font),
+        weight: ClockWeight::from_id(&config.clock_weight),
+    }
+}
+
+/// The clock: presets, 12 or 24 hours, seconds, date, typeface, weight and time zones.
+pub fn clock_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
+    use whirlpool_core::clock::{ClockFont, ClockPreset, ClockWeight, DateStyle, ZONES};
+    ui::card(ui, Some(t.get("groupClock")), |ui| {
+        // A live preview in the chosen typeface and weight.
+        let text = whirlpool_shell::system::clock_text_for(&clock_options(config));
+        let family = if config.clock_font == "mono" {
+            egui::FontFamily::Monospace
+        } else {
+            egui::FontFamily::Proportional
+        };
+        let size = if config.clock_weight == "semibold" {
+            20.0
+        } else {
+            19.0
+        };
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 54.0), Sense::hover());
+        ui.painter()
+            .rect_filled(rect, CornerRadius::same(14), Color32::from_rgb(14, 34, 46));
+        ui.painter().text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            text,
+            egui::FontId::new(size, family),
+            Color32::from_rgb(236, 246, 250),
+        );
+        ui.add_space(6.0);
+        hint(ui, t.get("clockPreset"));
+        let current = ClockPreset::matching(
+            ClockFont::from_id(&config.clock_font),
+            ClockWeight::from_id(&config.clock_weight),
+            DateStyle::from_id(&config.clock_date),
+            config.clock_seconds,
+        );
+        ui.horizontal_wrapped(|ui| {
+            for preset in ClockPreset::ALL {
+                let key = match preset {
+                    ClockPreset::Classic => "clockPresetClassic",
+                    ClockPreset::Quiet => "clockPresetQuiet",
+                    ClockPreset::Bold => "clockPresetBold",
+                    ClockPreset::Digital => "clockPresetDigital",
+                    ClockPreset::Editorial => "clockPresetEditorial",
+                    ClockPreset::Compact => "clockPresetCompact",
+                };
+                if ui
+                    .selectable_label(current == Some(preset), t.get(key))
+                    .clicked()
+                {
+                    let look = preset.look();
+                    config.clock_font = look.font.id().to_owned();
+                    config.clock_weight = look.weight.id().to_owned();
+                    config.clock_date = look.date.id().to_owned();
+                    config.menu_bar_date = look.date != DateStyle::Off;
+                    config.clock_seconds = look.seconds;
+                }
+            }
+        });
+        ui.add_space(4.0);
+        ui::divider(ui);
+        ui::toggle_row(
+            ui,
+            t.get("clockSeconds"),
+            Some(t.get("clockSecondsHint")),
+            &mut config.clock_seconds,
+        );
+        ui::divider(ui);
+        let mut date = DateStyle::from_id(&config.clock_date);
+        ui::row(ui, t.get("clockDateStyle"), None, 180.0, |ui| {
+            ui::choose(
+                ui,
+                "clock-date",
+                &mut date,
+                &[
+                    (DateStyle::Short, t.get("clockDateShort")),
+                    (DateStyle::Long, t.get("clockDateLong")),
+                    (DateStyle::Numeric, t.get("clockDateNumeric")),
+                ],
+            );
+        });
+        if date != DateStyle::Off {
+            config.clock_date = date.id().to_owned();
+        }
+        ui::divider(ui);
+        let mut font = ClockFont::from_id(&config.clock_font);
+        ui::row(ui, t.get("clockFont"), None, 180.0, |ui| {
+            ui::choose(
+                ui,
+                "clock-font",
+                &mut font,
+                &[
+                    (ClockFont::System, t.get("clockFontSystem")),
+                    (ClockFont::Mono, t.get("clockFontMono")),
+                    (ClockFont::Condensed, t.get("clockFontCondensed")),
+                    (ClockFont::Serif, t.get("clockFontSerif")),
+                ],
+            );
+        });
+        config.clock_font = font.id().to_owned();
+        ui::divider(ui);
+        let mut weight = ClockWeight::from_id(&config.clock_weight);
+        ui::row(ui, t.get("clockWeight"), None, 280.0, |ui| {
+            ui.selectable_value(
+                &mut weight,
+                ClockWeight::Semibold,
+                t.get("clockWeightSemibold"),
+            );
+            ui.selectable_value(
+                &mut weight,
+                ClockWeight::Regular,
+                t.get("clockWeightRegular"),
+            );
+            ui.selectable_value(&mut weight, ClockWeight::Light, t.get("clockWeightLight"));
+        });
+        config.clock_weight = weight.id().to_owned();
+        ui::divider(ui);
+        ui::toggle_row(ui, t.get("clockPanel"), None, &mut config.clock_panel);
+        ui::divider(ui);
+        ui.add_space(6.0);
+        hint(ui, t.get("clockZones"));
+        ui.horizontal_wrapped(|ui| {
+            for zone in ZONES {
+                let on = config.clock_zones.iter().any(|k| k == zone.key);
+                if ui
+                    .selectable_label(on, format!("{} {}", zone.tag, zone.city))
+                    .clicked()
+                {
+                    if on {
+                        config.clock_zones.retain(|k| k != zone.key);
+                    } else if config.clock_zones.len() < 6 {
+                        config.clock_zones.push(zone.key.to_owned());
+                    }
+                }
+            }
+        });
+    });
+}
+
+// ---------------------------------------------------------------- glass material
+
+/// The dock's glass material (frosted, liquid, matte, classic) and how far it leans toward the
+/// wallpaper. Each swatch is drawn from the same numbers the dock uses.
+pub fn material_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
+    use whirlpool_config::GlassMaterial;
+    use whirlpool_core::material::Material;
+    ui::card(ui, Some(t.get("groupMaterial")), |ui| {
+        hint(ui, t.get("materialHint"));
+        let width = ui.available_width().min(560.0);
+        let cell = (width - 3.0 * 8.0) / 4.0;
+        let (area, _) = ui.allocate_exact_size(vec2(width, 96.0 + 24.0), Sense::hover());
+        let (ink, weak) = (ui.visuals().text_color(), ui.visuals().weak_text_color());
+        for (n, setting) in GlassMaterial::ALL.into_iter().enumerate() {
+            let material = match setting {
+                GlassMaterial::Frosted => Material::Frosted,
+                GlassMaterial::Liquid => Material::Liquid,
+                GlassMaterial::Matte => Material::Matte,
+                GlassMaterial::Classic => Material::Classic,
+            };
+            let rect = Rect::from_min_size(
+                area.min + vec2(n as f32 * (cell + 8.0), 0.0),
+                vec2(cell, 96.0),
+            );
+            let response = ui
+                .interact(rect, Id::new(("material", n)), Sense::click())
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+            if response.clicked() {
+                config.glass_material = setting;
+            }
+            let picked = config.glass_material == setting;
+            let painter = ui.painter();
+            // A two-tone "wallpaper" so see-through and solid read differently.
+            painter.rect_filled(
+                rect,
+                CornerRadius::same(14),
+                Color32::from_rgb(214, 128, 72),
+            );
+            painter.rect_filled(
+                Rect::from_min_max(pos2(rect.center().x, rect.top()), rect.max),
+                CornerRadius {
+                    nw: 0,
+                    ne: 14,
+                    sw: 0,
+                    se: 14,
+                },
+                Color32::from_rgb(56, 118, 196),
+            );
+            let look = material.look(94);
+            let pill = Rect::from_center_size(rect.center(), vec2(cell - 22.0, 34.0));
+            let tint = Color32::from_rgba_unmultiplied(4, 34, 44, look.tint_alpha);
+            painter.rect_filled(pill, CornerRadius::same(12), tint);
+            painter.rect_filled(
+                Rect::from_min_size(pill.min, vec2(pill.width(), pill.height() * 0.5)),
+                CornerRadius {
+                    nw: 12,
+                    ne: 12,
+                    sw: 0,
+                    se: 0,
+                },
+                Color32::from_white_alpha(look.sheen_alpha / 2),
+            );
+            painter.rect_stroke(
+                pill,
+                CornerRadius::same(12),
+                Stroke::new(
+                    1.2,
+                    Color32::from_white_alpha((150.0 * look.rim_scale).min(255.0) as u8),
+                ),
+                StrokeKind::Inside,
+            );
+            painter.rect_stroke(
+                rect,
+                CornerRadius::same(14),
+                Stroke::new(
+                    if picked { 2.0 } else { 1.0 },
+                    if picked {
+                        TEAL
+                    } else {
+                        Color32::from_white_alpha(24)
+                    },
+                ),
+                StrokeKind::Inside,
+            );
+            painter.text(
+                pos2(rect.center().x, rect.bottom() + 14.0),
+                egui::Align2::CENTER_CENTER,
+                t.get(match setting {
+                    GlassMaterial::Frosted => "materialFrosted",
+                    GlassMaterial::Liquid => "materialLiquid",
+                    GlassMaterial::Matte => "materialMatte",
+                    GlassMaterial::Classic => "materialClassic",
+                }),
+                egui::FontId::proportional(12.5),
+                if picked { ink } else { weak },
+            );
+        }
+        ui::divider(ui);
+        let mut tint = config.glass_wallpaper_tint as i32;
+        ui::row(ui, t.get("materialWallpaperTint"), None, 220.0, |ui| {
+            ui::slider(ui, &mut tint, 0..=100, "");
+        });
+        config.glass_wallpaper_tint = tint.clamp(0, 100) as u32;
     });
 }

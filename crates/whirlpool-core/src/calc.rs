@@ -108,6 +108,11 @@ fn lex(src: &str) -> Result<Vec<Tok>, CalcError> {
                 out.push(Tok::Name("sqrt".into()));
                 i += 1;
             }
+            // `7x6` reads as seven times six
+            'x' | 'X' if matches!(out.last(), Some(Tok::Num(_) | Tok::RParen)) => {
+                out.push(Tok::Star);
+                i += 1;
+            }
             _ if ch.is_alphabetic() => {
                 let start = i;
                 while i < c.len() && (c[i].is_alphanumeric() || c[i] == '_') {
@@ -418,7 +423,12 @@ pub fn is_calculation(src: &str) -> bool {
         || s.to_lowercase()
             .split(|c: char| !c.is_alphabetic())
             .any(|w| is_function(w) || w == "mod");
-    operator && evaluate(s).is_ok()
+    let times = s.chars().collect::<Vec<_>>().windows(3).any(|w| {
+        w[0].is_ascii_digit()
+            && (w[1] == 'x' || w[1] == 'X')
+            && (w[2].is_ascii_digit() || w[2] == '(')
+    });
+    (operator || times) && evaluate(s).is_ok()
 }
 
 fn round_significant(x: f64) -> f64 {
@@ -484,6 +494,8 @@ mod tests {
         assert_eq!(ev("-7 mod 3"), "2");
         assert_eq!(ev("2 ** 10"), "1024");
         assert_eq!(ev("6 \u{d7} 7 \u{f7} 2"), "21");
+        assert_eq!(ev("7x6"), "42");
+        assert_eq!(ev("2x(3+1)"), "8");
     }
 
     #[test]

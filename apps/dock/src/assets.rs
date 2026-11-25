@@ -48,6 +48,8 @@ fn style_of(style: whirlpool_config::IconStyle) -> whirlpool_core::iconstyle::St
         whirlpool_config::IconStyle::Dark => Style::Dark,
         whirlpool_config::IconStyle::Clear => Style::Clear,
         whirlpool_config::IconStyle::Tinted => Style::Tinted,
+        whirlpool_config::IconStyle::Squircle => Style::Squircle,
+        whirlpool_config::IconStyle::Normalized => Style::Normalized,
     }
 }
 
@@ -79,6 +81,18 @@ fn restyle(mut visual: AppVisual) -> AppVisual {
         px[1] = premultiply(out[1]);
         px[2] = premultiply(out[0]);
         px[3] = out[3];
+    }
+    // Squircle and Normalized change the shape, not the pixels.
+    if matches!(
+        style,
+        whirlpool_core::iconstyle::Style::Squircle | whirlpool_core::iconstyle::Style::Normalized
+    ) && visual.icon.width == visual.icon.height
+    {
+        visual.icon.bgra = whirlpool_core::iconstyle::reshape(
+            style,
+            &visual.icon.bgra,
+            visual.icon.width as usize,
+        );
     }
     visual
 }

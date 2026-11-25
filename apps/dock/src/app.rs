@@ -638,6 +638,8 @@ struct StageKey {
     icon_size: u32,
     max_scale: f32,
     indicators: bool,
+    /// Glass material and wallpaper tint in force (see `scene::material_stamp`).
+    material: u64,
     entries: Vec<Entry>,
 }
 
@@ -1365,6 +1367,7 @@ impl App {
             icon_size: self.config.icon_size,
             max_scale: self.config.max_scale(),
             indicators: self.config.show_indicators,
+            material: crate::scene::material_stamp(),
             entries: self.current_entries(),
         };
         if self.stage.as_ref().is_some_and(|stage| stage.key == key) {
@@ -4269,8 +4272,10 @@ impl App {
         let style_changed = self
             .icons
             .set_style(config.dock_icon_style, config.dock_icon_tint);
+        let material_changed =
+            crate::scene::set_material(config.glass_material, config.glass_wallpaper_tint);
         self.config = config;
-        if style_changed {
+        if style_changed || material_changed {
             self.assets_for = (0.0, false, 0, DockEdge::Bottom);
         }
         if moved {
@@ -4711,6 +4716,7 @@ impl App {
                 .and_then(|()| bar.set_usage_enabled(&self.gfx, self.config.ai_usage))
                 .and_then(|()| bar.set_media_enabled(&self.gfx, self.config.menu_bar_music))
                 .and_then(|()| bar.set_widgets(&self.gfx, widgets))
+                .and_then(|()| bar.set_clock(&self.gfx, clock_settings(&self.config)))
                 .and_then(|()| {
                     let covered = primary_monitor()
                         .is_some_and(|monitor| tracker::foreground_is_fullscreen(monitor.screen));
@@ -6778,5 +6784,31 @@ mod preview_order_tests {
         assert_eq!(order.windows_of(&current, "editor"), vec![4]);
         order.update(&[]);
         assert!(order.0.is_empty());
+    }
+}
+
+/// The clock's options from the configuration.
+fn clock_settings(config: &whirlpool_config::Config) -> crate::menubar::ClockSettings {
+    use whirlpool_core::clock::{
+        ClockFont, ClockOptions, ClockWeight, DateStyle, DateStyleOpt, HourCycle,
+    };
+    crate::menubar::ClockSettings {
+        options: ClockOptions {
+            hour: match config.menu_bar_24h {
+                Some(true) => HourCycle::H24,
+                Some(false) => HourCycle::H12,
+                None => HourCycle::System,
+            },
+            seconds: config.clock_seconds,
+            date: DateStyleOpt(if config.menu_bar_date {
+                DateStyle::from_id(&config.clock_date)
+            } else {
+                DateStyle::Off
+            }),
+            zones: config.clock_zones.iter().take(3).cloned().collect(),
+            font: ClockFont::from_id(&config.clock_font),
+            weight: ClockWeight::from_id(&config.clock_weight),
+        },
+        panel: config.clock_panel,
     }
 }

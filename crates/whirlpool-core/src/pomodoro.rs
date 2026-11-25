@@ -138,6 +138,45 @@ impl Timer {
     }
 }
 
+/// The timer as text for a file, with the moment it was saved.
+#[must_use]
+pub fn encode(timer: &Timer, now_ms: u64) -> String {
+    let mode = match timer.mode {
+        Mode::Focus => "focus",
+        Mode::ShortBreak => "short",
+        Mode::LongBreak => "long",
+    };
+    format!(
+        "mode={mode}\ndone={}\nrunning={}\nremaining_ms={}\nsaved_ms={now_ms}\n",
+        timer.done,
+        u8::from(timer.running),
+        timer.remaining_ms
+    )
+}
+
+/// Reads a saved timer. A running timer keeps counting through the time the file sat there, so
+/// closing the panel does not stop it. At most one phase change is applied for that gap.
+#[must_use]
+pub fn decode(text: &str, plan: Plan, now_ms: u64) -> Option<(Timer, Option<Event>)> {
+    let get = |key: &str| {
+        text.lines()
+            .find_map(|l| l.strip_prefix(key)?.strip_prefix('='))
+    };
+    let mut timer = Timer::new(plan);
+    timer.mode = match get("mode")? {
+        "focus" => Mode::Focus,
+        "short" => Mode::ShortBreak,
+        "long" => Mode::LongBreak,
+        _ => return None,
+    };
+    timer.done = get("done")?.parse().ok()?;
+    timer.running = get("running")? == "1";
+    timer.remaining_ms = get("remaining_ms")?.parse().ok()?;
+    let saved: u64 = get("saved_ms")?.parse().ok()?;
+    let event = timer.tick(now_ms.saturating_sub(saved));
+    Some((timer, event))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +251,28 @@ mod tests {
         t.skip();
         assert_eq!(t.mode, Mode::ShortBreak);
         assert_eq!(t.done, 0);
+    }
+
+    #[test]
+    fn a_saved_running_timer_keeps_counting() {
+        let mut t = Timer::new(Plan::default());
+        t.toggle();
+        t.tick(60_000);
+        let saved = encode(&t, 1_000);
+        let (back, event) = decode(&saved, Plan::default(), 1_000 + 120_000).expect("reads");
+        assert_eq!(event, None);
+        assert_eq!(back.remaining_ms, 25 * 60_000 - 180_000);
+        assert!(back.running);
+        let (done, event) = decode(&saved, Plan::default(), 1_000 + 3_600_000).expect("reads");
+        assert!(matches!(
+            event,
+            Some(Event::Finished {
+                was: Mode::Focus,
+                ..
+            })
+        ));
+        assert!(!done.running && done.mode == Mode::ShortBreak && done.done == 1);
+        assert!(decode("junk", Plan::default(), 0).is_none());
     }
 
     #[test]

@@ -34,11 +34,111 @@ pub struct Theme {
     indicator: Color,
 }
 
+/// The glass material and wallpaper tint in force, shared by every panel that draws the dock's
+/// surface. Read from the configuration the first time it is needed, then set by `set_material`.
+struct MaterialState {
+    material: whirlpool_core::material::Material,
+    tint_percent: u32,
+    wallpaper: Option<[u8; 3]>,
+}
+
+static MATERIAL: std::sync::Mutex<Option<MaterialState>> = std::sync::Mutex::new(None);
+
+fn material_of(setting: whirlpool_config::GlassMaterial) -> whirlpool_core::material::Material {
+    use whirlpool_core::material::Material;
+    match setting {
+        whirlpool_config::GlassMaterial::Frosted => Material::Frosted,
+        whirlpool_config::GlassMaterial::Liquid => Material::Liquid,
+        whirlpool_config::GlassMaterial::Matte => Material::Matte,
+        whirlpool_config::GlassMaterial::Classic => Material::Classic,
+    }
+}
+
+/// The wallpaper's mean colour, read from a small decoded preview.
+fn wallpaper_average() -> Option<[u8; 3]> {
+    let image = whirlpool_shell::imagery::wallpaper_preview(0)?;
+    whirlpool_core::tint::profile_from_bgra(
+        image.width as usize,
+        image.height as usize,
+        &image.bgra,
+    )
+    .map(|profile| profile.average)
+}
+
+fn with_material<R>(read: impl FnOnce(&MaterialState) -> R) -> R {
+    let mut guard = MATERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let state = guard.get_or_insert_with(|| {
+        let config = whirlpool_config::load(&whirlpool_config::default_path())
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        MaterialState {
+            material: material_of(config.glass_material),
+            tint_percent: config.glass_wallpaper_tint,
+            wallpaper: (config.glass_wallpaper_tint > 0)
+                .then(wallpaper_average)
+                .flatten(),
+        }
+    });
+    read(state)
+}
+
+/// Switches the material and tint. Returns whether anything changed (the dock then rebuilds).
+pub fn set_material(setting: whirlpool_config::GlassMaterial, tint_percent: u32) -> bool {
+    let material = material_of(setting);
+    let tint_percent = tint_percent.min(100);
+    let before = material_stamp();
+    let wallpaper = (tint_percent > 0).then(wallpaper_average).flatten();
+    *MATERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(MaterialState {
+        material,
+        tint_percent,
+        wallpaper,
+    });
+    material_stamp() != before
+}
+
+/// A number that differs whenever the material or the wallpaper tint does; part of the stage key.
+pub fn material_stamp() -> u64 {
+    with_material(|state| {
+        let wallpaper = state.wallpaper.map_or(0, |c| {
+            u64::from(c[0]) << 16 | u64::from(c[1]) << 8 | u64::from(c[2]) | 1 << 24
+        });
+        (state.material as u64) << 48 | u64::from(state.tint_percent) << 32 | wallpaper
+    })
+}
+
 impl Theme {
+    /// The dock's surface for the system theme, in the chosen material and wallpaper tint.
+    pub fn for_system(light: bool, glass: bool) -> Self {
+        let mut theme = Self::classic(light, glass);
+        if !glass {
+            return theme;
+        }
+        with_material(|state| {
+            let base_alpha = theme.tint.A;
+            let look = state.material.look(base_alpha);
+            let mut rgb = [theme.tint.R, theme.tint.G, theme.tint.B];
+            if let Some(wallpaper) = state.wallpaper {
+                rgb = whirlpool_core::material::wallpaper_tint(
+                    rgb,
+                    wallpaper,
+                    state.tint_percent,
+                    light,
+                );
+            }
+            theme.tint = rgba(rgb[0], rgb[1], rgb[2], look.tint_alpha);
+        });
+        theme
+    }
+
     /// `glass` is false while Windows has transparency off (or energy saver
     /// on): the dock is then solid gray, as macOS draws it with "Reduce
     /// transparency".
-    pub fn for_system(light: bool, glass: bool) -> Self {
+    fn classic(light: bool, glass: bool) -> Self {
         if light {
             Self {
                 light,
@@ -130,12 +230,17 @@ impl GlassSurface {
         sheen.SetStartPoint(v2(0.0, 0.0))?;
         sheen.SetEndPoint(v2(0.0, 1.0))?;
         let stops = sheen.ColorStops()?;
-        stops
-            .Append(&c.CreateColorGradientStopWithOffsetAndColor(0.0, rgba(255, 255, 255, 38))?)?;
+        let (sheen_alpha, rim_scale, backdrop_on) = with_material(|state| {
+            let look = state.material.look(theme.tint.A);
+            (look.sheen_alpha, look.rim_scale, look.backdrop)
+        });
+        stops.Append(
+            &c.CreateColorGradientStopWithOffsetAndColor(0.0, rgba(255, 255, 255, sheen_alpha))?,
+        )?;
         stops
             .Append(&c.CreateColorGradientStopWithOffsetAndColor(0.55, rgba(255, 255, 255, 0))?)?;
 
-        let backdrop: Option<CompositionBrush> = if theme.glass {
+        let backdrop: Option<CompositionBrush> = if theme.glass && backdrop_on {
             Some(c.CreateHostBackdropBrush()?.cast()?)
         } else {
             None
@@ -157,6 +262,7 @@ impl GlassSurface {
         rim_brush.SetInterpolationSpace(CompositionColorSpace::RgbLinear)?;
         let stops = rim_brush.ColorStops()?;
         for (at, alpha) in [(0.0, 150), (0.35, 40), (0.65, 30), (1.0, 105)] {
+            let alpha = (f32::from(alpha) * rim_scale).round().clamp(0.0, 255.0) as u8;
             stops.Append(
                 &c.CreateColorGradientStopWithOffsetAndColor(at, rgba(255, 255, 255, alpha))?,
             )?;

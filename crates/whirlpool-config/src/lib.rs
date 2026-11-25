@@ -104,6 +104,25 @@ pub struct Config {
     pub dock_icon_style: IconStyle,
     /// Colour of the tinted style, red, green, blue.
     pub dock_icon_tint: [u8; 3],
+    /// Glass material of the dock: frosted, liquid, matte or classic (the original look).
+    pub glass_material: GlassMaterial,
+    /// How far the dock's tint leans toward the wallpaper, 0 to 100. 0 keeps the built-in tint.
+    pub glass_wallpaper_tint: u32,
+    /// Show seconds in the clock. They tick only while the clock can be seen.
+    pub clock_seconds: bool,
+    /// Clock typeface: `system`, `mono`, `condensed` or `serif`.
+    pub clock_font: String,
+    /// Clock weight: `light`, `regular` or `semibold`.
+    pub clock_weight: String,
+    /// Date next to the time (when `menu_bar_date` is on): `short`, `long` or `numeric`.
+    pub clock_date: String,
+    /// Windows time zone keys shown next to the time and in the clock panel.
+    pub clock_zones: Vec<String>,
+    /// Clicking the bar clock opens the clock panel (otherwise the Windows notification centre).
+    pub clock_panel: bool,
+    /// Fetch synced lyrics for the playing track from a public lyrics service. Off by default: it
+    /// is the only setting that sends anything off the PC (track, artist, album, length).
+    pub lyrics: bool,
     /// Draw Whirlpool panels as refracting glass (needs a one-off picture of what is behind them).
     pub glass_refraction: bool,
     /// How strongly the glass bends the view, 0 to 100.
@@ -588,13 +607,38 @@ pub enum IconStyle {
     Dark,
     Clear,
     Tinted,
+    Squircle,
+    Normalized,
     #[default]
     #[serde(other)]
     Default,
 }
 
 impl IconStyle {
-    pub const ALL: [Self; 4] = [Self::Default, Self::Dark, Self::Clear, Self::Tinted];
+    pub const ALL: [Self; 6] = [
+        Self::Default,
+        Self::Dark,
+        Self::Clear,
+        Self::Tinted,
+        Self::Squircle,
+        Self::Normalized,
+    ];
+}
+
+/// The dock's glass material. Unknown values read as the original look.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GlassMaterial {
+    Frosted,
+    Liquid,
+    Matte,
+    #[default]
+    #[serde(other)]
+    Classic,
+}
+
+impl GlassMaterial {
+    pub const ALL: [Self; 4] = [Self::Frosted, Self::Liquid, Self::Matte, Self::Classic];
 }
 
 /// A quick settings tile kind. A kind written by a newer version reads as `Unknown` and is dropped.
@@ -723,6 +767,7 @@ pub enum Language {
     Es,
     En,
     Fr,
+    Id,
     /// Follow the Windows display language. Also what a language added by a
     /// newer version reads as, so the file stays valid for older versions
     /// (serde requires this fallback to be the last variant).
@@ -818,6 +863,15 @@ impl Default for Config {
             hot_corner_bottom_right: CornerAction::None,
             dock_icon_style: IconStyle::Default,
             dock_icon_tint: [47, 143, 216],
+            glass_material: GlassMaterial::Classic,
+            glass_wallpaper_tint: 0,
+            clock_seconds: false,
+            clock_font: "system".to_owned(),
+            clock_weight: "regular".to_owned(),
+            clock_date: "short".to_owned(),
+            clock_zones: Vec::new(),
+            clock_panel: true,
+            lyrics: false,
             glass_refraction: true,
             glass_strength: 60,
             notification_history: true,
@@ -1022,6 +1076,23 @@ mod tests {
         let folder = env::temp_dir().join(format!("whirlpool-test-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&folder);
         folder.join("config.json")
+    }
+
+    #[test]
+    fn new_clock_and_glass_settings_default_and_survive_unknown_values() {
+        let fresh = Config::default();
+        assert_eq!(fresh.glass_material, GlassMaterial::Classic);
+        assert!(fresh.clock_panel && !fresh.clock_seconds && !fresh.lyrics);
+        let read: Config = serde_json::from_str(
+            r#"{"glassMaterial":"holographic","iconStyle":"x","dockIconStyle":"squircle","language":"id","clockZones":["UTC"]}"#,
+        )
+        .expect("parses");
+        assert_eq!(read.glass_material, GlassMaterial::Classic);
+        assert_eq!(read.dock_icon_style, IconStyle::Squircle);
+        assert_eq!(read.language, Language::Id);
+        assert_eq!(read.clock_zones, vec!["UTC".to_owned()]);
+        let matte: Config = serde_json::from_str(r#"{"glassMaterial":"matte"}"#).expect("parses");
+        assert_eq!(matte.glass_material, GlassMaterial::Matte);
     }
 
     #[test]

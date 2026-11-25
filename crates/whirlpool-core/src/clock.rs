@@ -487,6 +487,86 @@ pub fn should_tick_seconds(
     wants_seconds && bar_visible && !fullscreen && !locked_or_off
 }
 
+/// Everything the bar needs to write the clock.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ClockOptions {
+    pub hour: HourCycle,
+    pub seconds: bool,
+    /// `DateStyle::Off` shows no date.
+    pub date: DateStyleOpt,
+    pub zones: Vec<String>,
+    pub font: ClockFont,
+    pub weight: ClockWeight,
+}
+
+/// A date style that defaults to "off" (the options struct starts with no date).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DateStyleOpt(pub DateStyle);
+
+impl Default for DateStyleOpt {
+    fn default() -> Self {
+        Self(DateStyle::Off)
+    }
+}
+
+impl ClockFont {
+    #[must_use]
+    pub fn from_id(id: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|f| f.id() == id)
+            .unwrap_or_default()
+    }
+}
+
+impl ClockWeight {
+    #[must_use]
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Regular => "regular",
+            Self::Semibold => "semibold",
+        }
+    }
+
+    #[must_use]
+    pub fn from_id(id: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|w| w.id() == id)
+            .unwrap_or_default()
+    }
+}
+
+impl DateStyle {
+    pub const ALL: [Self; 4] = [Self::Off, Self::Short, Self::Long, Self::Numeric];
+
+    #[must_use]
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Short => "short",
+            Self::Long => "long",
+            Self::Numeric => "numeric",
+        }
+    }
+
+    #[must_use]
+    pub fn from_id(id: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|d| d.id() == id)
+            .unwrap_or_default()
+    }
+}
+
+impl ClockPreset {
+    #[must_use]
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|p| p.id() == id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,6 +707,26 @@ mod tests {
         }
         assert_eq!(zone_tag("Tokyo Standard Time"), "TYO");
         assert_eq!(zone_tag("Nowhere Time"), "NOW");
+    }
+
+    #[test]
+    fn ids_round_trip_and_unknown_ids_read_as_defaults() {
+        for f in ClockFont::ALL {
+            assert_eq!(ClockFont::from_id(f.id()), f);
+        }
+        for w in ClockWeight::ALL {
+            assert_eq!(ClockWeight::from_id(w.id()), w);
+        }
+        for d in DateStyle::ALL {
+            assert_eq!(DateStyle::from_id(d.id()), d);
+        }
+        for p in ClockPreset::ALL {
+            assert_eq!(ClockPreset::from_id(p.id()), Some(p));
+        }
+        assert_eq!(ClockFont::from_id("wingdings"), ClockFont::System);
+        assert_eq!(ClockPreset::from_id("x"), None);
+        assert_eq!(ClockFont::System.family(), None);
+        assert_eq!(ClockWeight::Semibold.value(), 600);
     }
 
     #[test]

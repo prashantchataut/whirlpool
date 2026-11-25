@@ -9,6 +9,7 @@ mod chrome;
 mod design;
 mod extras;
 mod glyphs;
+mod hub;
 mod icons;
 mod launchpad;
 mod notify_center;
@@ -143,6 +144,15 @@ pub(crate) fn logo_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
 pub fn run_notifications(compat: bool) -> eframe::Result {
     with_fallback(compat, notify_center::run)
 }
+
+/// The clock panel: clock and time zones, focus timer, file shelf. `tab` is `clock`, `focus` or `shelf`.
+pub fn run_hub(tab: &str, compat: bool) -> eframe::Result {
+    let tab = tab.to_owned();
+    with_fallback(compat, move |compat| hub::run(&tab, compat))
+}
+
+/// The title of the clock panel window, so the dock can close a running one.
+pub const HUB_TITLE: &str = hub::TITLE;
 
 /// The title of the notification center window, so the dock can close a running one.
 pub const NOTIFICATIONS_TITLE: &str = notify_center::TITLE;

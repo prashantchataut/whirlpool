@@ -188,6 +188,8 @@ pub fn set_language(language: Language) {
         Language::Es => UiLanguage::Spanish,
         Language::En => UiLanguage::English,
         Language::Fr => UiLanguage::French,
+        // The dock's own labels have no Indonesian text yet: English.
+        Language::Id => UiLanguage::English,
     };
     let stored = match chosen {
         UiLanguage::Spanish => 1,
