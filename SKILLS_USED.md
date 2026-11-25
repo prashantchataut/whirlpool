@@ -43,3 +43,16 @@ The impeccable launcher scripts target web pages and were not run; checks were d
 | `animation-vocabulary` | Names used in review notes: scale-in, fade-in. Not done: origin-aware motion (cards do not fly out of their windows). |
 
 Three looks at the real palette and overview captures (`docs/captures/session7/review-*.jpg`); findings are in `STATUS.md`.
+
+## Session 8 (PR #17: Start grid and quick settings, round by round)
+
+Honest record. **Opened this session:** `impeccable` (`SKILL.md` and `reference/craft-floor.md`), `accessibility` (contrast table, line 101 onward), `ui-ux-pro-max` (priority table in `SKILL.md`), `review-animations` (`SKILL.md` only; `STANDARDS.md` not read).
+**Not opened:** `frontend-design`, `design-taste-frontend` (written for websites), `prototype`, `web-design-guidelines`, `theme-factory`, `animation-vocabulary`. The `impeccable` launcher scripts target web pages and were not run; checks were done by looking at runner captures. No skills were downloaded from outside the repository.
+
+| Skill | What it changed |
+| --- | --- |
+| `impeccable` craft floor, Verify list ("batch the checks, fix what one look shows"; contrast 4.5:1; states incl. disabled) | Each round is one batched look at the captures, then one commit. Round 2 fixed the disabled tile state found in that look (Wi-Fi and Bluetooth tiles were dimmed to 55 % and unreadable; now 85 %). |
+| `impeccable` craft floor, Refuse list (glass as decoration, one-sided accent bars, nested cards) | Kept: no side bars, shadows with offset and blur. Open: the Start grid still uses glass plates on every icon, which is close to the "glass as decoration" default. Not resolved. |
+| `accessibility` (1.4.3 contrast) | Defines the 4.5:1 line the disabled tiles failed. Not yet measured with a tool: the check was by eye on the captures. |
+| `ui-ux-pro-max` (priority 1 and 2: contrast, 44 px targets) | Read the table only; the 44 px touch-target rule was **not** audited against the tiles. |
+| `review-animations` | Read the posture only. The entrance and slider motion were **not** reviewed against its standards this session. |

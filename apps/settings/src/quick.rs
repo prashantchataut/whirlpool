@@ -735,7 +735,9 @@ fn tile(
     let mut painter = ui.painter().clone();
     // Three states, not two: on (accent), off (glass), unavailable (the same glass, dimmed).
     let unavailable = sub.starts_with("Not available");
-    painter.set_opacity(look.opacity * rise * if unavailable { 0.55 } else { 1.0 });
+    // Session 8, round 2: 0.55 left "Not available" nearly invisible in the round-1 capture; 0.85 keeps
+    // the tile clearly inactive (no accent, no lift) while its label stays readable.
+    painter.set_opacity(look.opacity * rise * if unavailable { 0.85 } else { 1.0 });
     let mut rect = rect.translate(vec2(0.0, (1.0 - rise) * 14.0));
     let grow = 0.94 + 0.06 * spring;
     rect = Rect::from_center_size(rect.center(), rect.size() * grow);
