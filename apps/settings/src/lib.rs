@@ -141,7 +141,7 @@ pub(crate) fn logo_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
 
 /// The notification center: history of Whirlpool's own notifications.
 pub fn run_notifications(compat: bool) -> eframe::Result {
-    notify_center::run(compat)
+    with_fallback(compat, notify_center::run)
 }
 
 /// The title of the notification center window, so the dock can close a running one.

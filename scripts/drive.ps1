@@ -12,7 +12,8 @@ param(
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
 $log = Join-Path $Out 'drive-log.txt'
-function Log($m) { "$([DateTime]::Now.ToString('HH:mm:ss')) $m" | Tee-Object -Append $log }
+# Out-Host: Log is called inside functions whose return value is used; its text must not become that value.
+function Log($m) { "$([DateTime]::Now.ToString('HH:mm:ss')) $m" | Tee-Object -Append $log | Out-Host }
 
 # Session 8 gate. A scenario whose window never appears, or whose frame is the bare desktop, is a
 # failure: it is written to FAILED.txt and the script exits 1 at the end. Before this, an empty
