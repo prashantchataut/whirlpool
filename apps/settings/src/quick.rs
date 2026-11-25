@@ -737,7 +737,7 @@ fn tile(
     let unavailable = sub.starts_with("Not available");
     // Session 8, round 2: 0.55 left "Not available" nearly invisible in the round-1 capture; 0.85 keeps
     // the tile clearly inactive (no accent, no lift) while its label stays readable.
-    painter.set_opacity(look.opacity * rise * if unavailable { 0.85 } else { 1.0 });
+    painter.set_opacity(look.opacity * rise * if unavailable { 0.92 } else { 1.0 });
     let mut rect = rect.translate(vec2(0.0, (1.0 - rise) * 14.0));
     let grow = 0.94 + 0.06 * spring;
     rect = Rect::from_center_size(rect.center(), rect.size() * grow);
@@ -747,11 +747,7 @@ fn tile(
     let ink = blend(look.text, look.on_accent, active);
     // Round 3: the subtitle of an unavailable tile is pulled halfway toward the title colour, so
     // "Not available" is legible even at 85 % tile opacity.
-    let muted_ink = if unavailable {
-        blend(look.muted, look.text, 0.5)
-    } else {
-        look.muted
-    };
+    let muted_ink = blend(look.muted, look.text, if unavailable { 0.85 } else { 0.35 });
     let dim = blend(muted_ink, look.on_accent.gamma_multiply(0.85), active);
     let ring = |painter: &egui::Painter, around: Rect, radius: u8| {
         if response.has_focus() {
@@ -766,9 +762,11 @@ fn tile(
     match look.dir {
         Direction::A => {
             let corner = CornerRadius::same(20);
+            // Round 4: a dark tint, not a white one. Measured on the round-3 capture the subtitle was
+            // 2.9:1 against a tile the white tint had lightened; light text needs the darker fill.
             let idle = blend(
-                Color32::from_white_alpha(22),
-                Color32::from_white_alpha(38),
+                Color32::from_black_alpha(46),
+                Color32::from_white_alpha(18),
                 hover,
             );
             design::drop_shadow(&painter, rect, 20, 14, 5, (50.0 * active) as u8);
