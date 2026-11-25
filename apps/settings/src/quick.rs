@@ -745,7 +745,14 @@ fn tile(
         rect = rect.shrink(2.0);
     }
     let ink = blend(look.text, look.on_accent, active);
-    let dim = blend(look.muted, look.on_accent.gamma_multiply(0.85), active);
+    // Round 3: the subtitle of an unavailable tile is pulled halfway toward the title colour, so
+    // "Not available" is legible even at 85 % tile opacity.
+    let muted_ink = if unavailable {
+        blend(look.muted, look.text, 0.5)
+    } else {
+        look.muted
+    };
+    let dim = blend(muted_ink, look.on_accent.gamma_multiply(0.85), active);
     let ring = |painter: &egui::Painter, around: Rect, radius: u8| {
         if response.has_focus() {
             painter.rect_stroke(
@@ -813,7 +820,7 @@ fn tile(
                 pos2(text_x, rect.center().y + 10.0),
                 Align2::LEFT_CENTER,
                 sub,
-                FontId::proportional(11.5),
+                FontId::proportional(12.0),
                 dim,
             );
         }
