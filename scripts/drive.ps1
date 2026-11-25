@@ -474,7 +474,7 @@ Scenario 'notification center: history, repeat folding, grouping' {
     [void](Wait-Window 'Whirlpool Notifications')
     Shot '11-notifications'
     Key ([byte[]](0x1B))
-    Start-Sleep 2
+    Wait-Gone 'Whirlpool Notifications'
     & $Exe --notifications
     [void](Wait-Window 'Whirlpool Notifications')
     Shot '11-notifications-reopened'
