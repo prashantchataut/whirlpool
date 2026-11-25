@@ -84,3 +84,10 @@ runner as a real-desktop result (AGENTS.md, Rule 4).
 - `whirlpool --hud brightness 60` shows the brightness pill; changing brightness with the keys does not yet (not wired).
 - Settings > Personalize: the "Volume and Wi-Fi pop-ups" switch turns all of them off. Drag and arrow-key every slider.
 - 200 % display scale for every panel.
+## Session 8: what only real hardware can check
+
+- **200 % scale.** Hosted runners stop at 175 % (1920x1080); see `blockedScales` in `docs/capture-matrix.json`. Open the Start grid, quick settings, palette and overview at 200 % on a 4K or QHD+ display and check clipping and text sharpness.
+- **Quick settings tiles with working radios.** On the runner Wi-Fi and Bluetooth read "Not available". Check the on, off and unavailable states on a laptop; the unavailable state was raised from 55 % to 85 % opacity in round 2 and has been seen only on the runner.
+- **Legacy icons on the Start plates.** Old 32 px icons with their own square frame (for example 7-Zip) show that frame inside the plate. Seen in captures, not yet fixed.
+- **Slider feel.** The custom volume slider in quick settings: drag, wheel, keyboard arrows and touch, with a real audio device. The runner has no audio endpoint, so the 50 % shown is a default.
+- **Update toast, notch and bottom bar vs dock.** The notch (island) opens in runner captures. The toast and a real bottom-bar-plus-dock layout on a physical display remain unverified.

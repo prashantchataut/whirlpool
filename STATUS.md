@@ -107,3 +107,15 @@ Captures: `docs/captures/session7/` (run 45409486018, commit 1e78315). Study num
 | Three look-and-fix rounds per screen | PARTIAL | Presets, Start grid and drag had two rounds (read the capture, fix, recapture). Other screens were not reviewed again. |
 | `TESTING.md` | DONE | Ten sections: real desktop, several monitors, scale, ARM, battery. |
 | Release | NOT DONE | Waiting for PR #12 to merge and a decision on tagging `v4.2.0-rc4`. |
+
+# Session 8 (landed on main by a direct merge of `feat/session-8-redesign`; PR #17 closed)
+
+Note: the "not done" list below is from the time of that branch. The volume, Wi-Fi and Bluetooth pop-ups and the custom Settings slider were finished afterwards (see Session 9 at the top).
+
+Release gate **not passed**; no release cut this session. #16 (capture gate, matrix, DPI workflow) is merged and its sabotage runs (45585799476, 45585803719) are red as intended.
+
+**Done and seen on runner captures (x64 and ARM64, 100/150/175 %):** Start grid plates with monogram tiles and two-line labels; quick settings with a custom volume slider (track, fill, knob), state dots and outlined footer pills; Wi-Fi/Bluetooth "Not available" tiles readable. Quick settings subtitles measured 2.87:1 before and 5.92:1 after (x64, 150 %, rough pixel measure). Captures: `docs/captures/session8/round1`, `round2`, `round4`.
+
+**Not done (not blocked, not reached in this session):** three fresh directions per screen (the Start grid and quick settings are an iteration of the session 7 direction A, not a new design); Wi-Fi, Bluetooth, volume and brightness HUDs; Settings redesign; wallpaper crossfade and per-display sources; site captures and roadmap; the 44 px touch-target and motion reviews; checks of the bottom bar vs dock overlap and the update toast on captures (the bottom-bar layout was not captured this session; the toast has no capture).
+
+**Known visible defects:** legacy icons with their own square frame (7-Zip) keep it inside the Start plate; Start page dots sit over the blurred dock; the runner's "System Properties" dialog shows through the glass in some frames (it is Windows, not Whirlpool). Only Start (round 1) and quick settings (rounds 1 to 4) were iterated; the Start grid had no round-3 or round-4 change.

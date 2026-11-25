@@ -216,10 +216,10 @@ struct Metrics {
 fn metrics(direction: Direction) -> Metrics {
     match direction {
         Direction::A => Metrics {
-            cell: 136.0,
-            gap: 10.0,
+            cell: 144.0,
+            gap: 8.0,
             max_columns: 8,
-            icon: 80.0,
+            icon: 70.0,
             search_w: 580.0,
             search_h: 58.0,
         },
@@ -393,12 +393,100 @@ fn short(name: &str, max: usize) -> String {
 }
 
 /// A steady colour per app name, for the tile shown until its icon arrives (or when it has none).
+/// A monogram tile colour: the hue comes from the name, saturation and brightness are fixed, so a page
+/// of apps without icons reads as one palette instead of a handful of random greys.
 fn placeholder_color(name: &str) -> Color32 {
     let hash = name.bytes().fold(2166136261_u32, |hash, byte| {
         (hash ^ u32::from(byte)).wrapping_mul(16777619)
     });
-    let channel = |shift: u32| 70 + ((hash >> shift) & 0x7f) as u8 / 2;
-    Color32::from_rgb(channel(0), channel(8), channel(16))
+    let hue = (hash % 360) as f32 / 60.0;
+    let (s, v) = (0.46_f32, 0.60_f32);
+    let c = v * s;
+    let x = c * (1.0 - ((hue % 2.0) - 1.0).abs());
+    let (r, g, b) = match hue as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = v - c;
+    let to = |f: f32| ((f + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    Color32::from_rgb(to(r), to(g), to(b))
+}
+
+/// Cuts `text` with an ellipsis until it is at most `max_w` wide.
+fn fit_line(painter: &egui::Painter, text: &str, font: &egui::FontId, max_w: f32) -> String {
+    let width = |t: &str| {
+        painter
+            .layout_no_wrap(t.to_owned(), font.clone(), Color32::WHITE)
+            .size()
+            .x
+    };
+    if width(text) <= max_w {
+        return text.to_owned();
+    }
+    let mut chars: Vec<char> = text.chars().collect();
+    while chars.len() > 1 {
+        chars.pop();
+        let candidate: String = chars.iter().collect::<String>().trim_end().to_owned() + "\u{2026}";
+        if width(&candidate) <= max_w {
+            return candidate;
+        }
+    }
+    text.to_owned()
+}
+
+/// Paints an app name centred on `x`, on at most two lines, breaking at a space when there is one.
+/// A soft shadow keeps it readable over a bright wallpaper.
+fn paint_label(painter: &egui::Painter, x: f32, top: f32, name: &str, max_w: f32, color: Color32) {
+    let font = ui::heading(13.0);
+    let width = |t: &str| {
+        painter
+            .layout_no_wrap(t.to_owned(), font.clone(), Color32::WHITE)
+            .size()
+            .x
+    };
+    let (first, second) = if width(name) <= max_w {
+        (name.to_owned(), None)
+    } else {
+        let words: Vec<&str> = name.split(' ').collect();
+        let mut head = String::new();
+        let mut used = 0;
+        for (i, word) in words.iter().enumerate() {
+            let tried = if head.is_empty() {
+                (*word).to_owned()
+            } else {
+                format!("{head} {word}")
+            };
+            if i > 0 && width(&tried) > max_w {
+                break;
+            }
+            head = tried;
+            used = i + 1;
+        }
+        if used == 0 || used >= words.len() {
+            (fit_line(painter, name, &font, max_w), None)
+        } else {
+            (
+                fit_line(painter, &head, &font, max_w),
+                Some(fit_line(painter, &words[used..].join(" "), &font, max_w)),
+            )
+        }
+    };
+    let lines = std::iter::once(first).chain(second);
+    for (row, line) in lines.enumerate() {
+        let y = top + row as f32 * 16.0;
+        painter.text(
+            pos2(x, y + 1.0),
+            Align2::CENTER_TOP,
+            &line,
+            font.clone(),
+            Color32::from_black_alpha(110),
+        );
+        painter.text(pos2(x, y), Align2::CENTER_TOP, &line, font.clone(), color);
+    }
 }
 
 /// What one tile needs to be drawn this frame.
@@ -440,8 +528,14 @@ fn paint_icon(painter: &egui::Painter, rect: Rect, slot: &Slot<'_>) {
                 rect.center(),
                 Align2::CENTER_CENTER,
                 letter,
-                ui::heading(rect.width() * 0.42),
-                Color32::from_white_alpha(235),
+                ui::heading(rect.width() * 0.40),
+                Color32::from_white_alpha(225),
+            );
+            painter.rect_stroke(
+                rect,
+                CornerRadius::same(radius),
+                Stroke::new(1.0, Color32::from_white_alpha(44)),
+                StrokeKind::Inside,
             );
         }
     }
@@ -488,27 +582,27 @@ fn draw_slot(
                 ),
                 vec2(side, side),
             );
-            design::drop_shadow(&painter, plate, 24, 20, 8, 70);
-            painter.rect_filled(plate, CornerRadius::same(24), Color32::from_white_alpha(34));
-            painter.rect_stroke(
-                plate,
-                CornerRadius::same(24),
-                Stroke::new(1.0, Color32::from_white_alpha(48)),
-                StrokeKind::Inside,
-            );
-            paint_icon(&painter, plate.shrink(side * 0.1), slot);
-            painter.text(
-                pos2(rect.center().x, plate.bottom() + 15.0),
-                Align2::CENTER_TOP,
-                short(&slot.app.name, 16),
-                ui::heading(13.5),
-                Color32::from_black_alpha(110),
-            );
-            painter.text(
-                pos2(rect.center().x, plate.bottom() + 14.0),
-                Align2::CENTER_TOP,
-                short(&slot.app.name, 16),
-                ui::heading(13.5),
+            if slot.icon.is_some() {
+                // A real icon sits on a glass plate; a monogram is its own tile, so no plate under it.
+                design::drop_shadow(&painter, plate, 24, 20, 8, 70);
+                painter.rect_filled(plate, CornerRadius::same(24), Color32::from_white_alpha(34));
+                painter.rect_stroke(
+                    plate,
+                    CornerRadius::same(24),
+                    Stroke::new(1.0, Color32::from_white_alpha(48)),
+                    StrokeKind::Inside,
+                );
+                paint_icon(&painter, plate.shrink(side * 0.1), slot);
+            } else {
+                design::drop_shadow(&painter, plate, 22, 18, 7, 70);
+                paint_icon(&painter, plate, slot);
+            }
+            paint_label(
+                &painter,
+                rect.center().x,
+                plate.bottom() + 8.0,
+                &slot.app.name,
+                rect.width() - 8.0,
                 label_color,
             );
         }

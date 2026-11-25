@@ -193,3 +193,35 @@ mod tests {
         assert_eq!(Direction::parse(None, Direction::A), Direction::A);
     }
 }
+
+/// A custom slider: a thin rounded track, an accent fill and a round white knob with a soft shadow and
+/// an accent core. `value` is 0..=1, `held` 0..=1 grows the knob while it is hovered or dragged. The
+/// knob never leaves `track`: it travels over the track minus one knob radius on each side, so callers
+/// map the pointer with the same inset (`SLIDER_INSET`). Shared by quick settings and the volume HUD.
+pub const SLIDER_INSET: f32 = 12.0;
+
+pub fn slider(
+    painter: &Painter,
+    track: Rect,
+    value: f32,
+    accent: Color32,
+    held: f32,
+) -> egui::Pos2 {
+    let radius = SLIDER_INSET + 1.5 * held;
+    let usable = (track.width() - 2.0 * SLIDER_INSET).max(1.0);
+    let x = track.left() + SLIDER_INSET + usable * value.clamp(0.0, 1.0);
+    let bar = Rect::from_center_size(track.center(), egui::vec2(track.width(), 8.0));
+    painter.rect_filled(bar, CornerRadius::same(4), Color32::from_white_alpha(40));
+    let mut fill = bar;
+    fill.set_right(x);
+    painter.rect_filled(fill, CornerRadius::same(4), accent);
+    let center = pos2(x, track.center().y);
+    painter.circle_filled(
+        center + egui::vec2(0.0, 2.5),
+        radius + 2.0,
+        Color32::from_black_alpha(60),
+    );
+    painter.circle_filled(center, radius, Color32::WHITE);
+    painter.circle_filled(center, radius * 0.38, accent);
+    center
+}
