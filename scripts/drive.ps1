@@ -355,7 +355,9 @@ Scenario 'redesign directions: Start grid and quick settings' {
         Shot "20-start-$d-selected"
         Type-Keys ([byte[]](0x53, 0x45, 0x54)); Start-Sleep -Milliseconds 900
         Shot "20-start-$d-search"
-        Key ([byte[]](0x1B)); Start-Sleep 1; Key ([byte[]](0x1B)); Start-Sleep 2
+        Key ([byte[]](0x1B)); Start-Sleep 1; Key ([byte[]](0x1B)); Start-Sleep 1
+        # Opening is a toggle and Wait-Window-Fast accepts the dying window: wait until it is really gone (the 175% x64 race).
+        Wait-Gone 'Whirlpool Launchpad' 20
     }
     Remove-Item Env:WHIRLPOOL_START_DESIGN -ErrorAction SilentlyContinue
     foreach ($d in 'a', 'b', 'c') {
@@ -369,7 +371,8 @@ Scenario 'redesign directions: Start grid and quick settings' {
         # Drag the volume to the middle and a bit further, then photograph the result.
         Move-Mouse ($screen.Width - 140) 330; Start-Sleep -Milliseconds 300
         Shot "21-quick-$d-hover"
-        Key ([byte[]](0x1B)); Start-Sleep 2
+        Key ([byte[]](0x1B)); Start-Sleep 1
+        Wait-Gone 'Whirlpool Quick Settings' 20
     }
     Remove-Item Env:WHIRLPOOL_QUICK_DESIGN -ErrorAction SilentlyContinue
 }
