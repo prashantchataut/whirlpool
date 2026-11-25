@@ -143,6 +143,7 @@ function Start-Dock($json) {
     Click 600 ($screen.Height - 220); Start-Sleep 1
     Log "dock running=$([bool](Get-Process whirlpool -ErrorAction SilentlyContinue))"
     if (-not (Get-Process whirlpool -ErrorAction SilentlyContinue)) { Fail 'the dock process is not running after start' }
+    Clear-FirstRun
     Shot 'dock-only' $refDir
 }
 function Type-Keys([byte[]]$vks) { foreach ($k in $vks) { [U]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [U]::keybd_event($k, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 } }
@@ -182,6 +183,16 @@ function Scenario($name, [scriptblock]$body) {
     try { & $body } catch { Fail "scenario ${name} threw: $_" }
 }
 
+# The windows-11-arm image can sit on the Windows first-run page ("Choose privacy settings for your device") over the
+# whole desktop. Whirlpool correctly hides under a full-screen window, so every frame was of that page and the
+# driver's keys were typed into it. Close its host, and list what is on screen so the next failure explains itself.
+function Clear-FirstRun {
+    $host_ = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match '^(CloudExperienceHost|CloudExperienceHostBroker|WWAHost|OOBE|oobe.*)$' })
+    if ($host_.Count) { Log "first-run page host found ($(($host_ | ForEach-Object { $_.ProcessName }) -join ', ')); closing it"; $host_ | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+    $wins = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | ForEach-Object { "$($_.ProcessName):'$($_.MainWindowTitle)'" })
+    Log "windows on the desktop: $($wins -join ' | ')"
+}
+Clear-FirstRun
 # The runner shows its agent console over the desktop; get it out of the frame.
 (New-Object -ComObject Shell.Application).MinimizeAll()
 Start-Sleep 2
