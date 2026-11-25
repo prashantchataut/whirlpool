@@ -1,0 +1,49 @@
+name: Study 2
+
+# Black-box comparison, round two. The program under study comes from repository secrets (masked in logs);
+# its frames and file names go to a private artifact that lives one day. Whirlpool's frames are public.
+on:
+  workflow_dispatch:
+
+jobs:
+  whirlpool:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots-windows-latest
+      - run: cargo build --release -p whirlpool
+      - name: Study
+        shell: powershell
+        run: ./scripts/study2.ps1 -Target whirlpool -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out-whirlpool -SearchKeys '11,10,20'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: study2-whirlpool
+          path: out-whirlpool
+
+  other:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the installer under study
+        shell: pwsh
+        env:
+          SRC: ${{ secrets.STUDY_SOURCE }}
+        run: |
+          $rel = Invoke-RestMethod "https://api.github.com/repos/$env:SRC/releases/latest" -Headers @{ 'User-Agent' = 'study' }
+          $asset = $rel.assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile "$env:RUNNER_TEMP\pkg.exe"
+          New-Item -ItemType Directory -Force out-other | Out-Null
+          "release=$($rel.tag_name) asset=$($asset.name) size=$($asset.size) sha256=$((Get-FileHash "$env:RUNNER_TEMP\pkg.exe").Hash)" | Set-Content out-other\package.txt
+      - name: Study
+        shell: powershell
+        run: ./scripts/study2.ps1 -Target reference -Installer "$env:RUNNER_TEMP\pkg.exe" -Out out-other
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-other-2
+          path: out-other
+          retention-days: 1
