@@ -269,7 +269,7 @@ const MASCOT_TIMER: usize = 14;
 const MASCOT_POLL_MS: u32 = 50;
 const EDGE_TIMER: usize = 15;
 /// While a volume, brightness, Wi-Fi or Bluetooth HUD is up (about two seconds).
-const HUD_TIMER: usize = 41;
+const HUD_TIMER: usize = 61;
 const HUD_POLL_MS: u32 = 60;
 /// `whirlpool --hud kind value` posts this to the running dock (a way to see a HUD on demand).
 const HUD_COMMAND: u32 = WM_APP + 60;

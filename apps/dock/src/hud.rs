@@ -121,7 +121,7 @@ impl Geometry {
         let slider = kind.fraction().is_some();
         let s = scale;
         let pad = 22.0 * s;
-        let pill_w = if slider { 300.0 * s } else { 196.0 * s };
+        let pill_w = if slider { 300.0 * s } else { 150.0 * s };
         let pill_h = 56.0 * s;
         Self {
             s,
@@ -139,11 +139,11 @@ impl Geometry {
     }
 
     fn icon_x(self) -> f32 {
-        self.pad + if self.slider { 32.0 } else { 40.0 } * self.s
+        self.pad + if self.slider { 32.0 } else { 36.0 } * self.s
     }
 
     fn num_w(self) -> f32 {
-        46.0 * self.s
+        40.0 * self.s
     }
 
     fn num_h(self) -> f32 {
@@ -353,7 +353,8 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
 
     // Icon, 1 logical pixel = `s` pixels.
     let (u, v) = ((x - g.icon_x()) / s, (y - cy) / s);
-    let (bright, dim) = icon(kind, u, v);
+    let zoom = if g.slider { 1.0 } else { 1.3 };
+    let (bright, dim) = icon(kind, u / zoom, v / zoom);
     if dim {
         over(&mut out, [1.0, 1.0, 1.0], 0.28);
     }
@@ -374,7 +375,7 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
     } else {
         match kind {
             Kind::Wifi { bars } => {
-                let x0 = g.pad + 96.0 * s;
+                let x0 = g.pad + 80.0 * s;
                 for index in 0..4u8 {
                     let height = (7.0 + 5.0 * f32::from(index)) * s;
                     let left = x0 + f32::from(index) * 9.5 * s;
@@ -404,7 +405,7 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
             }
             Kind::Bluetooth { on } => {
                 let (tw, th) = (46.0 * s, 26.0 * s);
-                let tcx = g.pad + 96.0 * s + tw / 2.0;
+                let tcx = g.pad + 80.0 * s + tw / 2.0;
                 let sd = pill_sd(x, y, tcx, cy, tw, th);
                 let cover = smooth(0.75, -0.75, sd);
                 if on {
@@ -503,39 +504,82 @@ fn knob_image(kind: Kind, g: Geometry) -> IconImage {
     })
 }
 
-/// 3 x 5 digits, one row per entry, `#` for ink.
-fn digit(character: char) -> [&'static str; 5] {
+/// Points of an elliptical arc, angles in degrees (0 right, 90 down).
+fn arc(cx: f32, cy: f32, rx: f32, ry: f32, from: f32, to: f32) -> Vec<(f32, f32)> {
+    let steps = (((to - from).abs() / 15.0).ceil() as usize).max(2);
+    (0..=steps)
+        .map(|i| {
+            let a = (from + (to - from) * i as f32 / steps as f32).to_radians();
+            (cx + rx * a.cos(), cy + ry * a.sin())
+        })
+        .collect()
+}
+
+/// A digit as round-capped strokes in a box 7 wide and 12 tall.
+fn digit_strokes(character: char) -> Vec<Vec<(f32, f32)>> {
+    let mut two = arc(3.5, 3.5, 3.3, 3.3, 180.0, 395.0);
+    two.extend([(0.3, 12.0), (7.0, 12.0)]);
+    let mut five = vec![(6.3, 0.6), (1.2, 0.6), (1.0, 5.2)];
+    five.extend(arc(3.5, 8.2, 3.5, 3.7, 235.0, 520.0));
+    let six = || {
+        vec![
+            arc(7.0, 8.2, 6.8, 7.4, 180.0, 258.0),
+            arc(3.5, 8.2, 3.5, 3.8, 0.0, 360.0),
+        ]
+    };
     match character {
-        '0' => ["###", "# #", "# #", "# #", "###"],
-        '1' => [" # ", "## ", " # ", " # ", "###"],
-        '2' => ["###", "  #", "###", "#  ", "###"],
-        '3' => ["###", "  #", "###", "  #", "###"],
-        '4' => ["# #", "# #", "###", "  #", "  #"],
-        '5' => ["###", "#  ", "###", "  #", "###"],
-        '6' => ["###", "#  ", "###", "# #", "###"],
-        '7' => ["###", "  #", "  #", "  #", "  #"],
-        '8' => ["###", "# #", "###", "# #", "###"],
-        _ => ["###", "# #", "###", "  #", "###"],
+        '0' => vec![arc(3.5, 6.0, 3.5, 6.0, 0.0, 360.0)],
+        '1' => vec![vec![(1.2, 2.8), (4.2, 0.6), (4.2, 12.0)]],
+        '2' => vec![two],
+        '3' => vec![
+            arc(3.4, 3.1, 3.0, 3.1, 210.0, 450.0),
+            arc(3.4, 8.8, 3.4, 3.2, 270.0, 510.0),
+        ],
+        '4' => vec![vec![(5.0, 12.0), (5.0, 0.5), (0.3, 8.3), (7.0, 8.3)]],
+        '5' => vec![five],
+        '6' => six(),
+        '7' => vec![vec![(0.4, 0.6), (6.8, 0.6), (2.8, 12.0)]],
+        '8' => vec![
+            arc(3.5, 3.2, 3.0, 3.0, 0.0, 360.0),
+            arc(3.5, 8.6, 3.5, 3.4, 0.0, 360.0),
+        ],
+        // A nine is a six turned around.
+        _ => six()
+            .into_iter()
+            .map(|path| path.into_iter().map(|(x, y)| (7.0 - x, 12.0 - y)).collect())
+            .collect(),
     }
 }
 
+const DIGIT_ADVANCE: f32 = 10.0;
+
 fn number_image(kind: Kind, g: Geometry) -> IconImage {
-    let text: Vec<char> = kind.percent().to_string().chars().collect();
+    let strokes: Vec<Vec<Vec<(f32, f32)>>> = kind
+        .percent()
+        .to_string()
+        .chars()
+        .map(digit_strokes)
+        .collect();
     let (w, h) = (g.num_w().round() as u32, g.num_h().round() as u32);
-    let cell = 3.0 * g.s;
-    let columns = text.len() as f32 * 4.0 - 1.0;
-    let left = w as f32 - columns * cell;
-    let top = (h as f32 - 5.0 * cell) / 2.0;
-    let alpha = if kind.muted() { 0.50 } else { 0.94 };
+    let s = g.s;
+    let width = strokes.len() as f32 * DIGIT_ADVANCE - (DIGIT_ADVANCE - 7.0);
+    let left = w as f32 / s - width;
+    let top = (h as f32 / s - 12.0) / 2.0;
+    let alpha = if kind.muted() { 0.50 } else { 0.95 };
     supersampled(w, h, |x, y| {
         let mut out = [0.0f32; 4];
-        let (gx, gy) = (((x - left) / cell).floor(), ((y - top) / cell).floor());
-        if (0.0..columns).contains(&gx) && (0.0..5.0).contains(&gy) {
-            let (index, column) = ((gx as usize) / 4, (gx as usize) % 4);
-            if column < 3
-                && let Some(&character) = text.get(index)
-                && digit(character)[gy as usize].as_bytes()[column] == b'#'
-            {
+        let (lx, ly) = (x / s - left, y / s - top);
+        let index = (lx / DIGIT_ADVANCE).floor();
+        if index >= 0.0
+            && let Some(paths) = strokes.get(index as usize)
+        {
+            let local = lx - index * DIGIT_ADVANCE;
+            let near = paths
+                .iter()
+                .flat_map(|path| path.windows(2))
+                .map(|pair| seg_dist(local, ly, pair[0], pair[1]))
+                .fold(f32::MAX, f32::min);
+            if near < 0.8 {
                 over(&mut out, [0.96, 0.98, 1.0], alpha);
             }
         }
