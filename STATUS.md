@@ -4,6 +4,8 @@
 
 **Checked against the old claims:** bottom bar vs dock, no overlap in the x64 capture (`session7/round1-03`). Notch: opens from the top edge in the session 7 x64 capture; not re-checked. Update toast: still no capture; the reminder is code plus the updater end-to-end run, not a screenshot.
 
+**Release:** `v4.2.0-rc6`, pre-release (gate not passed: unsigned, no personal-desktop run). Assets: x64 and ARM64 installers, zips, bare executables, `install.ps1`, `SHA256SUMS.txt`; the two installers were downloaded and their SHA-256 matches the sums. In-app updater run on a clean runner (`updater-e2e.yml`, run 45628494147): installed rc4, updated to rc6, Whirlpool relaunched, check reports up to date, rollback to rc4, clean uninstall. The ARM64 installer is built on an x64 runner and was not run on ARM. `Cargo.toml` still says 4.2.0; the release workflow sets the tag's version at build time.
+
 **Not done, and why:** brightness pop-up trigger (needs a laptop panel and a WMI or key event source); Settings redesign beyond the slider (sidebar labels vanish at 1024 px, first card runs under the scrollbar: open); wallpaper crossfade and per-display sources; copy pass in the app (site headlines done, app strings not audited); 200 % scale (hosted runners cannot offer it); winget and scoop submission; signed installers; three look-fix-recapture rounds per screen (HUD got two, Settings one). Design skills in `.agents/skills/` were not opened this session (see `SKILLS_USED.md`). The pop-up glide is code plus end-state frames: a still cannot show motion.
 
 # Session 7 (branch `feat/session-7-design`)
