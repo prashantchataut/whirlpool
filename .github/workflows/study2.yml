@@ -31,7 +31,7 @@ jobs:
       - name: Fetch the installer under study
         shell: pwsh
         env:
-          SRC: ${{ secrets.STUDY_SOURCE }}
+          SRC: ${{ secrets.STUDY2_SOURCE }}
         run: |
           $rel = Invoke-RestMethod "https://api.github.com/repos/$env:SRC/releases/latest" -Headers @{ 'User-Agent' = 'study' }
           $asset = $rel.assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1

@@ -2,6 +2,9 @@
 
 pub mod attention;
 pub mod bounce;
+pub mod calc;
+pub mod cliphist;
+pub mod clock;
 pub mod corners;
 pub mod dragmotion;
 pub mod frame;
@@ -11,11 +14,13 @@ pub mod iconstyle;
 pub mod island;
 pub mod launchpad;
 pub mod layout;
+pub mod lrc;
 pub mod magnify;
 pub mod notify;
 pub mod overlay;
 pub mod overview;
 pub mod palette;
+pub mod pomodoro;
 pub mod roster;
 pub mod rotation;
 pub mod snap;
