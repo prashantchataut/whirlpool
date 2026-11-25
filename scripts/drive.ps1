@@ -235,6 +235,32 @@ Scenario 'quick settings and volume' {
     Shot-Panel '04-quick-settings'
 }
 
+Scenario 'hud: volume, brightness, Wi-Fi and Bluetooth pills' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    # The pill is small, so it needs fewer differing pixels than a panel to count as painted.
+    & $Exe --hud volume 35; Start-Sleep -Milliseconds 800
+    Shot-Panel '30-hud-volume-35' 0.008
+    & $Exe --hud volume 85; Start-Sleep -Milliseconds 130
+    Shot '30-hud-volume-glide'
+    Start-Sleep -Milliseconds 700
+    Shot-Panel '30-hud-volume-85' 0.008
+    & $Exe --hud muted 85; Start-Sleep -Milliseconds 700
+    Shot '30-hud-volume-muted'
+    Start-Sleep -Milliseconds 2600
+    Shot '30-hud-gone'
+    & $Exe --hud brightness 60; Start-Sleep -Milliseconds 800
+    Shot-Panel '30-hud-brightness' 0.008
+    Start-Sleep -Milliseconds 2600
+    & $Exe --hud wifi 3; Start-Sleep -Milliseconds 800
+    Shot-Panel '30-hud-wifi' 0.004
+    & $Exe --hud wifi 0; Start-Sleep -Milliseconds 700
+    Shot '30-hud-wifi-off'
+    & $Exe --hud bluetooth 1; Start-Sleep -Milliseconds 800
+    Shot-Panel '30-hud-bluetooth' 0.004
+    & $Exe --hud bluetooth 0; Start-Sleep -Milliseconds 700
+    Shot '30-hud-bluetooth-off'
+}
+
 foreach ($page in 'dock', 'menubar', 'personalize', 'windows', 'system', 'about') {
     Scenario "settings $page" {
         KillAll
