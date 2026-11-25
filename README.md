@@ -94,7 +94,22 @@ Needs Rust (MSVC) and the Visual Studio C++ build tools. The site is in `site/` 
 
 ## Status
 
-See [STATUS.md](STATUS.md) for the item-by-item table and [continuity.md](continuity.md) for the hand-off. In short: the updater installs and rolls back (run on a clean Windows runner), the overlay and wallpaper rotation ship, and the bottom bar stands above the dock. Written and unit-tested but **not yet connected to the shell**: dynamic island presets, motion for dragged windows and the Launchpad-style Start grid. Unsigned builds and an ARM64 build that has not run on ARM hardware are listed openly in [SIGNING.md](SIGNING.md) and above.
+The item-by-item table is [STATUS.md](STATUS.md); the hand-off is [continuity.md](continuity.md). Everything below was checked against runner captures (GitHub-hosted Windows, 1024x768, no GPU), not a personal desktop.
+
+| Works, with a runner capture or run behind it | Built, compiled in CI, not seen working |
+| --- | --- |
+| Dock and menu bar on any edge; bottom bar above the dock | Update reminder toast (code and unit tests; no capture) |
+| Dynamic island presets (all four differ, closed and open) | Brightness pop-up (drawn; no event source) |
+| Start grid (dock tile, hotkey, search, arrow keys) | Clock panel, focus timer, file shelf, glass materials (compiled; not captured yet) |
+| Quick settings with editable tiles and a custom slider | Opt-in synced lyrics (network is off by default) |
+| Command palette (apps, files, actions, clipboard, calculator) | Drag motion shadow is subtle in captures; the spring settle is code plus end frames |
+| Window overview with live previews | |
+| Volume, Wi-Fi and Bluetooth pop-ups | |
+| Hot corners, notification centre (own and `--notify` alerts) | |
+| Updater: install, relaunch, roll back (clean-runner end-to-end run) | |
+| Wallpaper rotation, system overlay | |
+
+Not done: signed installers (no certificate), a run on a personal desktop or on ARM hardware (the ARM64 build is cross-compiled and was only built, not run), the 200 % scale pass (hosted runners cannot offer it), wallpaper crossfade and a separate source per display, winget and scoop submission (manifests exist and are CI-checked). Builds are unsigned: see [SIGNING.md](SIGNING.md).
 
 ## License
 
