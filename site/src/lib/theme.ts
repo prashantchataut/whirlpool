@@ -8,10 +8,17 @@ import dunes from "../assets/wall-dunes.jpg";
 import sunset from "../assets/wall-sunset.jpg";
 
 export const REPO = "https://github.com/prashantchataut/whirlpool";
-export const VERSION = "4.2.0-rc3";
-export const SETUP_URL = `${REPO}/releases/latest/download/Whirlpool-Setup.exe`;
-export const ZIP_URL = `${REPO}/releases/latest/download/Whirlpool-x64.zip`;
-export const RELEASES_URL = `${REPO}/releases/latest`;
+export const VERSION = "4.2.0-rc7";
+/* GitHub's "latest" skips pre-releases and still points at v4.1.0, so every link names its tag. */
+export const TAG = `v${VERSION}`;
+const DL = `${REPO}/releases/download/${TAG}`;
+export const SETUP_URL = `${DL}/Whirlpool-Setup.exe`;
+export const SETUP_ARM_URL = `${DL}/Whirlpool-Setup-arm64.exe`;
+export const ZIP_URL = `${DL}/Whirlpool-x64.zip`;
+export const ZIP_ARM_URL = `${DL}/Whirlpool-arm64.zip`;
+export const SUMS_URL = `${DL}/SHA256SUMS.txt`;
+export const INSTALL_PS1_URL = `${DL}/install.ps1`;
+export const RELEASES_URL = `${REPO}/releases/tag/${TAG}`;
 
 /** The menu bar tints, exactly the dark-mode values the Windows build uses. */
 export type Tint =

@@ -8,12 +8,24 @@ copia la sección de la versión que se publica a la release de GitHub.
 
 ## Unreleased
 
-- Quick settings (session 8, PR #17, not released): custom volume slider with a knob, state dots, outlined footer pills; tiles use a dark glass tint so subtitles read at about 5.9:1 (measured on a runner capture); unavailable tiles are no longer faded out.
-- Start grid (session 8, PR #17, not released): monogram tiles for apps without an icon, two-line labels.
-- Start grid: redesigned. Blurred picture of the screen behind it, Inter type, glass icon plates, diagonal stagger on open, rows centred. Alternates `WHIRLPOOL_START_DESIGN=b|c`.
-- Quick settings: redesigned. Glass tiles, a water-level volume capsule, blurred backdrop, always dark glass. Alternates `WHIRLPOOL_QUICK_DESIGN=b|c`.
-- Panels retry with DirectX when OpenGL 2.0 is not available instead of exiting silently.
-- Added `packaging/` winget and scoop manifests and `scripts/make-manifests.ps1`.
+Nothing yet.
+
+## [4.2.0-rc7]
+
+Pre-release. Checked on GitHub runners only (x64 and ARM64, 100, 150 and 175 percent); nothing was run on a personal desktop or on ARM hardware (see TESTING.md). Installers are not signed.
+
+### Changed / Cambiado
+- **Start grid:** apps that have no icon get a lettered tile in a fixed colour palette; labels wrap to two lines.
+  Cuadrícula de inicio: las aplicaciones sin icono muestran una ficha con su inicial; las etiquetas ocupan dos líneas.
+- **Quick settings:** the volume control is one custom slider (track, fill, knob); tiles have a state dot; the footer buttons are outlined; tiles for Wi-Fi and Bluetooth that are not available stay readable (subtitles measured at about 5.9:1 on a runner capture).
+  Ajustes rápidos: control de volumen propio, punto de estado en cada ficha, botones del pie con contorno y subtítulos legibles.
+
+### Fixed / Corregido
+- The website's download buttons pointed at v4.1.0 (GitHub's "latest" skips pre-releases). They now name the release.
+  Los botones de descarga del sitio apuntaban a v4.1.0; ahora indican la versión exacta.
+
+### Not in this release / Fuera de esta versión
+- Brightness pop-up trigger, wallpaper crossfade and a source per display, the Settings sidebar at 1024 px, 200 percent scaling, signed installers, verification on ARM hardware. Details in STATUS.md.
 
 ## [4.2.0-rc6]
 

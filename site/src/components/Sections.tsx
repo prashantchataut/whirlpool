@@ -9,7 +9,7 @@ import {
   Github,
   Shield,
 } from "./Icons";
-import { RELEASES_URL, REPO, SETUP_URL, VERSION, WALLS, ZIP_URL } from "../lib/theme";
+import { INSTALL_PS1_URL, RELEASES_URL, REPO, SETUP_ARM_URL, SETUP_URL, SUMS_URL, VERSION, WALLS, ZIP_ARM_URL, ZIP_URL } from "../lib/theme";
 import { PACK } from "../lib/pack";
 
 
@@ -374,6 +374,12 @@ export function Install() {
               <Download className="h-[18px] w-[18px]" /> Whirlpool-Setup.exe
             </a>
             <a
+              href={SETUP_ARM_URL}
+              className="glass inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-[15px] font-medium hover:bg-white/10"
+            >
+              Windows on ARM
+            </a>
+            <a
               href={ZIP_URL}
               className="glass inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-[15px] font-medium hover:bg-white/10"
             >
@@ -383,11 +389,17 @@ export function Install() {
               href={RELEASES_URL}
               className="inline-flex items-center gap-2 px-3 py-3.5 text-[15px] text-mute transition-colors hover:text-foam"
             >
-              All releases <Arrow className="h-4 w-4" />
+              Release notes <Arrow className="h-4 w-4" />
             </a>
           </div>
+          <p className="mt-5 text-[13.5px] leading-relaxed text-mute">
+            This is a pre-release for Windows 10 and 11 only (there is no Android package). The installer is not signed yet, so
+            SmartScreen may ask you to confirm. Check the file against{" "}
+            <a className="text-foam underline underline-offset-2" href={SUMS_URL}>SHA256SUMS.txt</a>; the ARM64 build has not run on ARM hardware yet. Portable ARM64:{" "}
+            <a className="text-foam underline underline-offset-2" href={ZIP_ARM_URL}>.zip</a>.
+          </p>
           <div className="mt-8 grid gap-2">
-            <CopyLine text="irm https://github.com/prashantchataut/whirlpool/releases/latest/download/install.ps1 | iex" />
+            <CopyLine text={`irm ${INSTALL_PS1_URL} | iex`} />
             <CopyLine text="git clone https://github.com/prashantchataut/whirlpool && cd whirlpool && cargo run --release -p whirlpool" />
           </div>
         </div>
@@ -400,6 +412,7 @@ export function Install() {
 
 export function WhatsNew() {
   const rows: [string, string][] = [
+    ["Start grid and quick settings, finished", "Apps without an icon get a lettered tile, labels wrap to two lines, and the quick-settings volume is one custom slider with a knob. Subtitles on the tiles were measured at about 5.9:1 against the glass on a runner capture."],
     ["Volume, Wi-Fi and Bluetooth pop-ups", "A small glass pill with a drawn speaker, a gradient fill, a knob and a number. Wi-Fi shows four signal steps and Bluetooth a switch. Volume follows the audio device, Wi-Fi the connection, Bluetooth the radio. One switch in Settings turns them off. Captured on a runner; not yet on a personal desktop."],
     ["One slider for every number", "Settings had ten default sliders. They are now one control: accent rail, growing knob, focus ring, arrow keys, value chip."],
     ["Update reminders", "When a newer release exists, Windows shows one notification. It repeats after three days, three times at most per version, and never downloads anything on its own. One switch turns it off."],
@@ -414,9 +427,11 @@ export function WhatsNew() {
     ["Dynamic island presets", "Compact, Classic, Wide and Expressive change the live island, closed and open. Seen in four runner captures; not yet on a personal desktop."],
     ["Motion for dragged windows", "A soft shadow behind the window you drag, a preview of where it will snap, and a spring settle on release. Windows does not let a program tilt another program's window, so there is no tilt. Seen in runner captures."],
     ["Launchpad-style Start grid", "The dock's Start button and Ctrl+Alt+Space open a grid of your apps with search and arrow-key selection. Seen in runner captures; icons fill in a moment after it opens."],
-    ["Brightness pop-up", "The picture is built and captured. Nothing triggers it yet: brightness has no simple change notification, and there was no laptop panel to test on."],
+    ["Brightness pop-up", "The picture is built and captured. Nothing triggers it yet: brightness has no simple change notification, and there was no laptop panel to test on. Volume, Wi-Fi and Bluetooth pop-ups already work on a runner."],
     ["Display scaling at 200 percent", "Panels are captured at 100, 150 and 175 percent on both runners. 200 percent needs a display of about 2048 x 1536, which hosted runners do not offer, so it waits for a real machine."],
     ["Verified on ARM hardware", "The ARM64 build has not been run on an ARM device by the maintainer yet."],
+    ["Wallpaper crossfade and a folder per display", "Rotation changes the picture per display today, with a hard cut. A crossfade and a separate source for each display are not built."],
+    ["Settings redesign", "The custom slider is in. The sidebar still loses its labels at 1024 px wide, and the first card runs under the scrollbar."],
     ["Signed installers", "Needs a code-signing certificate. Until then each release publishes SHA-256 sums and build provenance."],
   ];
   return (
