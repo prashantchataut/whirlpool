@@ -448,7 +448,7 @@ impl eframe::App for Hub {
             i.raw
                 .dropped_files
                 .iter()
-                .filter_map(|f| f.path.as_ref().map(|p| p.display().to_string()))
+                .map(|f| f.path().display().to_string())
                 .collect()
         });
         if !dropped.is_empty() {
