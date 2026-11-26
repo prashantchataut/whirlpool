@@ -1,7 +1,7 @@
 // Fetches 4K pictures and previews from 4kwallpapers.com with a real Edge window (Playwright) into the
 // studio's cache, for the capture runner only. The site puts a bot check in front of plain HTTP clients, so
 // the program's own download is refused on a hosted runner; Edge passes it or does not, and the log says which.
-// Usage: node scripts/fetch-4k.mjs OUT_DIR [--previews | --previews-only] ID...
+// Usage: node scripts/fetch-4k.mjs OUT_DIR [--previews | --previews-only] [--all | ID...]
 import { chromium } from 'playwright-core';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,9 +9,9 @@ import { join } from 'node:path';
 const [out, ...rest] = process.argv.slice(2);
 const previews = rest.includes('--previews') || rest.includes('--previews-only');
 const only = rest.includes('--previews-only');
-const ids = rest.filter((a) => /^\d+$/.test(a)).map(Number);
 const catalog = readFileSync(new URL('../crates/whirlpool-core/src/studio.rs', import.meta.url), 'utf8');
 const pages = new Map([...catalog.matchAll(/entry\(\s*(\d+),\s*Category::\w+,\s*"[^"]*",\s*"([^"]+)"/g)].map((m) => [Number(m[1]), m[2]]));
+const ids = rest.includes('--all') ? [...pages.keys()] : rest.filter((a) => /^\d+$/.test(a)).map(Number);
 mkdirSync(join(out, 'previews'), { recursive: true });
 
 const browser = await chromium.launch({ channel: 'msedge', headless: false });

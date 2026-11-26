@@ -27,9 +27,8 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           npm install --no-save --no-audit --no-fund playwright-core
           $cache = Join-Path $env:LOCALAPPDATA 'Whirlpool\wallpapers'
-          $all = (Select-String -Path crates/whirlpool-core/src/studio.rs -Pattern 'entry\((\d+),' -AllMatches).Matches | ForEach-Object { $_.Groups[1].Value }
           node scripts/fetch-4k.mjs $cache 27371 27986 27362 28066 27369 27374 26734 2>&1 | Tee-Object out/fetch-4k.txt
-          node scripts/fetch-4k.mjs $cache --previews-only $all 2>&1 | Tee-Object -Append out/fetch-4k.txt
+          node scripts/fetch-4k.mjs $cache --previews-only --all 2>&1 | Tee-Object -Append out/fetch-4k.txt
       - name: Resolution
         shell: pwsh
         continue-on-error: true

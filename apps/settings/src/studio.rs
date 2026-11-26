@@ -229,6 +229,13 @@ impl Studio {
                             }
                             None => {
                                 ui.painter().rect_filled(rect, corner, palette.card);
+                                ui.painter().text(
+                                    rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    entry.category.label(),
+                                    egui::FontId::proportional(13.0),
+                                    palette.muted,
+                                );
                             }
                         }
                         let selected = self.selected == Some(entry.id);
@@ -386,6 +393,7 @@ pub fn run(compat: bool) -> eframe::Result {
         options,
         Box::new(|creation| {
             ui::install_theme(&creation.egui_ctx);
+            creation.egui_ctx.set_visuals(egui::Visuals::dark());
             Ok(Box::new(Studio::new(&creation.egui_ctx)))
         }),
     )

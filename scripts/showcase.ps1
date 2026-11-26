@@ -93,6 +93,9 @@ $cfg = Join-Path $env:APPDATA 'Whirlpool'
 Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
 Log "profile reset; display $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width)x$([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)"
 
+# The runner's own Windows Terminal (its agent log) sits on the desktop: minimise it, never close it.
+try { (New-Object -ComObject Shell.Application).MinimizeAll() } catch {}
+Start-Sleep 2
 Wall 'aurora-lake.jpg'
 Reset; Start-Process $Exe; Start-Sleep 14
 Shot '01-desktop'
