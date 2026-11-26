@@ -1,118 +1,68 @@
 # Whirlpool
 
-**The Windows taskbar, rebuilt as a dock.** A glass dock and a menu bar you can restyle, in one small native program.
-No web view, no runtime, no admin rights. It sleeps at 0 % CPU when idle, and the taskbar comes back when you quit.
+The Windows taskbar, rebuilt as a dock. Dock, menu bar and island in one native Rust program.
+24 MB idle. No web view, no admin rights. Quit it and the taskbar is back.
 
-[**Download**](https://github.com/prashantchataut/whirlpool/releases/download/v4.2.0-rc8/Whirlpool-Setup.exe) ·
-[Website](https://prashantchataut.github.io/whirlpool/) · [Changelog](CHANGELOG.md) · [Trust](docs/TRUST.md)
+[Download](https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc9) ·
+[Site](https://prashantchataut.github.io/whirlpool/) · [Scorecard](SCORECARD.md) · [Changelog](CHANGELOG.md)
 
-![The desktop](docs/renders/desktop.jpg)
+![Desktop](docs/captures/session12/01b-desktop-apps.jpg)
 
-> The images under *Captured from the real build* are photographs of `whirlpool.exe` running on a GitHub-hosted Windows
-> runner (`.github/workflows/captures.yml`, 1024x768, 100% scale, no GPU). The renders further down are design renders
-> made from the app's palette and layout, not captures.
+Captured from `whirlpool.exe` on a GitHub-hosted Windows runner, 1920×1080, 100 % scale, no GPU. The wallpaper is a
+Pexels photograph from the bundled pack; the runner's own terminal is minimised. Not a personal desktop.
 
-## Captured from the real build
+| | |
+| --- | --- |
+| ![Quick settings](docs/captures/session12/04-quick-settings.jpg) | ![Command palette](docs/captures/session12/05-command-palette.jpg) |
+| Quick settings, 320 px | `Ctrl+K` palette |
+| ![Start grid](docs/captures/session12/03-start-grid.jpg) | ![Settings](docs/captures/session12/08-settings.jpg) |
+| Start grid | Settings |
 
-![Settings, Personalize page](docs/captures/settings-personalize.jpg)
-![Quick settings opened from the top bar](docs/captures/quick-top.jpg)
-![Menu bar floating on the bottom edge, standing above the dock](docs/captures/shell-bottom-floating.jpg)
+## Wallpaper studio
 
-The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. More captures are in `docs/captures/`.
+20 pictures in six groups (Abstract, AMOLED, Nature, Minimal, Space, Classics). Apply downloads the 3840×2160 file to
+`%LOCALAPPDATA%\Whirlpool\Wallpapers` and sets it with `SystemParametersInfoW(SPI_SETDESKWALLPAPER)`. An optional switch
+samples the picture's highlight colour. Open it from Settings, the Wallpaper quick tile, `Ctrl+K`, or `whirlpool --studio`.
+`whirlpool --studio-apply ID` applies one from a script.
 
-## What you get
+**Curated 4K wallpapers sourced from [4kwallpapers.com](https://4kwallpapers.com/). Free for personal desktop use.**
+Every tile links to its page. No picture is stored in this repository. If the site refuses the download (it has a bot
+check), the studio opens the picture's page in your browser instead. Previews and downloads are the only requests, and only
+while the studio is open.
 
-- **Dock** on any edge (bottom, top, left, right) with magnification, genie minimize, live thumbnails, Downloads stack and Recycle Bin.
-- **Menu bar** on the top or the bottom edge: docked or floating, three heights, opacity, eleven tints, alignment and width, clock and date options, now-playing and AI plan usage in the island.
-- **Six charging animations**: Surge, Halo, Edge, Tide, Bloom, Aurora. Green when healthy, yellow in the middle, orange when low.
-- **Motion**: seven speeds from Dreamy to Rapid, and five start-up animations.
-- **Fourteen wallpaper photographs** from Pexels, stored in the program (credits in [ASSETS_LICENSES.md](ASSETS_LICENSES.md)).
-- **Quick settings** from the bar's network and volume area: Wi-Fi and Bluetooth switches, Airplane mode, volume, Cast, Night light, Battery saver. Colours follow your wallpaper and the Windows theme.
-- **System overlay** (hotkey, default Ctrl+Shift+F10): CPU, memory, GPU load, video memory, network, battery and the desktop's frame rate. Three layouts, snaps to corners, drags, click-through. A separate process, so nothing runs while it is hidden. Its frame rate is the compositor's, not the focused game's.
-- **Wallpaper rotation**: every 5 minutes to 1 day, in order or shuffled, from a folder or the bundled photographs, a different folder for dark mode, a different picture per display. Off by default.
-- **Updates that install**: Settings > System > Updates downloads the release for your CPU, checks its SHA-256, installs and restarts; it can roll back one version. `whirlpool --update` does the same from a terminal.
-- **Update reminders**: one Windows notification when a newer release exists, again after three days, three times at most per version. It never downloads or installs on its own, and one switch turns it off.
-- **Search** (`Ctrl+Shift+Space`, or set `paletteHotkey` to `Ctrl+K`): open windows, apps, settings, widgets, files, actions and clipboard; `window:` narrows to open windows; `56 KB to MB` and `2+2*3` answer inline.
-- **Battery alerts** at 20, 10 and 5 % (configurable) and **`whirlpool --safe-mode`**, which starts with every optional feature off.
-- **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing: builds are currently unsigned**, see [SIGNING.md](SIGNING.md).
-- **Settings are built in**: `whirlpool.exe --settings`, or launch Whirlpool again while it runs. If OpenGL cannot start, it retries with DirectX.
+## Features
 
-### Settings
+- Dock on any edge: magnification, genie minimize, live thumbnails, 32 px by default.
+- Menu bar and island: now playing, opt-in synced lyrics, focus timer, clock. File shelf with drag out.
+- Volume, Wi-Fi and Bluetooth pop-ups. The Windows volume flyout is suppressed by a low-level hook that reads only the three volume keys.
+- Quick settings, Start grid, window overview, notification centre, hot corners.
+- `Ctrl+K` search: apps, files, windows, settings, clipboard, unit conversion, calculator.
+- System overlay (`Ctrl+Shift+F10`): CPU, memory, GPU, network, battery, frame rate. Separate process.
+- Updater: SHA-256 checked, relaunches, one-version rollback. Update reminders are one toast, three at most.
 
-![Menu bar on the bottom edge](docs/renders/settings-bar-bottom.jpg)
-
-![Menu bar settings](docs/renders/settings-menubar.jpg)
-![Dock settings](docs/renders/settings-dock.jpg)
-
-### Wallpapers
-
-![Photographs and procedural wallpapers](docs/renders/wallpapers.jpg)
-
-### Charging
-
-| Surge | Halo | Edge |
-| --- | --- | --- |
-| ![Surge](docs/renders/charging-surge.jpg) | ![Halo](docs/renders/charging-halo.jpg) | ![Edge](docs/renders/charging-edge.jpg) |
-| **Tide** | **Bloom** | **Aurora** |
-| ![Tide](docs/renders/charging-tide.jpg) | ![Bloom](docs/renders/charging-bloom.jpg) | ![Aurora](docs/renders/charging-aurora.jpg) |
-
-### The website
-
-![The new site hero](docs/renders/site-4.2-hero.jpg)
-![What is new in 4.2, and the roadmap](docs/renders/site-4.2-whats-new.jpg)
-
-These two are renders of the built site in headless Chromium, not captures of the Windows program.
+Feature by feature against a comparable shell: [SCORECARD.md](SCORECARD.md).
 
 ## Install
 
-1. Download `Whirlpool-Setup.exe` from the [v4.2.0-rc8 release](https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc8) (a pre-release: GitHub's "latest" still shows the older stable 4.1.0). It installs per user and needs no administrator rights.
-2. If SmartScreen says *Windows protected your PC*: **More info**, then **Run anyway**. New unsigned programs have no reputation yet; see [docs/TRUST.md](docs/TRUST.md).
-3. Verify if you like: `Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256` against `SHA256SUMS.txt`, or `gh attestation verify Whirlpool-Setup.exe --repo prashantchataut/whirlpool`.
-
-**Windows on ARM:** use `Whirlpool-Setup-arm64.exe`. It is cross-compiled in CI and has not been run on ARM hardware by the maintainer; the x64 installer also runs there through emulation.
-
-**Builds are currently unsigned.** Check a download before running it:
+`Whirlpool-Setup.exe` (x64) or `Whirlpool-Setup-arm64.exe` from the [release](https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc9). Per user, no admin. Portable zips and `SHA256SUMS.txt` are on the same page.
+Builds are unsigned ([SIGNING.md](SIGNING.md)). ARM64 is built in CI and has not run on ARM hardware. Windows 10 1903+ or 11.
 
 ```powershell
-(Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()   # must equal the line for Whirlpool-Setup.exe in SHA256SUMS.txt
-gh attestation verify .\Whirlpool-Setup.exe --repo prashantchataut/whirlpool   # build provenance
+(Get-FileHash .\Whirlpool-Setup.exe -Algorithm SHA256).Hash.ToLower()   # compare with SHA256SUMS.txt
 ```
-
-Each release's notes link a VirusTotal search for the installer's hash.
-
-Also available: `Whirlpool-x64.zip` (portable) and `install.ps1`. Quit any time from the dock menu, or run `whirlpool.exe --restore` to put the taskbar back.
-
-Requires Windows 10 (1903+) or 11.
 
 ## Build
 
 ```
 git clone https://github.com/prashantchataut/whirlpool
-cd whirlpool
-cargo run --release -p whirlpool
+cd whirlpool && cargo run --release -p whirlpool
 ```
 
-Needs Rust (MSVC) and the Visual Studio C++ build tools. The site is in `site/` (`npm install && npm run build`).
+Needs Rust (MSVC) and the Visual Studio C++ build tools. Site: `site/` (`npm install && npm run build`).
 
-## Status
+## Not done
 
-The item-by-item table is [STATUS.md](STATUS.md); the hand-off is [continuity.md](continuity.md). Everything below was checked against runner captures (GitHub-hosted Windows, 1024x768, no GPU), not a personal desktop.
+Signed installers, a personal-desktop run, ARM hardware, spectrum bars in the island, a desktop widget layer, per-app volume,
+game auto-hide, the 200 % scale pass. [STATUS.md](STATUS.md) has the rest.
 
-| Works, with a runner capture or run behind it | Built, compiled in CI, not seen working |
-| --- | --- |
-| Dock and menu bar on any edge; bottom bar above the dock | Update reminder toast (code and unit tests; no capture) |
-| Dynamic island presets (all four differ, closed and open) | Brightness pop-up (drawn; no event source) |
-| Start grid (dock tile, hotkey, search, arrow keys) | Clock panel, focus timer, file shelf, glass materials (compiled; not captured yet) |
-| Quick settings with editable tiles and a custom slider | Opt-in synced lyrics (network is off by default) |
-| Command palette (apps, files, actions, clipboard, calculator) | Drag motion shadow is subtle in captures; the spring settle is code plus end frames |
-| Window overview with live previews | |
-| Volume, Wi-Fi and Bluetooth pop-ups | |
-| Hot corners, notification centre (own and `--notify` alerts) | |
-| Updater: install, relaunch, roll back (clean-runner end-to-end run) | |
-| Wallpaper rotation, system overlay | |
-
-Not done: signed installers (no certificate), a run on a personal desktop or on ARM hardware (the ARM64 build is cross-compiled and was only built, not run), the 200 % scale pass (hosted runners cannot offer it), wallpaper crossfade and a separate source per display, winget and scoop submission (manifests exist and are CI-checked). Builds are unsigned: see [SIGNING.md](SIGNING.md).
-
-## License
-
-MIT, (c) 2025-2026 Prashant Chataut ([LICENSE](LICENSE)). Third-party notices are in [NOTICE](NOTICE) and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+MIT. Photographs: [ASSETS_LICENSES.md](ASSETS_LICENSES.md). Privacy: [docs/PRIVACY.md](docs/PRIVACY.md).

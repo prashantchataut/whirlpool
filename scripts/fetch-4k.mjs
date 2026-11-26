@@ -44,8 +44,9 @@ for (const id of ids) {
     if (only) continue;
     const link = await page.evaluate(() => [...document.querySelectorAll('a')].map((a) => a.href).find((h) => h.includes('3840x2160')));
     if (!link) { log(`id ${id}: no 3840x2160 link on the page`); continue; }
-    const r = await ctx.request.get(link, { headers: { Referer: page.url() }, timeout: 120000 });
-    const body = await r.body();
+    // Navigate to the file inside the page, so the request carries the browser's own fingerprint.
+    const r = await page.goto(link, { waitUntil: 'commit', timeout: 120000 });
+    const body = r ? await r.body() : Buffer.alloc(0);
     if (r.status() === 200 && body[0] === 0xff && body[1] === 0xd8) {
       writeFileSync(join(out, `${slug}-3840x2160-${id}.jpg`), body);
       ok++; log(`id ${id}: 4K ${(body.length / 1048576).toFixed(1)} MB -> ${slug}-3840x2160-${id}.jpg`);

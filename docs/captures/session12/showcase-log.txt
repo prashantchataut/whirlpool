@@ -1,0 +1,41 @@
+17:14:39 profile reset; display 1920x1080
+17:14:41 studio apply 27371 exit 1: could not apply Milky Way over the Alps: refused (403)
+17:14:41 studio exit 1 for id 27371; falling back to the photo pack (aurora-lake.jpg)
+17:15:00 shot 01-desktop 1920x1080
+17:15:00 desktop spread (grey-level deviation, flat < 12): 51.2
+17:15:04 shot 01b-desktop-apps 1920x1080
+17:15:16 shot 09-wallpaper-studio 1920x1080
+17:15:17 saved config after first run: { "version": 1, "pinned": [ "c:\\windows\\explorer.exe", "c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe" ], "groups": [], "recent": [ "d:\\a\\whirlpool\\whirlpool\\target\\release\\whirlpool.exe", "c:\\windows\\system32\\notepad.exe" ], "taskbarPins": [ "c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe" ], "autoHide": false, "iconSize": 32, "magnification": tru
+17:15:18 shot 02a-before-keys 1920x1080
+17:15:18 stock flyout windows before keys: []
+17:15:19 shot 02b-after-volume-up 1920x1080
+17:15:19 stock flyout windows after volume up x5: []
+17:15:20 stock flyout windows after mute: []
+17:15:20 shot 02c-after-mute 1920x1080
+17:15:21 shot 02-volume-pill 1920x1080
+17:15:21 studio apply 27986 exit 1: could not apply Lofoten: refused (403)
+17:15:21 studio exit 1 for id 27986; falling back to the photo pack (misty-peaks.jpg)
+17:15:30 shot 03-start-grid 1920x1080
+17:15:31 studio apply 27362 exit 1: could not apply Desert rocks: refused (403)
+17:15:31 studio exit 1 for id 27362; falling back to the photo pack (dune-sunrise.jpg)
+17:15:42 shot 04-quick-settings 1920x1080
+17:15:43 studio apply 28066 exit 1: could not apply Blue flow: refused (403)
+17:15:43 studio exit 1 for id 28066; falling back to the photo pack (blue-hour.jpg)
+17:15:51 shot 05-command-palette 1920x1080
+17:15:52 studio apply 27369 exit 1: could not apply Moon, night sky: refused (403)
+17:15:52 studio exit 1 for id 27369; falling back to the photo pack (milky-way.jpg)
+17:16:00 shot 06-notification-center 1920x1080
+17:16:01 studio apply 27374 exit 1: could not apply Kawah Ijen: refused (403)
+17:16:01 studio exit 1 for id 27374; falling back to the photo pack (turquoise-surf.jpg)
+17:16:09 shot 07-clock-panel 1920x1080
+17:16:10 studio apply 26734 exit 1: could not apply Metallic waves: refused (403)
+17:16:10 studio exit 1 for id 26734; falling back to the photo pack (city-lights.jpg)
+17:16:21 shot 08-settings 1920x1080
+17:16:23 source: aurora-lake.jpg => photo pack (Pexels)
+17:16:23 source: misty-peaks.jpg => photo pack (Pexels)
+17:16:23 source: dune-sunrise.jpg => photo pack (Pexels)
+17:16:23 source: blue-hour.jpg => photo pack (Pexels)
+17:16:23 source: milky-way.jpg => photo pack (Pexels)
+17:16:23 source: turquoise-surf.jpg => photo pack (Pexels)
+17:16:23 source: city-lights.jpg => photo pack (Pexels)
+17:16:23 done

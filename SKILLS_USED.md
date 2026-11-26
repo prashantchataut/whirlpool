@@ -68,3 +68,9 @@ Honest record. **Opened this session:** `impeccable` (`SKILL.md` and `reference/
 ## Session 11
 
 No design or motion skill was opened this session, and no `SKILL.md` was read. The work was logic, wiring and a measurement study; the only visual changes are new palette rows, a chip and strings, made by copying the existing row and chip code. Nothing in the repo was changed by a skill. The three look-fix-recapture rounds asked for were not done because no new capture of the palette was taken.
+
+## Session 12
+
+Read, not executed as tools: the repository's `design-taste-frontend` guidance (restraint, one accent, no filler copy) and AGENTS.md rules 1 to 4.
+`rea`, `hallmark-ui`, `open-design-skill`, open-design.ai and skillissue.in were **not available in this environment** and were not loaded; nothing is credited to them.
+What changed: the site is rebuilt around full-desktop captures with a tab switcher and short factual copy; app hints are shorter; the studio window follows the same palette helpers.

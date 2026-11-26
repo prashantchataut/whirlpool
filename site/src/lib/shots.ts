@@ -13,6 +13,6 @@ export const SHOTS: Shot[] = [
   { id: "palette", tab: "Ctrl+K", file: "05-command-palette", caption: "Command palette: apps, files, windows, settings." },
   { id: "notifications", tab: "Notifications", file: "06-notification-center", caption: "Notification centre." },
   { id: "clock", tab: "Clock", file: "07-clock-panel", caption: "Clock, focus timer, file shelf." },
-  { id: "studio", tab: "Wallpaper", file: "09-wallpaper-studio", caption: "Wallpaper studio. 4K pictures from 4kwallpapers.com." },
+  { id: "studio", tab: "Wallpaper", file: "09-wallpaper-studio", caption: "Wallpaper studio. Previews load from 4kwallpapers.com; the hosted runner is refused by its bot check, so the tiles are empty here." },
   { id: "settings", tab: "Settings", file: "08-settings", caption: "Settings." },
 ];

@@ -79,7 +79,7 @@ function Desktop() {
       </div>
       <p className="mt-4 text-center text-[14px] text-mute">{active.caption}</p>
       <p className="mt-1 text-center text-[12.5px] text-faint">
-        Captured from the running program on a Windows runner, 1920×1080, not rendered.
+        Captured from the running program on a GitHub-hosted Windows runner, 1920×1080, not rendered. Wallpaper: a Pexels photograph from the bundled pack. The runner's own terminal is minimised.
       </p>
     </section>
   );
