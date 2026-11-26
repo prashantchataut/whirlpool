@@ -28,6 +28,20 @@ impl Default for Plan {
     }
 }
 
+impl Plan {
+    /// A plan from minutes typed in Settings; each length is kept between 1 and 180 minutes.
+    #[must_use]
+    pub fn from_minutes(focus: u32, short: u32, long: u32) -> Self {
+        let keep = |m: u32| m.clamp(1, 180);
+        Self {
+            focus_min: keep(focus),
+            short_min: keep(short),
+            long_min: keep(long),
+            ..Self::default()
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
     /// A phase finished and the next one is ready (the timer pauses; it never rolls on by itself).
@@ -282,5 +296,18 @@ mod tests {
             ..Plan::default()
         });
         assert_eq!(t.label(), "1:30:00");
+    }
+}
+
+#[cfg(test)]
+mod plan_tests {
+    use super::*;
+
+    #[test]
+    fn plan_from_minutes_is_kept_in_range() {
+        let p = Plan::from_minutes(0, 5, 100_000);
+        assert_eq!((p.focus_min, p.short_min, p.long_min), (1, 5, 180));
+        assert_eq!(p.rounds, 4);
+        assert_eq!(Timer::new(Plan::from_minutes(50, 5, 15)).label(), "50:00");
     }
 }

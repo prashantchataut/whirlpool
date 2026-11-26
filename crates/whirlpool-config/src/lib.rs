@@ -129,6 +129,14 @@ pub struct Config {
     /// Fetch synced lyrics for the playing track from a public lyrics service. Off by default: it
     /// is the only setting that sends anything off the PC (track, artist, album, length).
     pub lyrics: bool,
+    /// Where the clock is drawn: `bar` (right side of the menu bar) or `island` (a pill beside the island).
+    pub clock_place: String,
+    /// Show a running focus timer as a pill beside the island.
+    pub focus_island: bool,
+    /// Focus timer lengths in minutes: focus, short break, long break.
+    pub focus_minutes: u32,
+    pub focus_short_minutes: u32,
+    pub focus_long_minutes: u32,
     /// Draw Whirlpool panels as refracting glass (needs a one-off picture of what is behind them).
     pub glass_refraction: bool,
     /// How strongly the glass bends the view, 0 to 100.
@@ -916,6 +924,11 @@ impl Default for Config {
             clock_zones: Vec::new(),
             clock_panel: true,
             lyrics: false,
+            clock_place: "bar".to_owned(),
+            focus_island: true,
+            focus_minutes: 25,
+            focus_short_minutes: 5,
+            focus_long_minutes: 15,
             glass_refraction: true,
             glass_strength: 60,
             notification_history: true,

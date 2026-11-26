@@ -62,6 +62,14 @@ pub fn line_at(lines: &[Line], position_ms: u64) -> Option<usize> {
     }
 }
 
+/// Milliseconds until the line after the current one starts, so a caller can sleep exactly that
+/// long instead of polling. `None` once the last line is showing (or there are no lines).
+#[must_use]
+pub fn next_change_ms(lines: &[Line], position_ms: u64) -> Option<u64> {
+    let next = lines.partition_point(|l| l.at_ms <= position_ms);
+    lines.get(next).map(|l| l.at_ms - position_ms)
+}
+
 fn encode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
@@ -172,5 +180,19 @@ mod tests {
         assert_eq!(s, "[00:01.00] hi \"you\"\n[00:02.00] caf\u{e9}");
         assert_eq!(extract_synced(r#"{"syncedLyrics":null}"#), None);
         assert_eq!(extract_synced("{}"), None);
+    }
+}
+
+#[cfg(test)]
+mod wait_tests {
+    use super::*;
+
+    #[test]
+    fn waits_until_the_next_line() {
+        let lines = parse("[00:01.00] a\n[00:03.50] b");
+        assert_eq!(next_change_ms(&lines, 0), Some(1000));
+        assert_eq!(next_change_ms(&lines, 1000), Some(2500));
+        assert_eq!(next_change_ms(&lines, 3500), None);
+        assert_eq!(next_change_ms(&[], 10), None);
     }
 }
