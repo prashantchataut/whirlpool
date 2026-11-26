@@ -11,6 +11,10 @@ using System; using System.Runtime.InteropServices; using System.Text; using Sys
 public static class Sc {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool SystemParametersInfo(int a, int b, string c, int d);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, int flags, int extra);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, uint d, UIntPtr e);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string c, string t);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   delegate bool Cb(IntPtr h, IntPtr l);
   [DllImport("user32.dll")] static extern bool EnumWindows(Cb cb, IntPtr l);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
@@ -34,7 +38,19 @@ public static class Sc {
 }
 "@
 function Log($m) { "$([DateTime]::Now.ToString('HH:mm:ss')) $m" | Tee-Object -Append (Join-Path $Out 'showcase-log.txt') }
+# Dialogs the runner image raises on its own (the paging-file notice) are not part of the app.
+function Close-RunnerDialogs {
+  foreach ($title in 'System Properties') {
+    $h = [Sc]::FindWindow($null, $title)
+    if ($h -ne [IntPtr]::Zero) { [void][Sc]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero); Log "closed runner dialog '$title'"; Start-Sleep -Milliseconds 700 }
+  }
+}
+function Click-At($x, $y) {
+  [void][Sc]::SetCursorPos([int]$x, [int]$y); Start-Sleep -Milliseconds 250
+  [Sc]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 70; [Sc]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+}
 function Shot($name) {
+  Close-RunnerDialogs
   $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
   $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -93,6 +109,18 @@ $cfg = Join-Path $env:APPDATA 'Whirlpool'
 Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
 Log "profile reset; display $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width)x$([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)"
 
+# A daily-driver desktop: no build watermark, no icon clutter. Both are per-user settings read by Explorer,
+# so Explorer is restarted once, before Whirlpool exists. What the log says is what happened.
+try {
+  Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name PaintDesktopVersion -Value 0 -Type DWord
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideIcons -Value 1 -Type DWord
+  Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 6
+  if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer.exe; Start-Sleep 5 }
+  Log 'desktop: version text off, icons hidden, explorer restarted'
+} catch { Log "desktop tidy failed: $_" }
+Log "test signing: $((bcdedit /enum '{current}' 2>&1 | Select-String -Pattern 'testsigning') -join ' ')"
+Close-RunnerDialogs
+
 # The runner's own Windows Terminal (its agent log) sits on the desktop: minimise it, never close it.
 try { (New-Object -ComObject Shell.Application).MinimizeAll() } catch {}
 Start-Sleep 2
@@ -100,6 +128,12 @@ Wall 'aurora-lake.jpg'
 Reset; Start-Process $Exe; Start-Sleep 14
 Shot '01-desktop'
 Log "desktop spread (grey-level deviation, flat < 12): $(Spread (Join-Path $Out '01-desktop.png'))"
+# A real media session (title, artist, cover, progress) so the island has a track; then a real click opens it.
+$media = Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Resolve-Path 'scripts/stage-media.ps1').Path, '-Seconds', '300' -PassThru -WindowStyle Hidden
+Start-Sleep 8
+Click-At ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width / 2) 12; Start-Sleep 3
+Shot '01c-island-media'
+Click-At ([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width / 2) 400; Start-Sleep 1
 Stage-Apps; Shot '01b-desktop-apps'; Unstage-Apps
 & $Exe --studio; Start-Sleep 12; Shot '09-wallpaper-studio'; Panels
 Get-Process whirlpool -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Wallpaper' } | Stop-Process -Force
@@ -145,4 +179,5 @@ Start-Process $Exe -ArgumentList '--settings'; Start-Sleep 9; Shot '08-settings'
 Reset
 & $Exe --restore
 $script:Sources | ForEach-Object { Log "source: $_" }
+if ($media -and -not $media.HasExited) { Stop-Process -Id $media.Id -Force }
 Log 'done'
