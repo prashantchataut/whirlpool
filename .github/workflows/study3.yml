@@ -1,0 +1,63 @@
+name: Study 3
+
+# Black-box comparison, round three. The program under study comes from a repository secret (masked in
+# logs); its build output, frames and file names go to a private artifact that lives one day. Whirlpool's
+# frames and both sets of numbers are public.
+on:
+  workflow_dispatch:
+
+jobs:
+  whirlpool:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots-windows-latest
+      - run: cargo build --release -p whirlpool
+      - name: Study
+        shell: powershell
+        run: ./scripts/study3.ps1 -Target whirlpool -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out-whirlpool
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: study3-whirlpool
+          path: out-whirlpool
+
+  other:
+    runs-on: windows-2025-vs2026
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the program under study (output kept private)
+        shell: pwsh
+        env:
+          SRC: ${{ secrets.STUDY3_SOURCE }}
+        run: |
+          New-Item -ItemType Directory -Force out-other | Out-Null
+          git clone --depth 1 "https://github.com/$env:SRC" "$env:RUNNER_TEMP\o" *> out-other\clone.log
+          $o = "$env:RUNNER_TEMP\o"
+          $native = Get-ChildItem "$o\src" -Recurse -Filter CMakeLists.txt | Select-Object -First 1
+          $proj = Get-ChildItem "$o\src" -Recurse -Filter *.csproj | Select-Object -First 1
+          "native=$([bool]$native) managed=$([bool]$proj)" | Tee-Object out-other\found.txt
+          cmake -S $native.DirectoryName -B "$env:RUNNER_TEMP\n" -A x64 *> out-other\cmake1.log
+          "cmake configure exit $LASTEXITCODE"
+          cmake --build "$env:RUNNER_TEMP\n" --config Release *> out-other\cmake2.log
+          "cmake build exit $LASTEXITCODE"
+          dotnet publish $proj.FullName -c Release -r win-x64 --self-contained -o "$env:RUNNER_TEMP\pub" *> out-other\dotnet.log
+          "dotnet publish exit $LASTEXITCODE"
+          Get-ChildItem "$env:RUNNER_TEMP\n" -Recurse -Include *.exe,*.dll | Where-Object { $_.FullName -match 'Release' } | ForEach-Object { Copy-Item $_.FullName "$env:RUNNER_TEMP\pub" -Force }
+          Get-ChildItem "$env:RUNNER_TEMP\pub" -Filter *.exe | ForEach-Object { $_.Name } | Set-Content out-other\exes.txt
+          "exes built: $((Get-Content out-other\exes.txt | Measure-Object).Count)"
+      - name: Study
+        shell: powershell
+        run: |
+          $exe = Get-ChildItem "$env:RUNNER_TEMP\pub" -Filter *.exe | Where-Object { $_.Name -match 'Taskbar' } | Select-Object -First 1
+          if (-not $exe) { "no taskbar controller was built"; exit 0 }
+          ./scripts/study3.ps1 -Target reference -Exe $exe.FullName -Out out-other
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-other-3
+          path: out-other
+          retention-days: 1
