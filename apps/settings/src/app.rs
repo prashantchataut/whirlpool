@@ -453,8 +453,9 @@ impl Settings {
     }
 }
 
-/// Below this window width the sidebar shrinks to icons.
-const COMPACT_BELOW: f32 = 900.0;
+/// Below this window width the sidebar shrinks to icons. The window opens at 74% of the screen, so a
+/// 1024 px screen (758 px window) keeps its labels.
+const COMPACT_BELOW: f32 = 700.0;
 /// With this much room beside the sidebar, the live preview gets a column.
 const PREVIEW_FROM: f32 = 1060.0;
 const COLUMN_MAX: f32 = 780.0;

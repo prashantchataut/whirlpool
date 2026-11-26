@@ -569,7 +569,8 @@ Scenario 'settings previews (menubar)' {
     $p = Start-Process $Exe -ArgumentList '--settings' -PassThru
     Start-Sleep 10
     Move-Mouse 520 400
-    foreach ($n in 1, 2, 3, 4, 5, 6) { Wheel 5; Start-Sleep -Milliseconds 700; Shot "09-settings-menubar-scroll$n" }
+    # The page is long: scroll to the bottom without shooting, then shoot the last stretch (clock, focus, lyrics).
+    foreach ($n in 1..18) { Wheel 5; Start-Sleep -Milliseconds 400; if ($n -ge 12) { Shot ("09-settings-menubar-scroll{0:D2}" -f $n) } }
     Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
     Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
     Start-Sleep 1
