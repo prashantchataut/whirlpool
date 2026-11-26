@@ -118,13 +118,20 @@ function Get-Pixels($path) {
 $refDir = Join-Path $env:TEMP 'whirlpool-ref'
 New-Item -ItemType Directory -Force $refDir | Out-Null
 # A panel capture must differ from the dock-only frame of the same scenario in at least $min of its pixels.
-function Shot-Panel($name, $min = 0.05) {
-    Shot $name
+function Shot-Panel($name, $min = 0.05, [scriptblock]$Retrigger = $null) {
     $ref = Join-Path $refDir 'dock-only.png'
-    if (-not (Test-Path $ref)) { Fail "no dock-only reference frame to compare $name with"; return }
-    $d = [Px]::Diff((Get-Pixels $ref), (Get-Pixels (Join-Path $Out "$name.png")), 24)
-    Log ("painted {0}: {1:P1} of pixels differ from the dock-only frame (needs {2:P0})" -f $name, $d, $min)
-    if ($d -lt $min) { Fail "blank capture: $name differs from the dock-only frame in only $([math]::Round($d * 100, 2)) % of pixels" }
+    if (-not (Test-Path $ref)) { Shot $name; Fail "no dock-only reference frame to compare $name with"; return }
+    # A pop-up started by a command (the HUD pills) can be sent before a slow runner's dock listens: send it
+    # again, up to three times, and only then call the frame blank. A pill that never paints still fails.
+    $tries = if ($Retrigger) { 3 } else { 1 }
+    for ($i = 1; $i -le $tries; $i++) {
+        Shot $name
+        $d = [Px]::Diff((Get-Pixels $ref), (Get-Pixels (Join-Path $Out "$name.png")), 24)
+        Log ("painted {0}: {1:P1} of pixels differ from the dock-only frame (needs {2:P0}, try {3} of {4})" -f $name, $d, $min, $i, $tries)
+        if ($d -ge $min) { return }
+        if ($i -lt $tries) { Start-Sleep -Milliseconds 1500; & $Retrigger; Start-Sleep -Milliseconds 800 }
+    }
+    Fail "blank capture: $name differs from the dock-only frame in only $([math]::Round($d * 100, 2)) % of pixels"
 }
 function KillAll {
     & $Exe --quit 2>$null
@@ -248,24 +255,24 @@ Scenario 'hud: volume, brightness, Wi-Fi and Bluetooth pills' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
     # The pill is small, so it needs fewer differing pixels than a panel to count as painted.
     & $Exe --hud volume 35; Start-Sleep -Milliseconds 800
-    Shot-Panel '30-hud-volume-35' 0.008
+    Shot-Panel '30-hud-volume-35' 0.008 { & $Exe --hud volume 35 }
     & $Exe --hud volume 85; Start-Sleep -Milliseconds 130
     Shot '30-hud-volume-glide'
     Start-Sleep -Milliseconds 700
-    Shot-Panel '30-hud-volume-85' 0.008
+    Shot-Panel '30-hud-volume-85' 0.008 { & $Exe --hud volume 85 }
     & $Exe --hud muted 85; Start-Sleep -Milliseconds 700
     Shot '30-hud-volume-muted'
     Start-Sleep -Milliseconds 2600
     Shot '30-hud-gone'
     & $Exe --hud brightness 60; Start-Sleep -Milliseconds 800
-    Shot-Panel '30-hud-brightness' 0.008
+    Shot-Panel '30-hud-brightness' 0.008 { & $Exe --hud brightness 60 }
     Start-Sleep -Milliseconds 2600
     & $Exe --hud wifi 3; Start-Sleep -Milliseconds 800
-    Shot-Panel '30-hud-wifi' 0.004
+    Shot-Panel '30-hud-wifi' 0.004 { & $Exe --hud wifi 3 }
     & $Exe --hud wifi 0; Start-Sleep -Milliseconds 700
     Shot '30-hud-wifi-off'
     & $Exe --hud bluetooth 1; Start-Sleep -Milliseconds 800
-    Shot-Panel '30-hud-bluetooth' 0.004
+    Shot-Panel '30-hud-bluetooth' 0.004 { & $Exe --hud bluetooth 1 }
     & $Exe --hud bluetooth 0; Start-Sleep -Milliseconds 700
     Shot '30-hud-bluetooth-off'
 }
@@ -578,8 +585,10 @@ Scenario 'settings previews (menubar)' {
     $p = Start-Process $Exe -ArgumentList '--settings' -PassThru
     Start-Sleep 10
     Move-Mouse 520 400
-    # The page is long: scroll to the bottom without shooting, then shoot the last stretch (clock, focus, lyrics).
-    foreach ($n in 1..18) { Wheel 5; Start-Sleep -Milliseconds 400; if ($n -ge 12) { Shot ("09-settings-menubar-scroll{0:D2}" -f $n) } }
+    # The page is long and every earlier pass shot only its last stretch (the same bottom frame seven times),
+    # so the clock card was never seen. Shoot from the top, every second step, to the bottom.
+    Shot '09-settings-menubar-scroll00'
+    foreach ($n in 1..18) { Wheel 5; Start-Sleep -Milliseconds 400; if ($n % 2 -eq 0) { Shot ("09-settings-menubar-scroll{0:D2}" -f $n) } }
     Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
     Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
     Start-Sleep 1
