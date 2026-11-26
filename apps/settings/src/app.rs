@@ -504,6 +504,21 @@ const SEARCH_INDEX: &[(&str, &str, Page)] = &[
         "notifications center history clear",
         Page::MenuBar,
     ),
+    (
+        "Synced lyrics",
+        "lyrics music song lrc privacy network",
+        Page::MenuBar,
+    ),
+    (
+        "Focus timer",
+        "focus pomodoro timer break island",
+        Page::MenuBar,
+    ),
+    (
+        "Clock placement",
+        "clock island bar time place",
+        Page::MenuBar,
+    ),
     ("Hot corners", "corner screen action pointer", Page::Windows),
     (
         "Dock icon style",
@@ -1655,6 +1670,8 @@ impl Settings {
             });
         });
         crate::extras::clock_card(ui, t, config);
+        crate::extras::focus_card(ui, t, config);
+        crate::extras::lyrics_card(ui, t, config);
 
         let mut chosen: Option<&'static str> = None;
         let mut shuffle = false;

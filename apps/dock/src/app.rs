@@ -6865,5 +6865,13 @@ fn clock_settings(config: &whirlpool_config::Config) -> crate::menubar::ClockSet
             weight: ClockWeight::from_id(&config.clock_weight),
         },
         panel: config.clock_panel,
+        island: config.clock_place == "island",
+        focus: config.focus_island,
+        lyrics: config.lyrics,
+        plan: (
+            config.focus_minutes,
+            config.focus_short_minutes,
+            config.focus_long_minutes,
+        ),
     }
 }

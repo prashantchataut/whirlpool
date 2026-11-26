@@ -8,7 +8,7 @@ use std::{
         mpsc::{self, Receiver, SyncSender},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use whirlpool_shell::{icons::IconImage, imagery};
 use windows::{
@@ -45,11 +45,29 @@ pub struct Track {
     generation: u64,
     pub title: String,
     pub artist: String,
+    pub album: String,
+    /// Length of the track in whole seconds, 0 when the player does not say.
+    pub duration_secs: u32,
+    position_ms: u64,
+    stamp: Option<Instant>,
     pub playing: bool,
     pub previous: bool,
     pub toggle: bool,
     pub next: bool,
     pub artwork: Option<Arc<IconImage>>,
+}
+
+impl Track {
+    /// Where the player is now: the position it reported, plus the time since we read it.
+    pub fn position_ms(&self) -> u64 {
+        let moved = match (self.playing, self.stamp) {
+            (true, Some(stamp)) => stamp.elapsed().as_millis() as u64,
+            _ => 0,
+        };
+        let end = u64::from(self.duration_secs) * 1000;
+        let at = self.position_ms + moved;
+        if end > 0 { at.min(end) } else { at }
+    }
 }
 
 #[cfg(test)]
@@ -212,6 +230,7 @@ struct Current {
     playback_event: Option<i64>,
     title: String,
     artist: String,
+    album: String,
     artwork: Option<Arc<IconImage>>,
 }
 
@@ -237,6 +256,7 @@ impl Current {
             playback_event,
             title: String::new(),
             artist: String::new(),
+            album: String::new(),
             artwork: None,
         }
     }
@@ -246,6 +266,7 @@ impl Current {
         // song. Never pair yesterday's title/artist with the current session.
         self.title.clear();
         self.artist.clear();
+        self.album.clear();
         self.artwork = None;
         if let Some(properties) = self
             .session
@@ -261,6 +282,10 @@ impl Current {
                 .Artist()
                 .map(|value| value.to_string_lossy())
                 .unwrap_or_default();
+            self.album = properties
+                .AlbumTitle()
+                .map(|value| value.to_string_lossy())
+                .unwrap_or_default();
             self.artwork = properties.Thumbnail().ok().and_then(read_artwork);
         }
     }
@@ -273,10 +298,15 @@ impl Current {
         }
         let playing = matches!(status, Status::Playing | Status::Changing);
         let controls = info.Controls().ok()?;
+        let (position_ms, duration_secs) = self.timeline(playing);
         Some(Track {
             generation,
             title: self.title.clone(),
             artist: self.artist.clone(),
+            album: self.album.clone(),
+            duration_secs,
+            position_ms,
+            stamp: Some(Instant::now()),
             artwork: self.artwork.clone(),
             playing,
             previous: controls.IsPreviousEnabled().unwrap_or(false),
@@ -289,6 +319,26 @@ impl Current {
                 }
                 .unwrap_or(false),
         })
+    }
+
+    /// The player's position (as of now) and the track length, from its timeline.
+    fn timeline(&self, playing: bool) -> (u64, u32) {
+        let Ok(timeline) = self.session.GetTimelineProperties() else {
+            return (0, 0);
+        };
+        let ticks = |span: windows::Foundation::TimeSpan| span.Duration.max(0) as u64;
+        let start = timeline.StartTime().map(ticks).unwrap_or(0);
+        let end = timeline.EndTime().map(ticks).unwrap_or(0);
+        let mut ms = timeline.Position().map(ticks).unwrap_or(0) / 10_000;
+        if playing && let Ok(updated) = timeline.LastUpdatedTime() {
+            // Windows time is 100 ns ticks since 1601; the player's position is as of that moment.
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| (d.as_nanos() / 100) as i64)
+                + 116_444_736_000_000_000;
+            ms += (now - updated.UniversalTime).max(0) as u64 / 10_000;
+        }
+        (ms, (end.saturating_sub(start) / 10_000_000) as u32)
     }
 
     fn command(&self, control: Control) {

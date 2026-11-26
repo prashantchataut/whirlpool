@@ -496,5 +496,21 @@
   "paletteActFocus": "Start a focus timer",
   "paletteActFocusHint": "Focus and break sessions",
   "paletteActShelf": "Open the file shelf",
-  "paletteActShelfHint": "Keep files close for a moment"
+  "paletteActShelfHint": "Keep files close for a moment",
+  "groupFocus": "Focus timer",
+  "focusIsland": "Show the timer beside the island",
+  "focusIslandHint": "While a focus session runs, its remaining time sits next to the island. Click it to open the timer.",
+  "focusStart": "Start and pause the timer in the clock panel: click the clock, or search for “focus”.",
+  "focusLength": "Focus",
+  "focusShort": "Short break",
+  "focusLong": "Long break",
+  "clockPlace": "Show the clock",
+  "clockPlaceHint": "In the menu bar, or in a pill beside the island. Click it for the clock panel.",
+  "clockPlaceBar": "Menu bar",
+  "clockPlaceIsland": "Island",
+  "groupLyrics": "Synced lyrics",
+  "lyricsOn": "Show synced lyrics in the island",
+  "lyricsOnHint": "The current line replaces the track title in the island's music segment (top bar).",
+  "lyricsSample": "♪ And the tide comes in",
+  "lyricsPrivacy": "Off by default. When on, Whirlpool sends the song title, artist, album and length to lrclib.net, a public lyrics service, once per song, and nothing else: no account, no identifier. That service sees your IP address, as any website does. Lyrics are kept in memory for the current song and never saved. Turn this off and nothing is sent."
 }

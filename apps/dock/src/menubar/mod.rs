@@ -288,6 +288,28 @@ pub struct ClockSettings {
     pub options: whirlpool_core::clock::ClockOptions,
     /// A click opens the clock panel (otherwise the Windows notification centre).
     pub panel: bool,
+    /// The clock sits in a pill beside the island instead of the bar's right side.
+    pub island: bool,
+    /// A running focus timer shows in that pill.
+    pub focus: bool,
+    /// Show the current synced lyric line in the island (the user opted in).
+    pub lyrics: bool,
+    /// Focus, short break and long break lengths in minutes.
+    pub plan: (u32, u32, u32),
+}
+
+/// The remaining time of a running focus timer, read from the file the clock panel keeps. It is
+/// extrapolated to now, so it is right even when the panel is closed. `None` if nothing runs.
+fn read_focus(plan: (u32, u32, u32)) -> Option<String> {
+    let path = whirlpool_config::default_path().with_file_name("focus.txt");
+    let text = std::fs::read_to_string(path).ok()?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_millis() as u64;
+    let plan = whirlpool_core::pomodoro::Plan::from_minutes(plan.0, plan.1, plan.2);
+    let (timer, _) = whirlpool_core::pomodoro::decode(&text, plan, now)?;
+    timer.running.then(|| timer.label())
 }
 
 /// Opens (or closes) the clock panel, a short-lived window of its own.
@@ -395,6 +417,13 @@ struct Look {
     panel: Option<Island>,
     usage_refreshing: bool,
     track: Option<Track>,
+    /// The synced lyric line due now (opt-in).
+    lyric: Option<String>,
+    /// The clock is drawn in the island pill, not in the bar.
+    clock_island: bool,
+    /// What the pill beside the island shows (clock, focus time), and which panel tab a click opens.
+    pill: Vec<String>,
+    pill_tab: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -473,6 +502,8 @@ enum IslandAction {
     Mute,
     Refresh,
     ScrollUsage(i8),
+    /// The pill beside the island: opens the clock panel on this tab.
+    Hub(&'static str),
 }
 
 #[derive(Clone, Copy)]
@@ -1465,8 +1496,9 @@ impl MenuBar {
         if self.accessories_enabled && (audio_changed || retry_due) {
             self.restart_accessories(gfx)?;
         }
+        let drawn = self.refresh(gfx);
         self.schedule_next_minute();
-        self.refresh(gfx)
+        drawn
     }
 
     /// The reading the volume HUD shows: none while the bar's own volume
@@ -1534,7 +1566,7 @@ impl MenuBar {
     fn schedule_next_minute(&self) {
         let shown = self.visible && (!self.auto_hide || self.revealed);
         let seconds = whirlpool_core::clock::should_tick_seconds(
-            self.clock.options.seconds,
+            self.clock.options.seconds || self.focus_running(),
             shown,
             false,
             false,
@@ -1548,8 +1580,142 @@ impl MenuBar {
                 u32::from(now.wMilliseconds),
                 seconds,
             );
+            // A synced lyric line wakes the bar exactly when the next line is due.
+            let wait = self.lyric_wait().map_or(wait, |lyric| wait.min(lyric));
             SetTimer(Some(self.hwnd), CLOCK_TIMER, wait, None);
         }
+    }
+
+    fn focus_running(&self) -> bool {
+        self.clock.focus && read_focus(self.clock.plan).is_some()
+    }
+
+    /// The pill beside the island: the clock when it lives there, and a running focus timer.
+    fn pill_parts(&self) -> (Vec<String>, &'static str) {
+        let mut parts = Vec::new();
+        let mut tab = "clock";
+        if self.clock.island {
+            parts.push(system::clock_text_for(&self.clock.options));
+        }
+        if self.clock.focus
+            && let Some(label) = read_focus(self.clock.plan)
+        {
+            parts.push(label);
+            tab = "focus";
+        }
+        (parts, tab)
+    }
+
+    /// The lyric line due now. Nothing is requested, kept or shown unless the setting is on.
+    fn lyric_line(&self, track: Option<&Track>) -> Option<String> {
+        if !self.clock.lyrics {
+            crate::lyrics::clear();
+            return None;
+        }
+        let track = track.filter(|track| track.playing)?;
+        crate::lyrics::request(track, self.hwnd.0 as isize, MEDIA_CHANGED);
+        crate::lyrics::line(track)
+    }
+
+    fn lyric_wait(&self) -> Option<u32> {
+        if !self.clock.lyrics || !self.visible {
+            return None;
+        }
+        let track = self.media.as_ref()?.snapshot()?;
+        crate::lyrics::wait_ms(&track)
+    }
+
+    /// Draws the pill beside the island (clock and focus time) and registers its click.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_pill(
+        &mut self,
+        gfx: &Gfx,
+        look: &Look,
+        layers: &VisualCollection,
+        width: f32,
+        bar_height: f32,
+        left_end: f32,
+        right_start: f32,
+    ) -> Result<()> {
+        if look.pill.is_empty() {
+            return Ok(());
+        }
+        let px = |logical: f32| (logical * look.scale).round();
+        let style = if look.widgets.position == whirlpool_config::BarPosition::Bottom {
+            IslandStyle::Bubble
+        } else {
+            look.widgets.island_style
+        };
+        let ink = if look.light { Ink::Dark } else { Ink::Light };
+        let (pad, gap) = (px(12.0), px(10.0));
+        let mut labels = Vec::new();
+        for text in &look.pill {
+            labels.push(gfx.text_brush_fitted(text, look.scale, 11.5, true, ink, px(140.0))?);
+        }
+        let total = pad * 2.0
+            + labels.iter().map(|label| label.width).sum::<f32>()
+            + gap * labels.len().saturating_sub(1) as f32;
+        let (min_left, max_right) = (left_end + px(8.0), right_start - px(8.0));
+        if max_right - min_left < total {
+            return Ok(());
+        }
+        let left = if self.triggers_span.width() > 0.0 {
+            let after = self.triggers_span.right + px(8.0);
+            let before = self.triggers_span.left - px(8.0) - total;
+            if after + total <= max_right {
+                after
+            } else if before >= min_left {
+                before
+            } else {
+                return Ok(());
+            }
+        } else {
+            ((width - total) / 2.0).clamp(min_left, (max_right - total).max(min_left))
+        }
+        .round();
+        let span = Span {
+            left,
+            right: left + total,
+        };
+        let geometry = IslandGeometry::new(span, 0.0, look);
+        let (surface, height) = match style {
+            IslandStyle::Notch => (
+                island_surface(gfx, look, layers, geometry, bar_height)?,
+                bar_height,
+            ),
+            IslandStyle::Bubble => bubble_surface(gfx, look, layers, geometry, bar_height)?,
+        };
+        let c = &gfx.compositor;
+        let mut x = pad;
+        for (index, label) in labels.iter().enumerate() {
+            if index > 0 {
+                let inset = px(7.0);
+                add_visual(
+                    c,
+                    &surface,
+                    &c.CreateColorBrushWithColor(geometry.border())?.cast()?,
+                    x - gap / 2.0,
+                    inset,
+                    px(1.0).max(1.0),
+                    (height - 2.0 * inset).max(1.0),
+                )?;
+            }
+            add_visual(
+                c,
+                &surface,
+                &label.brush.cast()?,
+                x,
+                (height - label.height) / 2.0,
+                label.width,
+                label.height,
+            )?;
+            x += label.width + gap;
+        }
+        self.island_hits.push(IslandHit {
+            bounds: (span.left, 0.0, span.right, bar_height),
+            action: IslandAction::Hub(look.pill_tab),
+        });
+        Ok(())
     }
 
     /// Applies the clock's look. Redraws when it changed.
@@ -1593,6 +1759,10 @@ impl MenuBar {
                     return Ok(());
                 }
                 IslandAction::Volume(_) => return Ok(()), // Handled on press/drag.
+                IslandAction::Hub(tab) => {
+                    open_hub(tab);
+                    return Ok(());
+                }
                 IslandAction::Mute => {
                     if let Some(audio) = &mut self.audio {
                         audio.toggle_mute()?;
@@ -1684,6 +1854,8 @@ impl MenuBar {
             ActiveProviders::default()
         };
         let track = self.media.as_ref().and_then(media::Watch::snapshot);
+        let lyric = self.lyric_line(track.as_ref());
+        let (pill, pill_tab) = self.pill_parts();
         self.panel = available_panel(self.panel, track.is_some(), active_providers.any());
         if !active_providers.any() {
             if let Some(usage) = &mut self.usage {
@@ -1723,6 +1895,10 @@ impl MenuBar {
             panel: self.panel,
             usage_refreshing: self.usage.as_ref().is_some_and(UsageMonitor::is_refreshing),
             track,
+            lyric,
+            clock_island: self.clock.island,
+            pill,
+            pill_tab,
         };
         self.apply_look(gfx, look)
     }
@@ -1733,9 +1909,12 @@ impl MenuBar {
             return self.refresh(gfx);
         };
         look.track = self.media.as_ref().and_then(media::Watch::snapshot);
+        look.lyric = self.lyric_line(look.track.as_ref());
         self.panel = available_panel(self.panel, look.track.is_some(), look.usage_enabled);
         look.panel = self.panel;
-        self.apply_look(gfx, look)
+        let drawn = self.apply_look(gfx, look);
+        self.schedule_next_minute();
+        drawn
     }
 
     fn apply_look(&mut self, gfx: &Gfx, mut look: Look) -> Result<()> {
@@ -1945,8 +2124,9 @@ impl MenuBar {
         let mut right = width - px(SIDE_MARGIN);
         let status = look.status;
         let symbol = |layers: &[(char, f32)]| gfx.glyph_brush(layers, scale, ink);
-        let mut items: Vec<(LabelBrush, Action)> = vec![
-            (
+        let mut items: Vec<(LabelBrush, Action)> = Vec::new();
+        if !look.clock_island {
+            items.push((
                 gfx.text_brush_styled(
                     &look.clock,
                     scale,
@@ -1956,9 +2136,9 @@ impl MenuBar {
                     ink,
                 )?,
                 Action::Notifications,
-            ),
-            (gfx.control_center_brush(scale, ink)?, Action::QuickSettings),
-        ];
+            ));
+        }
+        items.push((gfx.control_center_brush(scale, ink)?, Action::QuickSettings));
         // Privacy indicators, as the Windows tray shows them: something is
         // using the microphone or camera right now.
         let privacy = status.privacy;
@@ -2083,6 +2263,7 @@ impl MenuBar {
             left_end,
             right,
         )?;
+        self.draw_pill(gfx, look, &layers, width, height, left_end, right)?;
         if let Some(drag) = self.volume_drag {
             let new_span = self.island_hits.iter().find_map(|hit| match hit.action {
                 IslandAction::Volume(span) => Some(span),
@@ -2288,6 +2469,7 @@ impl MenuBar {
                                 geometry.width,
                                 compact_height,
                                 track,
+                                look.lyric.as_deref(),
                                 cover.as_ref(),
                             )?,
                             IslandStyle::Bubble => {

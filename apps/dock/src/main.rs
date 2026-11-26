@@ -26,6 +26,7 @@ mod gfx;
 mod group_view;
 mod guard;
 mod hud;
+mod lyrics;
 mod mascot;
 mod media;
 mod menu;

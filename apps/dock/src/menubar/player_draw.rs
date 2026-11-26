@@ -17,6 +17,7 @@ pub(super) fn draw_compact_player(
     width: f32,
     height: f32,
     track: &Track,
+    lyric: Option<&str>,
     cover: Option<&CompositionSurfaceBrush>,
 ) -> Result<()> {
     let c = &gfx.compositor;
@@ -44,7 +45,7 @@ pub(super) fn draw_compact_player(
     }
     if show_title {
         let label = gfx.text_brush_fitted(
-            track_title(track),
+            lyric.unwrap_or_else(|| track_title(track)),
             geometry.scale,
             11.5,
             true,

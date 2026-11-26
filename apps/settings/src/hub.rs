@@ -66,7 +66,11 @@ impl Hub {
             .flatten()
             .unwrap_or_default();
         let now = now_ms();
-        let plan = Plan::default();
+        let plan = Plan::from_minutes(
+            config.focus_minutes,
+            config.focus_short_minutes,
+            config.focus_long_minutes,
+        );
         let (timer, event) = std::fs::read_to_string(file("focus.txt"))
             .ok()
             .and_then(|text| pomodoro::decode(&text, plan, now))

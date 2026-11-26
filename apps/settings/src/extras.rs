@@ -853,6 +853,19 @@ pub fn clock_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         ui::divider(ui);
         ui::toggle_row(ui, t.get("clockPanel"), None, &mut config.clock_panel);
         ui::divider(ui);
+        let mut island = config.clock_place == "island";
+        ui::row(
+            ui,
+            t.get("clockPlace"),
+            Some(t.get("clockPlaceHint")),
+            220.0,
+            |ui| {
+                ui.selectable_value(&mut island, false, t.get("clockPlaceBar"));
+                ui.selectable_value(&mut island, true, t.get("clockPlaceIsland"));
+            },
+        );
+        config.clock_place = if island { "island" } else { "bar" }.to_owned();
+        ui::divider(ui);
         ui.add_space(6.0);
         hint(ui, t.get("clockZones"));
         ui.horizontal_wrapped(|ui| {
@@ -976,5 +989,104 @@ pub fn material_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
             ui::slider(ui, &mut tint, 0..=100, "");
         });
         config.glass_wallpaper_tint = tint.clamp(0, 100) as u32;
+    });
+}
+
+// ---------------------------------------------------------------- focus timer and lyrics
+
+/// A mock of the island pill with the given parts, drawn the way the bar draws it.
+fn pill_preview(ui: &mut Ui, parts: &[String]) {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 54.0), Sense::hover());
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(14), Color32::from_rgb(14, 34, 46));
+    let font = egui::FontId::proportional(13.0);
+    let ink = Color32::from_rgb(236, 246, 250);
+    let galleys: Vec<_> = parts
+        .iter()
+        .map(|part| ui.painter().layout_no_wrap(part.clone(), font.clone(), ink))
+        .collect();
+    let gap = 22.0;
+    let text: f32 = galleys.iter().map(|g| g.size().x).sum();
+    let total =
+        (text + gap * galleys.len().saturating_sub(1) as f32 + 28.0).min(rect.width() - 16.0);
+    let pill = Rect::from_center_size(rect.center(), vec2(total, 28.0));
+    ui.painter()
+        .rect_filled(pill, CornerRadius::same(14), Color32::from_rgb(4, 8, 12));
+    ui.painter().rect_stroke(
+        pill,
+        CornerRadius::same(14),
+        Stroke::new(1.0, Color32::from_white_alpha(40)),
+        StrokeKind::Inside,
+    );
+    let mut x = pill.left() + 14.0;
+    for (index, galley) in galleys.iter().enumerate() {
+        if index > 0 {
+            let at = x - gap / 2.0;
+            ui.painter().line_segment(
+                [pos2(at, pill.top() + 7.0), pos2(at, pill.bottom() - 7.0)],
+                Stroke::new(1.0, Color32::from_white_alpha(40)),
+            );
+        }
+        let width = galley.size().x;
+        let y = pill.center().y - galley.size().y / 2.0;
+        ui.painter().galley(pos2(x, y), galley.clone(), ink);
+        x += width + gap;
+    }
+}
+
+/// The focus timer: lengths and whether a running session shows beside the island.
+pub fn focus_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
+    use whirlpool_core::pomodoro::{Plan, Timer};
+    ui::card(ui, Some(t.get("groupFocus")), |ui| {
+        let plan = Plan::from_minutes(
+            config.focus_minutes,
+            config.focus_short_minutes,
+            config.focus_long_minutes,
+        );
+        let mut parts = Vec::new();
+        if config.clock_place == "island" {
+            parts.push(whirlpool_shell::system::clock_text_for(&clock_options(
+                config,
+            )));
+        }
+        parts.push(Timer::new(plan).label());
+        pill_preview(ui, &parts);
+        ui.add_space(6.0);
+        hint(ui, t.get("focusStart"));
+        ui::toggle_row(
+            ui,
+            t.get("focusIsland"),
+            Some(t.get("focusIslandHint")),
+            &mut config.focus_island,
+        );
+        ui::divider(ui);
+        ui::row(ui, t.get("focusLength"), None, 220.0, |ui| {
+            ui::slider(ui, &mut config.focus_minutes, 5..=90, " min");
+        });
+        ui::divider(ui);
+        ui::row(ui, t.get("focusShort"), None, 220.0, |ui| {
+            ui::slider(ui, &mut config.focus_short_minutes, 1..=30, " min");
+        });
+        ui::divider(ui);
+        ui::row(ui, t.get("focusLong"), None, 220.0, |ui| {
+            ui::slider(ui, &mut config.focus_long_minutes, 5..=60, " min");
+        });
+    });
+}
+
+/// Synced lyrics: off by default, with the exact privacy statement next to the switch.
+pub fn lyrics_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
+    ui::card(ui, Some(t.get("groupLyrics")), |ui| {
+        pill_preview(ui, &[t.get("lyricsSample").to_owned()]);
+        ui.add_space(6.0);
+        ui::toggle_row(
+            ui,
+            t.get("lyricsOn"),
+            Some(t.get("lyricsOnHint")),
+            &mut config.lyrics,
+        );
+        ui::divider(ui);
+        ui.add_space(6.0);
+        hint(ui, t.get("lyricsPrivacy"));
     });
 }
