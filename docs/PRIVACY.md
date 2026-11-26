@@ -29,5 +29,13 @@ Neither is ever sent anywhere.
 The optional AI usage island reads usage numbers from the tools you already run locally and shows them; it is off
 unless you enable it.
 
+**The volume keys.** With the pop-ups on (Settings > Personalize > Volume and Wi-Fi pop-ups, then Handle the volume
+keys, both on by default), Whirlpool installs a low-level keyboard hook so that the volume up, down and mute keys
+change the volume and show Whirlpool's pill instead of the Windows flyout. The hook compares every key code with
+those three values; any other key is passed on at once. **No key is stored, counted, logged or sent anywhere, not even
+while debugging**, and the hook code (`crates/whirlpool-shell/src/mediakeys.rs`) contains no logging call. Turn
+either switch off and the hook is removed; Windows then handles the keys itself. Brightness keys are not hooked:
+Windows has no key code for them, the hardware reports them to the driver.
+
 **Removal.** Uninstalling runs `whirlpool.exe --restore`, which gives back the Windows taskbar, and removes the
 startup entry. Delete `%APPDATA%\Whirlpool` to remove your settings.

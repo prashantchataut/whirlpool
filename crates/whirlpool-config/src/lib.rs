@@ -227,6 +227,9 @@ pub struct Config {
     pub charging_animation: bool,
     /// A small pill for volume, brightness, Wi-Fi and Bluetooth changes.
     pub hud_enabled: bool,
+    /// With `hud_enabled`: Whirlpool takes the three volume keys itself, so the
+    /// Windows flyout never opens on top of its own pill. Off: Windows keeps the keys.
+    pub media_key_hook: bool,
     /// One notification at each of `battery_alert_levels` while discharging.
     pub battery_alerts: bool,
     pub battery_alert_levels: Vec<u8>,
@@ -976,6 +979,7 @@ impl Default for Config {
             startup_animation: StartupAnimation::Rise,
             charging_animation: true,
             hud_enabled: true,
+            media_key_hook: true,
             battery_alerts: true,
             battery_alert_levels: vec![20, 10, 5],
             meetings_ics: String::new(),
@@ -1350,6 +1354,14 @@ mod tests {
         save(&path, &Config::default()).ok();
         fs::write(&path, "{}").ok();
         assert_eq!(load(&path).ok(), Some(Some(Config::default())));
+    }
+
+    #[test]
+    fn the_volume_key_hook_is_on_by_default_and_off_in_safe_mode() {
+        assert!(Config::default().media_key_hook);
+        let safe = Config::default().safe_mode();
+        // The hook only runs with the pop-ups, which safe mode turns off.
+        assert!(!(safe.hud_enabled && safe.media_key_hook));
     }
 
     #[test]

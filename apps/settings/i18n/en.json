@@ -140,6 +140,8 @@
   "chargingAnimationHint": "Play an animation when you connect the charger.",
   "hudEnabled": "Volume and Wi-Fi pop-ups",
   "hudEnabledHint": "A small pill when the volume, Wi-Fi or Bluetooth changes.",
+  "mediaKeyHook": "Handle the volume keys",
+  "mediaKeyHookHint": "Whirlpool changes the volume itself, so the Windows flyout does not open. It reads no other key and stores or sends none.",
   "groupMenuBarLook": "Menu bar look",
   "menuBarOpacity": "Tint strength",
   "menuBarDate": "Show the date",

@@ -1607,6 +1607,15 @@ impl Settings {
                 Some(t.get("hudEnabledHint")),
                 &mut config.hud_enabled,
             );
+            if config.hud_enabled {
+                ui::divider(ui);
+                ui::toggle_row(
+                    ui,
+                    t.get("mediaKeyHook"),
+                    Some(t.get("mediaKeyHookHint")),
+                    &mut config.media_key_hook,
+                );
+            }
             ui::divider(ui);
             ui::toggle_row(
                 ui,

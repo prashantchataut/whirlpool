@@ -941,6 +941,10 @@ struct App {
     hud: Option<hud::Hud>,
     /// What the HUDs last showed, so only a real change shows one.
     hud_volume: Option<(u8, bool)>,
+    /// The volume-key hook, while the pop-ups and `media_key_hook` are on.
+    media_keys: Option<whirlpool_shell::mediakeys::MediaKeys>,
+    /// Until then, a stock volume flyout that appears is hidden (fallback).
+    flyout_guard_until: Option<Instant>,
     hud_network: status::Network,
     hud_bluetooth: Option<bool>,
     bluetooth_watch: Option<BluetoothWatch>,
@@ -2991,6 +2995,13 @@ impl App {
     }
 
     fn hud_tick(&mut self) -> Result<()> {
+        if let Some(until) = self.flyout_guard_until {
+            if Instant::now() < until {
+                let _ = whirlpool_shell::osd::hide_stock_flyout();
+            } else {
+                self.flyout_guard_until = None;
+            }
+        }
         if self.hud.as_ref().is_none_or(hud::Hud::finished) || self.fullscreen {
             self.hud = None;
             // SAFETY: Our own timer.
@@ -3007,6 +3018,12 @@ impl App {
             return;
         };
         let now = (volume.percent, volume.muted);
+        if self.config.hud_enabled && self.config.media_key_hook && !self.fullscreen {
+            // A change that did not come through our hook: if Windows opens its
+            // own flyout for it, hide it for the next moment.
+            let _ = whirlpool_shell::osd::hide_stock_flyout();
+            self.flyout_guard_until = Some(Instant::now() + std::time::Duration::from_millis(1500));
+        }
         if self.hud_volume.replace(now) != Some(now) {
             self.show_hud(hud::Kind::Volume {
                 percent: volume.percent,
@@ -3048,6 +3065,21 @@ impl App {
     }
 
     /// `whirlpool --hud kind value`: code 1 volume (bit 8 set: muted), 2 brightness, 3 Wi-Fi bars, 4 Bluetooth.
+    /// Runs the volume-key hook exactly while the pop-ups and the setting are on.
+    fn sync_media_keys(&mut self) {
+        let wanted = self.config.hud_enabled && self.config.media_key_hook;
+        match (wanted, self.media_keys.is_some()) {
+            (true, false) => {
+                self.media_keys = whirlpool_shell::mediakeys::MediaKeys::start(
+                    self.input.0 as isize,
+                    HUD_COMMAND,
+                );
+            }
+            (false, true) => self.media_keys = None,
+            _ => {}
+        }
+    }
+
     fn hud_command(&mut self, code: usize, value: isize) {
         let percent = (value & 0xff).clamp(0, 100) as u8;
         let kind = match code {
@@ -4368,6 +4400,7 @@ impl App {
         let material_changed =
             crate::scene::set_material(config.glass_material, config.glass_wallpaper_tint);
         self.config = config;
+        self.sync_media_keys();
         if style_changed || material_changed {
             self.assets_for = (0.0, false, 0, DockEdge::Bottom);
         }
@@ -6334,6 +6367,8 @@ pub fn run() -> Result<()> {
             charge: None,
             hud: None,
             hud_volume: None,
+            media_keys: None,
+            flyout_guard_until: None,
             hud_network: status::network(),
             hud_bluetooth: None,
             bluetooth_watch: None,
@@ -6367,6 +6402,7 @@ pub fn run() -> Result<()> {
         }
         app.bluetooth_watch = Some(BluetoothWatch::new(input.0 as isize, BLUETOOTH_CHANGED));
         app.network_watch = status::NetworkWatch::new(input.0 as isize, NETWORK_CHANGED);
+        app.sync_media_keys();
         app.sync()?;
         // `sync` recomposes only when the list changes; run it unconditionally at startup.
         if app.stage.is_none() {

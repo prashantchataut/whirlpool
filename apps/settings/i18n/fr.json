@@ -131,6 +131,8 @@
   "chargingAnimationHint": "Joue une animation quand vous branchez le chargeur.",
   "hudEnabled": "Pastilles de volume et Wi-Fi",
   "hudEnabledHint": "Une petite pastille quand le volume, le Wi-Fi ou le Bluetooth change.",
+  "mediaKeyHook": "Gérer les touches de volume",
+  "mediaKeyHookHint": "Whirlpool règle le volume lui-même et le volet de Windows ne s’ouvre pas. Il ne lit aucune autre touche et n’en stocke ni n’en envoie aucune.",
   "updateOnStartup": "Vérifier aussi au démarrage de Whirlpool",
   "updateOnStartupHint": "Quelques minutes après l'ouverture de session, en arrière-plan. Ne télécharge ni n'installe jamais rien seule.",
   "updateReminders": "Me prévenir quand une mise à jour est disponible",

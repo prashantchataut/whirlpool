@@ -131,6 +131,8 @@
   "chargingAnimationHint": "Reproduce una animación al conectar el cargador.",
   "hudEnabled": "Avisos de volumen y Wi-Fi",
   "hudEnabledHint": "Una píldora pequeña cuando cambian el volumen, el Wi-Fi o el Bluetooth.",
+  "mediaKeyHook": "Gestionar las teclas de volumen",
+  "mediaKeyHookHint": "Whirlpool cambia el volumen por sí mismo y el panel de Windows no se abre. No lee ninguna otra tecla ni guarda ni envía ninguna.",
   "updateOnStartup": "Buscar también al iniciar Whirlpool",
   "updateOnStartupHint": "Unos minutos tras iniciar sesión, en segundo plano. Nunca descarga ni instala nada por sí sola.",
   "updateReminders": "Avisarme cuando haya una actualización",
