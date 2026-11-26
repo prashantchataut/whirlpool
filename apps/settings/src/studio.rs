@@ -228,13 +228,15 @@ impl Studio {
                                     .paint_at(ui, rect);
                             }
                             None => {
-                                ui.painter().rect_filled(rect, corner, palette.card);
+                                // No preview yet (or none reachable): a tint per group, not a blank box.
+                                let (top, bottom) = tint_of(entry.category);
+                                gradient(ui, rect, top, bottom);
                                 ui.painter().text(
                                     rect.center(),
                                     egui::Align2::CENTER_CENTER,
                                     entry.category.label(),
                                     egui::FontId::proportional(13.0),
-                                    palette.muted,
+                                    Color32::from_white_alpha(170),
                                 );
                             }
                         }
@@ -269,6 +271,44 @@ impl Studio {
                 }
             });
     }
+}
+
+/// Top and bottom colour of a tile that has no preview, one pair per group.
+fn tint_of(category: Category) -> (Color32, Color32) {
+    let rgb = |top: [u8; 3], bottom: [u8; 3]| {
+        (
+            Color32::from_rgb(top[0], top[1], top[2]),
+            Color32::from_rgb(bottom[0], bottom[1], bottom[2]),
+        )
+    };
+    match category {
+        Category::Abstract => rgb([0x2b, 0x5b, 0xd6], [0x7a, 0x3c, 0xc9]),
+        Category::Amoled => rgb([0x16, 0x16, 0x1a], [0x05, 0x05, 0x07]),
+        Category::Nature => rgb([0x2f, 0x6f, 0x5e], [0x13, 0x2f, 0x3a]),
+        Category::Minimal => rgb([0x8d, 0x93, 0x9c], [0x4a, 0x50, 0x59]),
+        Category::Space => rgb([0x1c, 0x1f, 0x4d], [0x07, 0x08, 0x1a]),
+        Category::Classics => rgb([0x3b, 0x8e, 0xd8], [0x1d, 0x4f, 0x9e]),
+    }
+}
+
+/// A vertical two-colour fill with rounded corners approximated by a plain quad.
+fn gradient(ui: &Ui, rect: egui::Rect, top: Color32, bottom: Color32) {
+    let mut mesh = egui::Mesh::default();
+    let white = egui::epaint::WHITE_UV;
+    for (pos, color) in [
+        (rect.left_top(), top),
+        (rect.right_top(), top),
+        (rect.right_bottom(), bottom),
+        (rect.left_bottom(), bottom),
+    ] {
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos,
+            uv: white,
+            color,
+        });
+    }
+    mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
+    ui.painter().add(egui::Shape::mesh(mesh));
 }
 
 fn chip(ui: &mut Ui, label: &str, on: bool, palette: Palette, accent: Color32) -> bool {
