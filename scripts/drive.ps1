@@ -193,10 +193,20 @@ function Wait-Window($title, $seconds = 30) {
     Diagnose $title
     return $false
 }
+# The windows-11-arm image opens a "Windows Subsystem for Linux, press any key to install" console and leaves the
+# Windows Start menu open: both sat over the ARM frames, so the HUD pills (drawn above the dock) could not be
+# seen. Close them before every scenario; the capture then shows the app and not the runner image.
+function Clean-Desktop {
+    Get-Process WindowsTerminal, wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Type-Keys @(0x1B)
+    Close-RunnerDialogs
+    Start-Sleep -Milliseconds 400
+}
 function Scenario($name, [scriptblock]$body) {
     # -Only takes one or more comma-separated fragments (a scenario runs if its name contains any of them).
     if ($Only -and -not (@($Only -split ',' | Where-Object { $_ } | Where-Object { $name -like "*$_*" }).Count)) { return }
     Log "== $name"
+    Clean-Desktop
     try { & $body } catch { Fail "scenario ${name} threw: $_" }
 }
 
