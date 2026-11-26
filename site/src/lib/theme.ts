@@ -8,7 +8,7 @@ import dunes from "../assets/wall-dunes.jpg";
 import sunset from "../assets/wall-sunset.jpg";
 
 export const REPO = "https://github.com/prashantchataut/whirlpool";
-export const VERSION = "4.2.0-rc7";
+export const VERSION = "4.2.0-rc8";
 /* GitHub's "latest" skips pre-releases and still points at v4.1.0, so every link names its tag. */
 export const TAG = `v${VERSION}`;
 const DL = `${REPO}/releases/download/${TAG}`;

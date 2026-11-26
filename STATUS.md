@@ -1,5 +1,7 @@
 # Session 11 (direct commits to main; pre-release `4.2.0-rc8`)
 
+**Release:** `v4.2.0-rc8`, pre-release (gate not passed: unsigned, no personal-desktop run, no ARM hardware run). Built by the Release workflow from the tag (run 45728259819, commit `5c47422`). Assets: x64 and ARM64 installers, zips, bare executables, `install.ps1`, `SHA256SUMS.txt`; both installers were downloaded after publishing and their SHA-256 matches the sums. In-app updater, run 45729241899 (`updater-e2e.yml`, clean runner): installed rc7, updated to rc8, check says up to date, rollback to rc7 worked, uninstall left nothing behind. The ARM64 installer was built, not run on ARM.
+
 **Checked first:** main was green at the start (`3558123`, after two red commits fixed forward). README Status was out of date and is rewritten.
 
 **Done, compiled and tested in CI (core, config and update crates also tested locally: 249 + 42 + 24 tests):** unit conversion in the palette; `window:`, `setting:`, `widget:` filters and window rows; battery alerts (timer, state machine, toast); `--safe-mode`; `--widgets export|import`; widget profile, workspace and audio preset models; window tiling with undo; `.ics` reader; panel lifetime state machine. Study 3 ran on a runner (`STUDY-3.md`).
