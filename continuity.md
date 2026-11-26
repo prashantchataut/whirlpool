@@ -13,6 +13,10 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Session 13 (main, pre-release 4.2.0-rc10)
+
+Capture staging is now `scripts/showcase.ps1` + `scripts/stage-media.ps1` (WinRT media session, run with Windows PowerShell 5.1, cover drawn at run time). 4kwallpapers.com pictures cannot be used in public captures (403 from hosted runners and a personal-use-only policy); do not add them to the repository. Next, ranked: desktop clock widget layer, island progress bar, spectrum bars (loopback tap), file shelf capture with real files, signed installers. A personal access token was pasted into the chat again this session: revoke it.
+
 ## Session 11 (main, pre-release 4.2.0-rc8)
 
 | Area | Change | Where |

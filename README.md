@@ -6,16 +6,17 @@ The Windows taskbar, rebuilt as a dock. Dock, menu bar and island in one native 
 [Download](https://github.com/prashantchataut/whirlpool/releases/tag/v4.2.0-rc9) ·
 [Site](https://prashantchataut.github.io/whirlpool/) · [Scorecard](SCORECARD.md) · [Changelog](CHANGELOG.md)
 
-![Desktop](docs/captures/session12/01b-desktop-apps.jpg)
+![Desktop](docs/captures/session13/01c-island-media.jpg)
 
-Captured from `whirlpool.exe` on a GitHub-hosted Windows runner, 1920×1080, 100 % scale, no GPU. The wallpaper is a
-Pexels photograph from the bundled pack; the runner's own terminal is minimised. Not a personal desktop.
+Captured from `whirlpool.exe` on a GitHub-hosted Windows runner, 1920×1080, 100 % scale, dark mode, no GPU. Wallpapers are
+Pexels photographs from the bundled pack. The track is a staged media session with a drawn cover. "Test Mode" bottom
+right is the runner's own watermark. Not a personal desktop.
 
 | | |
 | --- | --- |
-| ![Quick settings](docs/captures/session12/04-quick-settings.jpg) | ![Command palette](docs/captures/session12/05-command-palette.jpg) |
+| ![Quick settings](docs/captures/session13/04-quick-settings.jpg) | ![Command palette](docs/captures/session13/05-command-palette.jpg) |
 | Quick settings, 320 px | `Ctrl+K` palette |
-| ![Start grid](docs/captures/session12/03-start-grid.jpg) | ![Settings](docs/captures/session12/08-settings.jpg) |
+| ![Start grid](docs/captures/session13/03-start-grid.jpg) | ![Settings](docs/captures/session13/08-settings.jpg) |
 | Start grid | Settings |
 
 ## Wallpaper studio
@@ -26,8 +27,9 @@ samples the picture's highlight colour. Open it from Settings, the Wallpaper qui
 `whirlpool --studio-apply ID` applies one from a script.
 
 **Curated 4K wallpapers sourced from [4kwallpapers.com](https://4kwallpapers.com/). Free for personal desktop use.**
-Every tile links to its page. No picture is stored in this repository. If the site refuses the download (it has a bot
-check), the studio opens the picture's page in your browser instead. Previews and downloads are the only requests, and only
+Every tile links to its page. The pictures belong to their authors and are cleared for personal desktop use, so none is
+stored in this repository or in a release: they download to your PC when you press Apply. If the site refuses the
+download (it has a bot check), the studio opens the picture's page in your browser instead. Previews and downloads are the only requests, and only
 while the studio is open.
 
 ## Features

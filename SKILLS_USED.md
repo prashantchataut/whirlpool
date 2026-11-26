@@ -1,3 +1,14 @@
+## Session 13
+
+Opened and applied: `design-taste-frontend` (read SKILL.md; the capture review used its rule against empty, default-looking frames: tint tiles instead of blank boxes, dark theme, no clipped placeholder) and `copywriting` (short strings; palette placeholder cut from 66 to 38 characters; banned-word grep over the repo found nothing public to remove).
+`rea`: located (`morluto/rea`, a Ghidra/Hopper tool for macOS and Linux; `smartworldarafath/REA_Skill`), **not installed or run**. It disassembles binaries, and the brief asks for a black-box study, so the reference was read from its public page and release listing only (`SCORECARD.md`, "Reference study").
+Not available or not opened: `hallmark-ui`, `open-design-skill`, open-design.ai, skillissue.in (no skill of those names turned up in a search). Nothing is credited to them.
+
+| Skill | What it changed |
+| --- | --- |
+| `design-taste-frontend` | Capture rounds on the runner; studio placeholder tints; hero frame is the island on a playing track |
+| `copywriting` | Five app strings shortened, palette placeholder and empty text; site notes state what is staged |
+
 ## Session 10
 
 Honest record: **no skill file was opened this session**, so none is credited with a change. The session was a merge, a link fix on the site, a release and an updater run; the only visual edit was adding a button and two roadmap rows to the site, which was not reviewed against any skill.

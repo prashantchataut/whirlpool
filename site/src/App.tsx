@@ -79,7 +79,7 @@ function Desktop() {
       </div>
       <p className="mt-4 text-center text-[14px] text-mute">{active.caption}</p>
       <p className="mt-1 text-center text-[12.5px] text-faint">
-        Captured from the running program on a GitHub-hosted Windows runner, 1920×1080, not rendered. Wallpaper: a Pexels photograph from the bundled pack. The runner's own terminal is minimised.
+        Captured from the running program on a GitHub-hosted Windows runner, 1920×1080, dark mode, not rendered. Wallpapers: Pexels photographs from the bundled pack. The track is a staged media session with a drawn cover. "Test Mode" bottom right is the runner's own watermark.
       </p>
     </section>
   );
@@ -132,8 +132,8 @@ function Wallpapers() {
             </a>
           </p>
           <p className="mt-3 text-[13px] text-faint">
-            Every tile links to its page on 4kwallpapers.com. Nothing is downloaded until you open the studio, and no
-            picture is stored in this repository.
+            Every tile links to its page. Pictures belong to their authors and are cleared for personal desktop use: they
+            download to your PC when you press Apply. This site and repository do not host them.
           </p>
         </div>
         <img

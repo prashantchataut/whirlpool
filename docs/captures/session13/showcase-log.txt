@@ -1,0 +1,46 @@
+18:26:35 profile reset; display 1920x1080
+18:26:41 desktop: dark mode, version text off, icons hidden, explorer restarted
+18:26:41 test signing: testsigning             Yes
+18:26:41 runner dialog 'System Properties' (pid 5148), closing, try 1
+18:26:42 runner dialog 'Performance Options' (pid 5148), closing, try 2
+18:26:46 studio apply 27371 exit 1: could not apply Milky Way over the Alps: refused (403)
+18:26:46 studio exit 1 for id 27371; falling back to the photo pack (aurora-lake.jpg)
+18:27:04 shot 01-desktop 1920x1080
+18:27:04 desktop spread (grey-level deviation, flat < 12): 36.1
+18:27:16 shot 01c-island-media 1920x1080
+18:27:21 shot 01b-desktop-apps 1920x1080
+18:27:34 shot 09-wallpaper-studio 1920x1080
+18:27:35 saved config after first run: { "version": 1, "pinned": [ "c:\\windows\\explorer.exe", "c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe" ], "groups": [], "recent": [ "d:\\a\\whirlpool\\whirlpool\\target\\release\\whirlpool.exe", "c:\\windows\\system32\\notepad.exe" ], "taskbarPins": [ "c:\\program files (x86)\\microsoft\\edge\\application\\msedge.exe" ], "autoHide": false, "iconSize": 32, "magnification": tru
+18:27:35 shot 02a-before-keys 1920x1080
+18:27:35 stock flyout windows before keys: []
+18:27:36 shot 02b-after-volume-up 1920x1080
+18:27:36 stock flyout windows after volume up x5: []
+18:27:37 stock flyout windows after mute: []
+18:27:37 shot 02c-after-mute 1920x1080
+18:27:38 shot 02-volume-pill 1920x1080
+18:27:39 studio apply 27986 exit 1: could not apply Lofoten: refused (403)
+18:27:39 studio exit 1 for id 27986; falling back to the photo pack (misty-peaks.jpg)
+18:27:47 shot 03-start-grid 1920x1080
+18:27:48 studio apply 27362 exit 1: could not apply Desert rocks: refused (403)
+18:27:48 studio exit 1 for id 27362; falling back to the photo pack (dune-sunrise.jpg)
+18:27:59 shot 04-quick-settings 1920x1080
+18:28:01 studio apply 28066 exit 1: could not apply Blue flow: refused (403)
+18:28:01 studio exit 1 for id 28066; falling back to the photo pack (blue-hour.jpg)
+18:28:08 shot 05-command-palette 1920x1080
+18:28:09 studio apply 27369 exit 1: could not apply Moon, night sky: refused (403)
+18:28:09 studio exit 1 for id 27369; falling back to the photo pack (milky-way.jpg)
+18:28:17 shot 06-notification-center 1920x1080
+18:28:19 studio apply 27374 exit 1: could not apply Kawah Ijen: refused (403)
+18:28:19 studio exit 1 for id 27374; falling back to the photo pack (turquoise-surf.jpg)
+18:28:26 shot 07-clock-panel 1920x1080
+18:28:27 studio apply 26734 exit 1: could not apply Metallic waves: refused (403)
+18:28:27 studio exit 1 for id 26734; falling back to the photo pack (city-lights.jpg)
+18:28:39 shot 08-settings 1920x1080
+18:28:41 source: aurora-lake.jpg => photo pack (Pexels)
+18:28:41 source: misty-peaks.jpg => photo pack (Pexels)
+18:28:41 source: dune-sunrise.jpg => photo pack (Pexels)
+18:28:41 source: blue-hour.jpg => photo pack (Pexels)
+18:28:41 source: milky-way.jpg => photo pack (Pexels)
+18:28:41 source: turquoise-surf.jpg => photo pack (Pexels)
+18:28:41 source: city-lights.jpg => photo pack (Pexels)
+18:28:41 done

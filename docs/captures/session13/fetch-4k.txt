@@ -1,0 +1,43 @@
+18:26:14 id 27371: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/milky-way-alps-3840x2160-27371.jpg", waiting 
+18:26:15 id 27986: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/lofoten-mountains-3840x2160-27986.jpg", waiti
+18:26:15 id 27362: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/desert-rocks-3840x2160-27362.jpg", waiting un
+18:26:15 id 28066: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/windows-11-2027-3840x2160-28066.jpg", waiting
+18:26:16 id 27369: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/moon-night-sky-3840x2160-27369.jpg", waiting 
+18:26:16 id 27374: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/kawah-ijen-crater-3840x2160-27374.jpg", waiti
+18:26:16 id 26734: Error: page.goto: Download is starting
+Call log:
+[2m  - navigating to "https://4kwallpapers.com/images/wallpapers/metallic-abstract-3840x2160-26734.jpg", waiti
+18:26:17 fetched 0 of 7
+18:26:19 id 28066: preview status 403
+18:26:20 id 28132: preview status 403
+18:26:20 id 27909: preview status 403
+18:26:20 id 26734: preview status 403
+18:26:20 id 24089: preview status 403
+18:26:20 id 24088: preview status 403
+18:26:21 id 27986: preview status 403
+18:26:21 id 27371: preview status 403
+18:26:21 id 26361: preview status 403
+18:26:21 id 27374: preview status 403
+18:26:21 id 27362: preview status 403
+18:26:22 id 26307: preview status 403
+18:26:22 id 26311: preview status 403
+18:26:22 id 27329: preview status 403
+18:26:22 id 27369: preview status 403
+18:26:22 id 27326: preview status 403
+18:26:23 id 24090: preview status 403
+18:26:23 id 11633: preview status 403
+18:26:23 id 12482: preview status 403
+18:26:23 id 11578: preview status 403
+18:26:24 fetched 0 of 20

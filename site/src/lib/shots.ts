@@ -5,6 +5,7 @@ export type Shot = { id: string; tab: string; file: string; caption: string };
 export const WALLPAPER_NOTE = "";
 
 export const SHOTS: Shot[] = [
+  { id: "island", tab: "Island", file: "01c-island-media", caption: "Island open on a playing track: cover, title, artist, transport." },
   { id: "desktop", tab: "Desktop", file: "01-desktop", caption: "Dock and menu bar over the desktop. The taskbar is hidden." },
   { id: "windows", tab: "In use", file: "01b-desktop-apps", caption: "With windows open: Explorer and a text file." },
   { id: "hud", tab: "Volume", file: "02-volume-pill", caption: "Volume pill, 200 by 40. The Windows flyout stays closed." },
@@ -13,6 +14,6 @@ export const SHOTS: Shot[] = [
   { id: "palette", tab: "Ctrl+K", file: "05-command-palette", caption: "Command palette: apps, files, windows, settings." },
   { id: "notifications", tab: "Notifications", file: "06-notification-center", caption: "Notification centre." },
   { id: "clock", tab: "Clock", file: "07-clock-panel", caption: "Clock, focus timer, file shelf." },
-  { id: "studio", tab: "Wallpaper", file: "09-wallpaper-studio", caption: "Wallpaper studio. Previews load from 4kwallpapers.com; the hosted runner is refused by its bot check, so the tiles are empty here." },
+  { id: "studio", tab: "Wallpaper", file: "09-wallpaper-studio", caption: "Wallpaper studio. Previews come from 4kwallpapers.com; the hosted runner is refused by its bot check, so tiles show a tint per group here." },
   { id: "settings", tab: "Settings", file: "08-settings", caption: "Settings." },
 ];

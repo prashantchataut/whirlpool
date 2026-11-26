@@ -6,12 +6,12 @@ Black-box only: nothing was copied, and this repository does not name it.
 
 **Have It**: Whirlpool does this today. **Beat It**: Whirlpool does this and goes further. **Skip It**: not built, with the reason.
 **Gap**: the reference has it and Whirlpool does not yet. Every row below was checked against the code in this
-repository, not against a claim. "Seen" means a runner capture exists (see `docs/captures/session12/`).
+repository, not against a claim. "Seen" means a runner capture exists (see `docs/captures/session13/`).
 
 | Feature | Reference | Whirlpool | Verdict |
 | --- | --- | --- | --- |
 | Top island: idle pill that opens | Yes | Four presets (Compact, Classic, Wide, Expressive), opens from the top edge | Have It |
-| Island media: cover art, transport, progress | Yes | Now playing with transport in the island | Have It |
+| Island media: cover art, transport, progress | Yes | Cover art, title, artist and transport in the island (seen, `docs/captures/session13/01c-island-media.jpg`, staged with a real system media session); no progress bar in the open panel | Have It, progress open |
 | Island media: animated spectrum bars | Yes | Not built (needs a loopback tap on the output device) | Gap |
 | Synced lyrics | Floating karaoke window, lrclib.net | In the island, opt-in, one request per song, off by default | Have It |
 | File shelf: drop in, drag out | Yes | Clock panel shelf, native shell drag out into any window | Have It |
@@ -40,10 +40,30 @@ repository, not against a claim. "Seen" means a runner capture exists (see `docs
 | ARM64 | Not offered | Built in CI; not run on ARM hardware | Beat It, unverified on hardware |
 | Signed installer | Not documented | No: unsigned, see `SIGNING.md` | Gap |
 
+## Reference study (black box, session 13)
+
+Read from the reference's public page and its release listing (one 3.5 MB installer, 24 Nov 2026); nothing was
+decompiled, copied or reused. What its page sells: four desktop widgets (clock in three styles, a vinyl music player,
+a calendar with `.ics`, a sticky memo), a floating karaoke window, a notch with shelf, clipboard, per-app mixer and game
+auto-hide, a Direct3D genie, and a short idle-cost table (about 35 MB, about 0 % CPU). Its screenshots are whole desktops
+on a photograph; ours were tight crops on a flat runner. That is the part we changed.
+
+Where it is ahead: the desktop widget layer and the installer size. Where we are ahead: volume-key suppression, edges
+and displays, updater with rollback, `Ctrl+K` scope, notification centre, hot corners, wallpaper studio. Not built, so
+not claimed: spectrum bars, desktop widgets, per-app mixer, game auto-hide.
+
+## Licence of the wallpaper studio
+
+4kwallpapers.com states that its pictures belong to their authors and are cleared for personal use as a desktop
+wallpaper; any other use needs the author's permission. So the studio downloads a picture to the user's own cache
+only when Apply is pressed, credits the site on every tile and links to each page. This repository, the releases and
+the site do not redistribute any of them, and the public captures use the licensed photographs in `assets/wallpapers`
+(see `ASSETS_LICENSES.md`). The site's bot check also refuses hosted runners (HTTP 403), so the studio could not be
+photographed with its own pictures; its tiles show a tint per group when a preview is unavailable.
+
 ## What is behind the staging
 
-The reference's pictures look like a real PC because they show a full desktop on a photograph, with the glass
-refracting it. Ours looked like CI because the runner's desktop was flat or empty and the crops were tight.
-The capture driver now applies a 4K picture through the studio, checks the desktop is not flat, opens real
-windows behind the shell and shoots the whole 1920x1080 screen. When the site refuses the runner the driver
-falls back to the bundled photos and writes that into the log, so a frame never claims a source it did not use.
+The capture driver sets a dark theme, hides the build text and desktop icons it can, applies a photograph, registers a
+real system media session with a drawn cover, opens real windows and shoots the whole 1920x1080 screen. It closes the
+runner's own paging-file dialog before every frame. One thing cannot be removed: the runner has test signing on, so
+Windows draws a "Test Mode" watermark at the bottom right of every frame. It is left in, not retouched.

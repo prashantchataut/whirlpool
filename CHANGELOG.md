@@ -6,6 +6,14 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## 4.2.0-rc10
+
+- Wallpaper studio: a tinted tile per group while a preview is missing (it was a blank white box).
+- Quick settings: no "Plugged in" cluster on a PC without a battery; it ran into the two footer links.
+- Search: shorter placeholder and empty text (the long one was cut off).
+- Shorter wording for the update banner, clock subtitle, crab, focus and dark wallpaper hints.
+- Captures: dark mode, a real media session with cover art in the island, the runner's own dialogs closed before every frame, `docs/captures/session13/`.
+
 ## 4.2.0-rc8
 
 - Search: open windows, Settings entries and widgets join apps, files, actions and clipboard. `window:`, `setting:` and `widget:` narrow the list. Calculator rows now also convert units (`56 KB to MB`, `100 Mbps to MB/s`, `5'11" to cm`, `212 F to C`, `30 mpg to L/100 km`). Set `paletteHotkey` to `Ctrl+K` if you want that key (it is global, so it is not the default).
