@@ -121,6 +121,31 @@ fn main() -> Result<()> {
             whirlpool_shell::log::flush();
             std::process::exit(i32::from(result.is_err()))
         }
+        ["--widgets", "export", rest @ ..] => {
+            // The pinned widget and favorites as a JSON profile: to a file, or to the console log.
+            let config = whirlpool_config::load(&whirlpool_config::default_path())
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            let text = config.widget_profile.export();
+            match rest.first() {
+                Some(file) => std::fs::write(file, text).context("could not write the profile")?,
+                None => whirlpool_shell::log::line(&text),
+            }
+            whirlpool_shell::log::flush();
+            Ok(())
+        }
+        ["--widgets", "import", file] => {
+            let text = std::fs::read_to_string(file).context("could not read the profile")?;
+            let profile = whirlpool_config::WidgetProfile::import(&text)
+                .map_err(|why| anyhow::anyhow!("not a Whirlpool widget profile: {why:?}"))?;
+            whirlpool_config::update(&whirlpool_config::default_path(), |saved| {
+                let mut saved = saved.unwrap_or_default();
+                saved.widget_profile = profile.clone();
+                Ok(saved)
+            })?;
+            Ok(())
+        }
         ["--launchpad"] => open_launchpad(false),
         ["--launchpad-compat"] => open_launchpad(true),
         ["--palette"] => open_palette(false),
@@ -169,7 +194,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --safe-mode | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --safe-mode | --widgets export|import FILE | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }

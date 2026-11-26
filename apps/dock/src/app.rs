@@ -6143,6 +6143,7 @@ pub fn run() -> Result<()> {
 
         whirlpool_config::migrate_legacy_folder();
         let config = load_config();
+        let battery_alerts = whirlpool_core::battery::Alerts::new(&config.battery_alert_levels);
         strings::set_language(config.language);
         let roster = roster_from(&config);
         let auto_hide = config.auto_hide;
@@ -6239,7 +6240,7 @@ pub fn run() -> Result<()> {
             // Initial registration notifications establish the baseline after
             // the queue starts, without playing a startup charging/saver act.
             power_seen: None,
-            battery_alerts: whirlpool_core::battery::Alerts::new(&config.battery_alert_levels),
+            battery_alerts,
             charging_shown: None,
             cursor: 0.0,
             amount: Spring::at(0.0, HOVER_OMEGA),
