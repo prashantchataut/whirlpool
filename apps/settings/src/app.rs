@@ -1669,9 +1669,6 @@ impl Settings {
                 ui.selectable_value(&mut config.menu_bar_24h, Some(false), t.get("clock12"));
             });
         });
-        crate::extras::clock_card(ui, t, config);
-        crate::extras::focus_card(ui, t, config);
-        crate::extras::lyrics_card(ui, t, config);
 
         let mut chosen: Option<&'static str> = None;
         let mut shuffle = false;
@@ -2211,6 +2208,13 @@ impl Settings {
                 }
             });
         }
+        // Clock, focus timer and lyrics are menu bar settings: they sit on this page.
+        ui.add_space(10.0);
+        crate::extras::clock_card(ui, t, &mut self.config);
+        ui.add_space(10.0);
+        crate::extras::focus_card(ui, t, &mut self.config);
+        ui.add_space(10.0);
+        crate::extras::lyrics_card(ui, t, &mut self.config);
     }
 
     /// The system overlay: what it shows, where, how it looks and the hotkey.
