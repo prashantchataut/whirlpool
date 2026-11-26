@@ -14,6 +14,7 @@ public static class Sc {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, uint d, UIntPtr e);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string c, string t);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr p, IntPtr a, string c, string t);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   delegate bool Cb(IntPtr h, IntPtr l);
   [DllImport("user32.dll")] static extern bool EnumWindows(Cb cb, IntPtr l);
@@ -21,6 +22,21 @@ public static class Sc {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  // Visible dialog boxes (class #32770): handle, title, owner process id.
+  public static List<string> Dialogs() {
+    var found = new List<string>();
+    EnumWindows((h, l) => {
+      if (!IsWindowVisible(h)) return true;
+      var c = new StringBuilder(64); GetClassName(h, c, 64);
+      if (c.ToString() != "#32770") return true;
+      var t = new StringBuilder(256); GetWindowText(h, t, 256);
+      uint pid; GetWindowThreadProcessId(h, out pid);
+      found.Add(h.ToInt64() + "|" + t + "|" + pid);
+      return true; }, IntPtr.Zero);
+    return found;
+  }
   public static string Flyouts() {
     var found = new List<string>();
     EnumWindows((h, l) => {
@@ -40,9 +56,18 @@ public static class Sc {
 function Log($m) { "$([DateTime]::Now.ToString('HH:mm:ss')) $m" | Tee-Object -Append (Join-Path $Out 'showcase-log.txt') }
 # Dialogs the runner image raises on its own (the paging-file notice) are not part of the app.
 function Close-RunnerDialogs {
-  foreach ($title in 'System Properties') {
-    $h = [Sc]::FindWindow($null, $title)
-    if ($h -ne [IntPtr]::Zero) { [void][Sc]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero); Log "closed runner dialog '$title'"; Start-Sleep -Milliseconds 700 }
+  # Press OK on any visible dialog box that is not ours, then ask it to close; log what was found.
+  foreach ($try in 1..3) {
+    $dialogs = [Sc]::Dialogs()
+    if (-not $dialogs -or $dialogs.Count -eq 0) { return }
+    foreach ($d in $dialogs) {
+      $parts = $d.Split('|'); $h = [IntPtr][long]$parts[0]
+      Log "runner dialog '$($parts[1])' (pid $($parts[2])), closing, try $try"
+      $ok = [Sc]::FindWindowEx($h, [IntPtr]::Zero, 'Button', 'OK')
+      if ($ok -ne [IntPtr]::Zero) { [void][Sc]::PostMessage($ok, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) }
+      [void][Sc]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+    }
+    Start-Sleep -Milliseconds 800
   }
 }
 function Click-At($x, $y) {
@@ -67,6 +92,7 @@ $Studio = @{
 }
 $script:Sources = @()
 function Wall($file) {
+  Close-RunnerDialogs
   $id = $Studio[$file]
   if ($id) {
     # whirlpool.exe is a GUI program: wait for it and read the exit code from the process object.
@@ -97,8 +123,9 @@ function Unstage-Apps {
   Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force
   try { (New-Object -ComObject Shell.Application).Windows() | ForEach-Object { $_.Quit() } } catch {}
 }
-function Reset { Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2 }
+function Reset { Close-RunnerDialogs; Get-Process whirlpool -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2 }
 function Panels {
+  Close-RunnerDialogs
   Get-CimInstance Win32_Process -Filter "Name='whirlpool.exe'" | Where-Object { $_.CommandLine -match '--(launchpad|palette|quick-settings|hub|notifications|settings|overview|studio)' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   Start-Sleep 1
 }
