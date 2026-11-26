@@ -54,6 +54,7 @@ enum Page {
     Personalize,
     Windows,
     MenuBar,
+    Clock,
     System,
     About,
 }
@@ -236,6 +237,7 @@ impl Settings {
         if let Ok(name) = env::var("WHIRLPOOL_PAGE") {
             settings.page = match name.as_str() {
                 "menubar" => Page::MenuBar,
+                "clock" => Page::Clock,
                 "personalize" => Page::Personalize,
                 "windows" => Page::Windows,
                 "system" => Page::System,
@@ -508,17 +510,17 @@ const SEARCH_INDEX: &[(&str, &str, Page)] = &[
     (
         "Synced lyrics",
         "lyrics music song lrc privacy network",
-        Page::MenuBar,
+        Page::Clock,
     ),
     (
         "Focus timer",
         "focus pomodoro timer break island",
-        Page::MenuBar,
+        Page::Clock,
     ),
     (
         "Clock placement",
-        "clock island bar time place",
-        Page::MenuBar,
+        "clock dock island bar time place",
+        Page::Clock,
     ),
     ("Hot corners", "corner screen action pointer", Page::Windows),
     (
@@ -534,7 +536,7 @@ const SEARCH_INDEX: &[(&str, &str, Page)] = &[
     (
         "Clock and date",
         "clock date 24 hour 12 hour time",
-        Page::MenuBar,
+        Page::Clock,
     ),
     (
         "Menu bar opacity",
@@ -584,6 +586,7 @@ fn page_icon(page: Page) -> Icon {
         Page::Personalize => Icon::Palette,
         Page::Windows => Icon::Window,
         Page::MenuBar => Icon::Bar,
+        Page::Clock => Icon::Clock,
         Page::System => Icon::System,
         Page::About => Icon::Info,
     }
@@ -640,6 +643,7 @@ impl Settings {
             Page::Personalize => t.get("personalize"),
             Page::Windows => t.get("windows"),
             Page::MenuBar => t.get("menuBar"),
+            Page::Clock => t.get("clockPage"),
             Page::System => t.get("system"),
             Page::About => t.get("about"),
         }
@@ -651,6 +655,7 @@ impl Settings {
             Page::Personalize => t.get("subtitlePersonalize"),
             Page::Windows => t.get("subtitleWindows"),
             Page::MenuBar => t.get("subtitleMenuBar"),
+            Page::Clock => t.get("subtitleClock"),
             Page::System => t.get("subtitleSystem"),
             Page::About => t.get("subtitleAbout"),
         }
@@ -737,6 +742,7 @@ impl eframe::App for Settings {
                                 Page::Personalize => self.personalize_page(ui, &t),
                                 Page::Windows => self.windows_page(ui, &t),
                                 Page::MenuBar => self.menu_bar_page(ui, &t),
+                                Page::Clock => self.clock_page(ui, &t),
                                 Page::System => self.system_page(ui, &t, &ctx),
                                 Page::About => self.about_page(ui, &t, palette),
                             }
@@ -869,7 +875,10 @@ impl Settings {
 
         let badge = matches!(self.update_state, State::Available(_));
         let groups: [(&str, &[Page]); 3] = [
-            ("groupShell", &[Page::Dock, Page::MenuBar, Page::Windows]),
+            (
+                "groupShell",
+                &[Page::Dock, Page::MenuBar, Page::Clock, Page::Windows],
+            ),
             ("groupLook", &[Page::Personalize]),
             ("groupApp", &[Page::System, Page::About]),
         ];
@@ -2223,8 +2232,10 @@ impl Settings {
                 }
             });
         }
-        // Clock, focus timer and lyrics are menu bar settings: they sit on this page.
-        ui.add_space(10.0);
+    }
+
+    /// Clock, focus timer and synced lyrics: one page, each card with a live preview of what it changes.
+    fn clock_page(&mut self, ui: &mut Ui, t: &Texts) {
         crate::extras::clock_card(ui, t, &mut self.config);
         ui.add_space(10.0);
         crate::extras::focus_card(ui, t, &mut self.config);

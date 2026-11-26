@@ -644,6 +644,16 @@ Scenario 'settings previews (menubar)' {
     Shot '09-settings-menubar-scroll00'
     foreach ($n in 1..18) { Wheel 5; Start-Sleep -Milliseconds 400; if ($n % 2 -eq 0) { Shot ("09-settings-menubar-scroll{0:D2}" -f $n) } }
     Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+    Start-Sleep 2
+    # The Clock page: clock card, focus timer card, synced lyrics card (and their live previews).
+    $env:WHIRLPOOL_PAGE = 'clock'
+    $p = Start-Process $Exe -ArgumentList '--settings' -PassThru
+    if (Wait-Window 'Whirlpool') {
+        Move-Mouse 520 400
+        Shot '09-settings-clock-00'
+        foreach ($n in 1..12) { Wheel 5; Start-Sleep -Milliseconds 400; if ($n % 4 -eq 0) { Shot ("09-settings-clock-{0:D2}" -f $n) } }
+    }
+    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
     Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
     Start-Sleep 1
 }

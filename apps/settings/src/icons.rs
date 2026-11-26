@@ -13,6 +13,7 @@ pub enum Icon {
     Bar,
     System,
     Info,
+    Clock,
     Search,
     Wifi,
     Bluetooth,
@@ -93,6 +94,10 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
             painter.circle_stroke(p(12.0, 12.0), 8.5 * u, stroke);
             line(vec![p(12.0, 11.0), p(12.0, 16.5)]);
             painter.circle_filled(p(12.0, 7.8), 1.1 * u, color);
+        }
+        Icon::Clock => {
+            painter.circle_stroke(p(12.0, 12.0), 8.5 * u, stroke);
+            line(vec![p(12.0, 7.0), p(12.0, 12.0), p(15.5, 14.0)]);
         }
         Icon::Search => {
             painter.circle_stroke(p(10.5, 10.5), 6.0 * u, stroke);

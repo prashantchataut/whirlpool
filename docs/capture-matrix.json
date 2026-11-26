@@ -75,6 +75,16 @@
       ]
     },
     {
+      "id": "settings-clock",
+      "scenario": "settings previews",
+      "shots": [
+        "09-settings-clock-00",
+        "09-settings-clock-04",
+        "09-settings-clock-08",
+        "09-settings-clock-12"
+      ]
+    },
+    {
       "id": "dock-clock",
       "scenario": "dock clock: tile",
       "shots": [
