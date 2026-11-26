@@ -82,7 +82,16 @@ Log "screen $($screen.Width)x$($screen.Height) arch=$env:PROCESSOR_ARCHITECTURE"
 $dir = Join-Path $env:APPDATA 'Whirlpool'
 New-Item -ItemType Directory -Force $dir | Out-Null
 
+function Close-RunnerDialogs {
+    # The paging-file notice can appear after the resolution change, not only at the start (it covered
+    # the 150% frames of the previous pass). It is not part of the app, so it never stays in a capture.
+    foreach ($title in 'System Properties') {
+        $h = [U]::FindWindow($null, $title)
+        if ($h -ne [IntPtr]::Zero) { [void][U]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero); Log "closed runner dialog '$title'"; Start-Sleep -Milliseconds 700 }
+    }
+}
 function Shot($name, $to = $Out) {
+    Close-RunnerDialogs
     $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     # BitBlt with CAPTUREBLT (0x40000000) also copies layered windows, such as the drag overlay.

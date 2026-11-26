@@ -601,13 +601,27 @@ impl Settings {
             return;
         };
         self.fitted = true;
-        // Leave room for the taskbar or the dock and for the title bar.
-        let width = (monitor.x * 0.74)
-            .clamp(700.0, 1240.0)
-            .min(monitor.x - 40.0);
-        let height = (monitor.y * 0.84)
+        // The work area (the screen minus the taskbar), in the points the window is sized in. The
+        // window's own title bar sits outside its inner size, so it is left room too.
+        let ppp = ctx.pixels_per_point().max(0.5);
+        let (left, top, area) = whirlpool_shell::system::primary_monitor().map_or(
+            (0.0, 0.0, vec2(monitor.x, (monitor.y - 56.0).max(300.0))),
+            |m| {
+                (
+                    m.work_left as f32 / ppp,
+                    m.work_top as f32 / ppp,
+                    vec2(
+                        (m.work_right - m.work_left) as f32 / ppp,
+                        (m.work_bottom - m.work_top) as f32 / ppp,
+                    ),
+                )
+            },
+        );
+        let title_bar = 40.0;
+        let width = (area.x * 0.74).clamp(700.0, 1240.0).min(area.x - 40.0);
+        let height = (area.y * 0.84)
             .clamp(460.0, 860.0)
-            .min(monitor.y - 120.0);
+            .min(area.y - title_bar - 24.0);
         let size = vec2(width.max(560.0), height.max(420.0));
         ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(vec2(
             560.0_f32.min(size.x),
@@ -615,8 +629,8 @@ impl Settings {
         )));
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos2(
-            ((monitor.x - size.x) / 2.0).max(0.0),
-            ((monitor.y - size.y) / 2.0 - 16.0).max(0.0),
+            left + ((area.x - size.x) / 2.0).max(0.0),
+            top + ((area.y - size.y - title_bar) / 2.0).max(0.0),
         )));
     }
 
