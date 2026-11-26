@@ -1,0 +1,28 @@
+name: Showcase
+
+# Real captures of every surface at 1920x1080, 1:1, on a photo wallpaper and a fresh profile.
+# Also presses the volume keys and records whether the stock flyout ever appeared.
+on:
+  workflow_dispatch:
+
+jobs:
+  showcase:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release -p whirlpool
+      - name: Resolution
+        shell: pwsh
+        continue-on-error: true
+        run: pwsh scripts/set-dpi.ps1 -Scale 100 -Resolution 1920x1080 -Out out
+      - name: Capture
+        shell: pwsh
+        run: pwsh scripts/showcase.ps1 -Exe target/release/whirlpool.exe -Out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: showcase
+          path: out/
