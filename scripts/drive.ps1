@@ -579,6 +579,16 @@ Scenario 'island pill: clock and focus timer' {
     Remove-Item (Join-Path $dir 'focus.txt') -ErrorAction SilentlyContinue
 }
 
+# The update reminder is one Windows notification. It has never been photographed: this asks Windows to show
+# the made-up reminder (`--update --remind-test`) and checks that something appeared that was not in the
+# dock-only frame. If a runner's notification platform shows nothing, this scenario fails and says so.
+Scenario 'update toast: reminder notification' {
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
+    & $Exe --update --remind-test | Out-Null
+    Start-Sleep -Milliseconds 2500
+    Shot-Panel '32-update-toast' 0.003 { & $Exe --update --remind-test | Out-Null }
+}
+
 Scenario 'settings previews (menubar)' {
     KillAll
     $env:WHIRLPOOL_PAGE = 'menubar'

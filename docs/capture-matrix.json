@@ -73,6 +73,13 @@
         "30-hud-wifi",
         "30-hud-bluetooth"
       ]
+    },
+    {
+      "id": "update-toast",
+      "scenario": "update toast: reminder",
+      "shots": [
+        "32-update-toast"
+      ]
     }
   ],
   "panelShotsOutsideTheMatrix": {

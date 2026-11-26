@@ -29,7 +29,7 @@ jobs:
         run: ./scripts/set-dpi.ps1 -Scale ${{ matrix.scale }} -Out out
       - name: Drive every panel
         shell: pwsh
-        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only 'redesign directions,quick settings and volume,search palette,notification center,window overview,settings dock,hud,island pill,settings previews (menubar)'
+        run: ./scripts/drive.ps1 -Exe (Resolve-Path target/release/whirlpool.exe).Path -Out out -Only 'redesign directions,quick settings and volume,search palette,notification center,window overview,settings dock,hud,island pill,settings previews (menubar),update toast'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
