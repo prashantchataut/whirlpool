@@ -1,4 +1,10 @@
 {
+  "tileWallpaper": "Wallpaper",
+  "paletteActStudio": "Wallpaper",
+  "paletteActStudioHint": "4K wallpapers from 4kwallpapers.com",
+  "wallpaperStudio": "4K wallpapers",
+  "wallpaperStudioHint": "Download one in a click. Credit: 4kwallpapers.com",
+  "wallpaperStudioOpen": "Open",
   "dock": "Dock",
   "system": "System",
   "size": "Size",

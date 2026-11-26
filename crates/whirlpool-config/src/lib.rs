@@ -230,6 +230,10 @@ pub struct Config {
     /// With `hud_enabled`: Whirlpool takes the three volume keys itself, so the
     /// Windows flyout never opens on top of its own pill. Off: Windows keeps the keys.
     pub media_key_hook: bool,
+    /// Wallpaper studio: after Apply, the highlight colour of the picture is stored in `studio_accent`.
+    pub studio_accent_sync: bool,
+    /// The colour sampled from the last wallpaper applied with the studio (R, G, B).
+    pub studio_accent: Option<[u8; 3]>,
     /// One notification at each of `battery_alert_levels` while discharging.
     pub battery_alerts: bool,
     pub battery_alert_levels: Vec<u8>,
@@ -683,6 +687,7 @@ pub enum TileKind {
     Display,
     Hotspot,
     Sound,
+    Wallpaper,
     #[default]
     #[serde(other)]
     Unknown,
@@ -690,7 +695,7 @@ pub enum TileKind {
 
 impl TileKind {
     /// Every kind a user can add, in the order Add offers them.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Wifi,
         Self::Bluetooth,
         Self::Airplane,
@@ -701,6 +706,7 @@ impl TileKind {
         Self::Display,
         Self::Hotspot,
         Self::Sound,
+        Self::Wallpaper,
     ];
 
     /// Stable key, equal to the serialized name.
@@ -716,6 +722,7 @@ impl TileKind {
             Self::Display => "display",
             Self::Hotspot => "hotspot",
             Self::Sound => "sound",
+            Self::Wallpaper => "wallpaper",
             Self::Unknown => "unknown",
         }
     }
@@ -980,6 +987,8 @@ impl Default for Config {
             charging_animation: true,
             hud_enabled: true,
             media_key_hook: true,
+            studio_accent_sync: false,
+            studio_accent: None,
             battery_alerts: true,
             battery_alert_levels: vec![20, 10, 5],
             meetings_ics: String::new(),

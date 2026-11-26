@@ -448,6 +448,12 @@ impl Quick {
                     Self::close(ctx);
                 }
             }
+            TileKind::Wallpaper => {
+                if tile(ui, look, rect, Icon::Display, "Wallpaper", "4K", false).clicked() {
+                    Self::close(ctx);
+                    open_studio();
+                }
+            }
             TileKind::Display => {
                 if tile(
                     ui,
@@ -1260,4 +1266,15 @@ pub fn run(right: i32, anchor_y: i32, bottom: bool, compat: bool) -> eframe::Res
             )))
         }),
     )
+}
+
+/// Starts the wallpaper studio in its own process and lets this panel close.
+fn open_studio() {
+    use std::os::windows::process::CommandExt;
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe)
+            .arg("--studio")
+            .creation_flags(0x0800_0000)
+            .spawn();
+    }
 }

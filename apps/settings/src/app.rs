@@ -1717,6 +1717,18 @@ impl Settings {
             } else {
                 t.get("wallpapersHint")
             };
+            ui::row(
+                ui,
+                t.get("wallpaperStudio"),
+                Some(t.get("wallpaperStudioHint")),
+                140.0,
+                |ui| {
+                    if ui::push(ui, t.get("wallpaperStudioOpen"), None).clicked() {
+                        open_wallpaper_studio();
+                    }
+                },
+            );
+            ui::divider(ui);
             ui::row(ui, t.get("wallpaperShuffle"), Some(hint), 140.0, |ui| {
                 if ui::push(ui, t.get("shuffle"), None).clicked() {
                     shuffle = true;
@@ -2627,5 +2639,16 @@ impl Settings {
                 self.reset_armed = Some(Instant::now());
             }
         }
+    }
+}
+
+/// Starts the wallpaper studio in its own window.
+fn open_wallpaper_studio() {
+    use std::os::windows::process::CommandExt;
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe)
+            .arg("--studio")
+            .creation_flags(0x0800_0000)
+            .spawn();
     }
 }

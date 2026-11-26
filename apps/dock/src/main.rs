@@ -151,6 +151,9 @@ fn main() -> Result<()> {
         ["--launchpad-compat"] => open_launchpad(true),
         ["--palette"] => open_palette(false),
         ["--palette-compat"] => open_palette(true),
+        ["--studio"] => open_studio(false),
+        ["--studio-compat"] => open_studio(true),
+        ["--studio-apply", id] => std::process::exit(whirlpool_settings::studio_apply(id)),
         ["--overview"] => open_overview(false),
         ["--overview-compat"] => open_overview(true),
         ["--hud", kind, value] => {
@@ -195,7 +198,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --safe-mode | --widgets export|import FILE | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --safe-mode | --widgets export|import FILE | --launchpad | --studio | --studio-apply ID | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }
@@ -232,6 +235,27 @@ fn remember_compat() {
 }
 
 /// Opens the search palette, or closes it if it is already open, so one hotkey does both.
+fn open_studio(compat: bool) -> Result<()> {
+    let _single = unsafe { Owned::new(CreateMutexW(None, false, w!("Local\\Whirlpool.Studio"))?) };
+    // SAFETY: Reads the thread's last error immediately after the call.
+    if !compat && unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        // SAFETY: Plain window lookup; failures are ignored.
+        unsafe {
+            if let Ok(window) = FindWindowW(None, w!("Wallpaper")) {
+                let _ = ShowWindow(window, SW_RESTORE);
+                let _ = SetForegroundWindow(window);
+            }
+        }
+        return Ok(());
+    }
+    let compat = compat || prefer_compat();
+    whirlpool_settings::run_studio(compat).map_err(|error| {
+        whirlpool_shell::log::line(&format!("studio (compat={compat}): {error}"));
+        whirlpool_shell::log::flush();
+        anyhow::anyhow!("studio: {error}")
+    })
+}
+
 fn open_palette(compat: bool) -> Result<()> {
     use windows::Win32::{
         Foundation::{LPARAM, WPARAM},

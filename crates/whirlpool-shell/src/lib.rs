@@ -20,6 +20,7 @@ pub mod power;
 pub mod recycle_bin;
 pub mod screen;
 pub mod status;
+pub mod studio;
 pub mod system;
 pub mod taskbar;
 pub mod tracker;

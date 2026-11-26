@@ -167,6 +167,7 @@ fn run_action(id: &str) {
         }
         "start-grid" => own("--launchpad"),
         "overview" => own("--overview"),
+        "studio" => own("--studio"),
         "overlay" => own("--overlay-toggle"),
         "restore" => own("--restore"),
         "quit" => own("--quit"),
@@ -224,6 +225,7 @@ impl Palette {
             action("clock", "paletteActClock", "paletteActClockHint"),
             action("focus", "paletteActFocus", "paletteActFocusHint"),
             action("shelf", "paletteActShelf", "paletteActShelfHint"),
+            action("studio", "paletteActStudio", "paletteActStudioHint"),
             action("overview", "paletteActOverview", "paletteActOverviewHint"),
             action("overlay", "paletteActOverlay", "paletteActOverlayHint"),
             action("lock", "paletteActLock", "paletteActLockHint"),

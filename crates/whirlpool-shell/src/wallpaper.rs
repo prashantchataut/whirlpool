@@ -108,3 +108,13 @@ pub fn apply_photo(id: &str, jpeg: &[u8]) -> io::Result<()> {
     }
     Ok(())
 }
+
+/// Makes a picture file the wallpaper, scaled to fill the screen. The file stays where it is.
+///
+/// # Errors
+/// Fails if Windows refuses the change.
+pub fn apply_file(file: &Path) -> io::Result<()> {
+    desktop_value(w!("WallpaperStyle"), "10");
+    desktop_value(w!("TileWallpaper"), "0");
+    set(file)
+}

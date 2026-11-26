@@ -30,6 +30,7 @@ pub mod roster;
 pub mod rotation;
 pub mod snap;
 pub mod spring;
+pub mod studio;
 pub mod tiles;
 pub mod tilewin;
 pub mod tint;

@@ -19,6 +19,7 @@ pub mod photos;
 mod preview;
 mod quick;
 pub mod rotate;
+mod studio;
 mod text;
 mod ui;
 pub mod update;
@@ -43,6 +44,17 @@ pub fn run_launchpad(compat: bool) -> eframe::Result {
 /// The command palette: apps, files, actions and clipboard history in one box.
 pub fn run_palette(compat: bool) -> eframe::Result {
     with_fallback(compat, palette::run)
+}
+
+/// The wallpaper studio: 4K pictures from 4kwallpapers.com, applied in one click.
+pub fn run_studio(compat: bool) -> eframe::Result {
+    with_fallback(compat, studio::run)
+}
+
+/// `whirlpool --studio-apply ID`: downloads one studio wallpaper and applies it. Returns an exit code.
+#[must_use]
+pub fn studio_apply(id: &str) -> i32 {
+    studio::apply_cli(id)
 }
 
 /// The window overview: every open window as a live card, full screen.

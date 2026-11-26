@@ -3185,6 +3185,7 @@ dependencies = [
 name = "whirlpool-shell"
 version = "4.2.0"
 dependencies = [
+ "reqwest",
  "serde",
  "thiserror 2.0.21",
  "whirlpool-core",

@@ -32,6 +32,7 @@ pub fn tile_icon(kind: TileKind) -> Icon {
         TileKind::Focus => Icon::Focus,
         TileKind::Display => Icon::Display,
         TileKind::Hotspot => Icon::Hotspot,
+        TileKind::Wallpaper => Icon::Display,
         TileKind::Sound | TileKind::Unknown => Icon::Speaker,
     }
 }
@@ -47,6 +48,7 @@ pub fn tile_label(t: &Texts, kind: TileKind) -> &str {
         TileKind::Focus => "tileFocus",
         TileKind::Display => "tileDisplay",
         TileKind::Hotspot => "tileHotspot",
+        TileKind::Wallpaper => "tileWallpaper",
         TileKind::Sound | TileKind::Unknown => "tileSound",
     })
 }
