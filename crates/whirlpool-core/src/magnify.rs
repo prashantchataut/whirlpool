@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn magnify_should_keep_width_constant_while_cursor_is_far_from_edges() {
-        let rest = dock(12);
+        let rest = dock(24);
         let width = |cursor: f32| {
             let result = magnify(&rest, cursor, 1.0, &MAGNIFIER);
             result.right - result.left

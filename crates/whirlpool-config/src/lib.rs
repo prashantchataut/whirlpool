@@ -802,6 +802,10 @@ pub enum Language {
 }
 
 pub const ICON_SIZE_RANGE: (u32, u32) = (32, 96);
+/// Icon side of a profile that has never saved one (logical pixels).
+pub const DEFAULT_ICON_SIZE: u32 = 32;
+/// Icon under the cursor for the same profile: 1.25 times the resting size.
+pub const DEFAULT_MAGNIFIED_SIZE: u32 = 40;
 pub const MAX_MAGNIFIED_SIZE: u32 = 160;
 
 impl Config {
@@ -889,10 +893,10 @@ impl Default for Config {
             recent: Vec::new(),
             taskbar_pins: None,
             auto_hide: false,
-            icon_size: 48,
+            icon_size: DEFAULT_ICON_SIZE,
             magnification: true,
             dock_position: DockPosition::Bottom,
-            magnified_size: 77,
+            magnified_size: DEFAULT_MAGNIFIED_SIZE,
             genie: true,
             genie_speed: GenieSpeed::Normal,
             show_minimized: false,
@@ -1346,6 +1350,73 @@ mod tests {
         save(&path, &Config::default()).ok();
         fs::write(&path, "{}").ok();
         assert_eq!(load(&path).ok(), Some(Some(Config::default())));
+    }
+
+    #[test]
+    fn a_fresh_profile_gets_the_compact_dock() {
+        let config = Config::default();
+        assert_eq!(config.icon_size, 32);
+        assert_eq!(config.magnified_size, 40);
+        assert!(config.magnification);
+        let scale = config.magnified_size as f32 / config.icon_size as f32;
+        assert!((1.2..=1.3).contains(&scale), "magnification {scale}");
+    }
+
+    #[test]
+    fn an_empty_file_reads_as_a_fresh_profile() {
+        let path = scratch("fresh-dock");
+        save(&path, &Config::default()).ok();
+        fs::write(&path, "{}").expect("the file is written");
+        let config = load(&path).ok().flatten().unwrap_or_default();
+        assert_eq!((config.icon_size, config.magnified_size), (32, 40));
+    }
+
+    #[test]
+    fn saved_dock_sizes_survive_load_sanitize_and_save() {
+        for (icon, magnified, magnification) in [
+            (40, 64, true),
+            (28, 28, false),
+            (48, 77, true),
+            (96, 140, true),
+        ] {
+            let path = scratch(&format!("saved-dock-{icon}"));
+            let saved = Config {
+                icon_size: icon,
+                magnified_size: magnified,
+                magnification,
+                ..Config::default()
+            };
+            save(&path, &saved).ok();
+            let loaded = load(&path).ok().flatten().unwrap_or_default().sanitized();
+            // 28 is below the range's floor of 32: the floor is the only change.
+            let expected = icon.clamp(ICON_SIZE_RANGE.0, ICON_SIZE_RANGE.1);
+            assert_eq!(loaded.icon_size, expected, "icon {icon}");
+            assert_eq!(
+                loaded.magnified_size,
+                magnified.max(expected),
+                "magnified {magnified}"
+            );
+            assert_eq!(loaded.magnification, magnification);
+            // A second round trip (an upgrade that rewrites the file) changes nothing.
+            save(&path, &loaded).ok();
+            let again = load(&path).ok().flatten().unwrap_or_default().sanitized();
+            assert_eq!(
+                (again.icon_size, again.magnified_size),
+                (loaded.icon_size, loaded.magnified_size)
+            );
+        }
+    }
+
+    #[test]
+    fn an_older_file_with_only_an_icon_size_keeps_that_size() {
+        for icon in [40u32, 56, 64] {
+            let path = scratch(&format!("old-dock-{icon}"));
+            save(&path, &Config::default()).ok();
+            fs::write(&path, format!(r#"{{"version":1,"iconSize":{icon}}}"#))
+                .expect("the file is written");
+            let config = load(&path).ok().flatten().unwrap_or_default().sanitized();
+            assert_eq!(config.icon_size, icon);
+        }
     }
 
     #[test]

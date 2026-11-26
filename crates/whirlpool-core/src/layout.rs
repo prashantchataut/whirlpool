@@ -16,13 +16,14 @@ pub struct Metrics {
 
 impl Metrics {
     pub const DEFAULT: Self = Self {
-        icon: 48.0,
+        icon: 32.0,
         // Windows icons fill their square; unlike macOS icons, they have no
-        // built-in margin, so the dock provides the spacing.
-        gap: 12.0,
-        padding: 9.0,
+        // built-in margin, so the dock provides a little spacing.
+        // 32 + 2 x 6 = a 44 px bar.
+        gap: 6.0,
+        padding: 6.0,
         separator_width: 1.0,
-        separator_margin: 7.0,
+        separator_margin: 5.0,
     };
 
     #[must_use]
@@ -62,7 +63,7 @@ pub struct Layout {
 /// ```
 /// use whirlpool_core::layout::{ItemKind, Metrics, layout};
 /// let result = layout(&[ItemKind::Icon, ItemKind::Icon], &Metrics::DEFAULT);
-/// assert_eq!(result.width, 9.0 + 48.0 + 12.0 + 48.0 + 9.0);
+/// assert_eq!(result.width, 6.0 + 32.0 + 6.0 + 32.0 + 6.0);
 /// ```
 #[must_use]
 pub fn layout(items: &[ItemKind], metrics: &Metrics) -> Layout {
