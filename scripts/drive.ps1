@@ -623,8 +623,8 @@ Scenario 'update toast: reminder notification' {
     $ns = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings'
     New-Item -Path $ns -Force | Out-Null
     Set-ItemProperty -Path $ns -Name NOC_GLOBAL_SETTING_TOASTS_ENABLED -Value 1 -Type DWord
-    $out = (& $Exe --update --remind-test 2>&1 | Out-String).Trim()
-    Log "remind-test said '$out' (exit $LASTEXITCODE)"
+    $said = (& $Exe --update --remind-test 2>&1 | Out-String).Trim()
+    Log "remind-test said '$said' (exit $LASTEXITCODE)"
     Start-Sleep -Milliseconds 1200
     Shot-Panel '32-update-toast' 0.003 { $o = (& $Exe --update --remind-test 2>&1 | Out-String).Trim(); Log "remind-test again: '$o' (exit $LASTEXITCODE)" }
     # Evidence that Windows received it even when the banner was not drawn: the notification centre.
