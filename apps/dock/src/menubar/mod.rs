@@ -1647,7 +1647,13 @@ impl MenuBar {
             look.widgets.island_style
         };
         let ink = if look.light { Ink::Dark } else { Ink::Light };
-        let (pad, gap) = (px(12.0), px(10.0));
+        // The notch's shoulders curve in by about 12 px on each side, so its text needs more room.
+        let pad = px(if style == IslandStyle::Notch {
+            22.0
+        } else {
+            12.0
+        });
+        let gap = px(10.0);
         let mut labels = Vec::new();
         for text in &look.pill {
             labels.push(gfx.text_brush_fitted(text, look.scale, 11.5, true, ink, px(140.0))?);
@@ -1660,8 +1666,8 @@ impl MenuBar {
             return Ok(());
         }
         let left = if self.triggers_span.width() > 0.0 {
-            let after = self.triggers_span.right + px(8.0);
-            let before = self.triggers_span.left - px(8.0) - total;
+            let after = self.triggers_span.right + px(12.0);
+            let before = self.triggers_span.left - px(12.0) - total;
             if after + total <= max_right {
                 after
             } else if before >= min_left {

@@ -545,7 +545,7 @@ Scenario 'island pill: clock and focus timer' {
     # A focus session that is already running (the clock panel keeps it in focus.txt) and the clock moved into the island.
     $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     Set-Content -Path (Join-Path $dir 'focus.txt') -Value "mode=focus`ndone=0`nrunning=1`nremaining_ms=1499000`nsaved_ms=$now`n"
-    Start-Dock '{"menuBar":true,"menuBarPosition":"top","menuBarMusic":false,"clockPlace":"island","focusIsland":true}'
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top","menuBarMusic":false,"aiUsage":false,"clockPlace":"island","focusIsland":true}'
     Move-Mouse ($screen.Width / 2) ($screen.Height / 2); Start-Sleep 2
     Shot '31-island-pill'
     Click ($screen.Width / 2) 12
