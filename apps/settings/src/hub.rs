@@ -331,16 +331,21 @@ impl Hub {
             return;
         }
         let mut remove: Option<String> = None;
+        let mut drag: Option<String> = None;
         let mut clear = false;
         ScrollArea::vertical().max_height(330.0).show(ui, |ui| {
             for (path, _) in &self.shelf.files {
                 let (rect, response) =
-                    ui.allocate_exact_size(vec2(ui.available_width(), 50.0), Sense::hover());
+                    ui.allocate_exact_size(vec2(ui.available_width(), 50.0), Sense::drag());
                 ui.painter().rect_filled(
                     rect,
                     CornerRadius::same(13),
                     Color32::from_white_alpha(if response.hovered() { 26 } else { 14 }),
                 );
+                // Pulling a row out of the panel starts a real file drag (Explorer's own mechanism).
+                if response.drag_started() {
+                    drag = Some(path.clone());
+                }
                 let name = Shelf::file_name(path);
                 ui.painter().text(
                     pos2(rect.left() + 14.0, rect.top() + 16.0),
@@ -402,6 +407,10 @@ impl Hub {
         });
         if ui::push(ui, self.texts.get("hubClear"), None).clicked() {
             clear = true;
+        }
+        if let Some(path) = drag {
+            whirlpool_shell::launcher::drag_files(&[path]);
+            ctx.request_repaint();
         }
         if clear {
             self.shelf.files.clear();

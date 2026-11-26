@@ -448,7 +448,7 @@
   "hubSessions": "Sessions in this cycle",
   "hubFinished": "Time is up",
   "hubShelfEmpty": "Drop files here to keep them close.",
-  "hubShelfHint": "Files stay until you remove them. Nothing is copied.",
+  "hubShelfHint": "Drop files in, drag them out to any window. They stay until you remove them; nothing is copied.",
   "hubOpen": "Open",
   "hubReveal": "Show in folder",
   "hubRemove": "Remove",

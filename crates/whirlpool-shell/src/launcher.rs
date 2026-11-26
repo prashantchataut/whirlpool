@@ -88,6 +88,49 @@ fn shell_execute(verb: PCWSTR, id: &str, arguments: Option<&str>) -> Result<(), 
     })
 }
 
+/// Starts a native drag of `files`, the way Explorer does: the data object carries the files
+/// themselves, so any window that accepts files (a mail draft, a folder, a chat) takes the drop.
+/// Blocks until the drop ends. Returns `false` if the drag could not start.
+pub fn drag_files(files: &[String]) -> bool {
+    use windows::Win32::System::Com::IDataObject;
+    use windows::Win32::System::Ole::{
+        DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, IDropSource, OleInitialize,
+    };
+    use windows::Win32::UI::Shell::Common::ITEMIDLIST;
+    use windows::Win32::UI::Shell::{ILCreateFromPathW, ILFree, SHCreateDataObject, SHDoDragDrop};
+    // SAFETY: every item id list is created here, used for the one data object, and freed before
+    // returning; the data object keeps its own copies.
+    unsafe {
+        // The window toolkit has normally started OLE already; a second call is harmless.
+        let _ = OleInitialize(None);
+        let ids: Vec<*mut ITEMIDLIST> = files
+            .iter()
+            .map(|file| ILCreateFromPathW(&windows::core::HSTRING::from(file.as_str())))
+            .filter(|id| !id.is_null())
+            .collect();
+        if ids.is_empty() {
+            return false;
+        }
+        let list: Vec<*const ITEMIDLIST> = ids.iter().map(|id| id.cast_const()).collect();
+        let data: windows::core::Result<IDataObject> =
+            SHCreateDataObject(None, Some(&list), None::<&IDataObject>);
+        let started = match data {
+            Ok(data) => SHDoDragDrop(
+                None,
+                &data,
+                None::<&IDropSource>,
+                DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK,
+            )
+            .is_ok(),
+            Err(_) => false,
+        };
+        for id in ids {
+            ILFree(Some(id.cast_const()));
+        }
+        started
+    }
+}
+
 /// Opens `files` with the executable `app`.
 pub fn open_with(app: &str, files: &[String]) -> Result<(), LaunchError> {
     let arguments: Vec<String> = files.iter().map(|file| format!("\"{file}\"")).collect();
