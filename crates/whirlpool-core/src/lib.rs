@@ -1,6 +1,7 @@
 //! Platform-independent dock logic that can be tested without Windows.
 
 pub mod attention;
+pub mod battery;
 pub mod bounce;
 pub mod calc;
 pub mod cliphist;
@@ -11,9 +12,11 @@ pub mod frame;
 pub mod genie;
 pub mod glass;
 pub mod iconstyle;
+pub mod ics;
 pub mod island;
 pub mod launchpad;
 pub mod layout;
+pub mod lifetime;
 pub mod lrc;
 pub mod magnify;
 pub mod material;
@@ -27,5 +30,7 @@ pub mod rotation;
 pub mod snap;
 pub mod spring;
 pub mod tiles;
+pub mod tilewin;
 pub mod tint;
+pub mod units;
 pub mod wallpaper;

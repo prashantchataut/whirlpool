@@ -21,7 +21,7 @@ use eframe::egui::{
     TextureHandle, TextureOptions, Ui, pos2, vec2,
 };
 use whirlpool_core::palette::{self as pal, Item, Kind, Mode};
-use whirlpool_shell::{launcher, system};
+use whirlpool_shell::{launcher, system, tracker};
 
 use crate::{
     launchpad::{self, Message as PadMessage},
@@ -34,8 +34,9 @@ const HEIGHT: f32 = 540.0;
 const ROW: f32 = 52.0;
 const MAX_ROWS: usize = 7;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-const MODES: [Mode; 5] = [
+const MODES: [Mode; 6] = [
     Mode::All,
+    Mode::Windows,
     Mode::Apps,
     Mode::Files,
     Mode::Actions,
@@ -48,7 +49,7 @@ enum Extra {
 }
 
 enum Row {
-    Calc(String),
+    Calc(pal::Answer),
     Item(usize),
 }
 
@@ -59,7 +60,31 @@ fn prefix(mode: Mode) -> &'static str {
         Mode::Files => "/",
         Mode::Actions => ">",
         Mode::Clipboard => "#",
+        Mode::Windows => "window:",
+        Mode::Settings => "setting:",
+        Mode::Widgets => "widget:",
     }
+}
+
+/// Open top-level windows worth switching to. Whirlpool's own panels are left out.
+fn open_windows() -> Vec<Item> {
+    let mut tracker = tracker::WindowTracker::default();
+    tracker
+        .list()
+        .into_iter()
+        .filter_map(|window| {
+            let title = tracker::title(window.hwnd);
+            if title.trim().is_empty() || title.starts_with("Whirlpool") {
+                return None;
+            }
+            Some(Item {
+                kind: Kind::Window,
+                title,
+                detail: String::new(),
+                target: window.hwnd.to_string(),
+            })
+        })
+        .collect()
 }
 
 fn scan_files() -> Vec<Item> {
@@ -156,6 +181,8 @@ fn run_action(id: &str) {
 struct Palette {
     texts: Texts,
     actions: Vec<Item>,
+    windows: Vec<Item>,
+    places: Vec<Item>,
     apps: Vec<Item>,
     files: Vec<Item>,
     clips: Vec<Item>,
@@ -210,6 +237,57 @@ impl Palette {
             action("restore", "paletteActRestore", "paletteActRestoreHint"),
             action("quit", "paletteActQuit", "paletteActQuitHint"),
         ];
+        let place = |kind: Kind, id: &str, key: &str, hint: &str| Item {
+            kind,
+            title: texts.get(key).to_string(),
+            detail: texts.get(hint).to_string(),
+            target: id.to_owned(),
+        };
+        // Settings opens its window (it has no page links yet); widgets open their panels.
+        let places = vec![
+            place(
+                Kind::Setting,
+                "settings",
+                "paletteSetDock",
+                "paletteSetDockHint",
+            ),
+            place(
+                Kind::Setting,
+                "settings",
+                "paletteSetBar",
+                "paletteSetBarHint",
+            ),
+            place(
+                Kind::Setting,
+                "settings",
+                "paletteSetLook",
+                "paletteSetLookHint",
+            ),
+            place(
+                Kind::Setting,
+                "settings",
+                "paletteSetUpdates",
+                "paletteSetUpdatesHint",
+            ),
+            place(
+                Kind::Widget,
+                "clock",
+                "paletteActClock",
+                "paletteWidgetHint",
+            ),
+            place(
+                Kind::Widget,
+                "focus",
+                "paletteActFocus",
+                "paletteWidgetHint",
+            ),
+            place(
+                Kind::Widget,
+                "shelf",
+                "paletteActShelf",
+                "paletteWidgetHint",
+            ),
+        ];
         let (send, extra) = mpsc::channel();
         read_clips(send.clone(), ctx.clone());
         let files_ctx = ctx.clone();
@@ -220,6 +298,8 @@ impl Palette {
         let mut this = Self {
             texts,
             actions,
+            windows: open_windows(),
+            places,
             apps: Vec::new(),
             files: Vec::new(),
             clips: Vec::new(),
@@ -247,6 +327,8 @@ impl Palette {
     fn rebuild(&mut self) {
         self.items.clear();
         self.items.extend(self.actions.iter().cloned());
+        self.items.extend(self.windows.iter().cloned());
+        self.items.extend(self.places.iter().cloned());
         self.items.extend(self.apps.iter().cloned());
         self.items.extend(self.clips.iter().cloned());
         self.items.extend(self.files.iter().cloned());
@@ -257,9 +339,9 @@ impl Palette {
         let query = pal::parse_query(&self.query);
         self.rows.clear();
         if query.mode == Mode::All
-            && let Some(value) = pal::calculate(&query.text)
+            && let Some(answer) = pal::answer(&query.text)
         {
-            self.rows.push(Row::Calc(pal::format_number(value)));
+            self.rows.push(Row::Calc(answer));
         }
         for index in pal::rank(&self.items, &query, MAX_ROWS) {
             self.rows.push(Row::Item(index));
@@ -283,12 +365,17 @@ impl Palette {
 
     fn run(&self, ctx: &egui::Context, row: usize) {
         match self.rows.get(row) {
-            Some(Row::Calc(result)) => ctx.copy_text(result.clone()),
+            Some(Row::Calc(answer)) => ctx.copy_text(answer.copy.clone()),
             Some(Row::Item(index)) => {
                 let item = &self.items[*index];
                 match item.kind {
                     Kind::Clipboard => ctx.copy_text(item.target.clone()),
-                    Kind::Action => run_action(&item.target),
+                    Kind::Action | Kind::Setting | Kind::Widget => run_action(&item.target),
+                    Kind::Window => {
+                        if let Ok(hwnd) = item.target.parse::<isize>() {
+                            launcher::activate(&[hwnd]);
+                        }
+                    }
                     Kind::App | Kind::File => {
                         let _ = launcher::open(&item.target);
                     }
@@ -305,6 +392,9 @@ impl Palette {
             Kind::File => self.texts.get("paletteKindFile"),
             Kind::Action => self.texts.get("paletteKindAction"),
             Kind::Clipboard => self.texts.get("paletteKindClip"),
+            Kind::Window => self.texts.get("paletteKindWindow"),
+            Kind::Setting => self.texts.get("paletteKindSetting"),
+            Kind::Widget => self.texts.get("paletteKindWidget"),
         }
     }
 
@@ -328,8 +418,8 @@ impl Palette {
         let icon =
             Rect::from_center_size(pos2(rect.left() + 34.0, rect.center().y), vec2(32.0, 32.0));
         let (title, detail, kind_text, texture, letter, glyph) = match row {
-            Row::Calc(result) => (
-                result.clone(),
+            Row::Calc(answer) => (
+                answer.text.clone(),
                 self.texts.get("paletteCalcHint").to_string(),
                 self.texts.get("paletteKindCalc"),
                 None,
@@ -339,7 +429,8 @@ impl Palette {
             Row::Item(index) => {
                 let item = &self.items[*index];
                 let glyph = match item.kind {
-                    Kind::Action => item.target.clone(),
+                    Kind::Action | Kind::Setting | Kind::Widget => item.target.clone(),
+                    Kind::Window => String::new(),
                     Kind::File => "file".to_owned(),
                     Kind::Clipboard => "clip".to_owned(),
                     Kind::App => String::new(),
@@ -615,6 +706,9 @@ impl eframe::App for Palette {
                 Mode::Files => "paletteModeFiles",
                 Mode::Actions => "paletteModeActions",
                 Mode::Clipboard => "paletteModeClips",
+                Mode::Windows => "paletteModeWindows",
+                Mode::Settings => "paletteModeSettings",
+                Mode::Widgets => "paletteModeWidgets",
             });
             let width = 22.0 + label.chars().count() as f32 * 7.4;
             let rect = Rect::from_min_size(pos2(x, chip_y), vec2(width, 28.0));

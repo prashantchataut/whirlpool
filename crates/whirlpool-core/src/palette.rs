@@ -1,7 +1,9 @@
 //! Command palette: what the query means and how results are ranked. Pure logic, tested anywhere.
 //!
-//! One box searches four kinds of things. A leading character narrows it: `>` actions, `@` apps,
-//! `/` files, `#` clipboard. Anything that parses as arithmetic also gets a calculator row.
+//! One box searches open windows, apps, settings, widgets, files, actions and clipboard. A leading
+//! character narrows it: `>` actions, `@` apps, `/` files, `#` clipboard; a word and a colon does the
+//! same for the newer kinds: `window:`, `setting:`, `widget:`. Anything that parses as arithmetic or as a
+//! unit conversion (`56 KB to MB`) also gets an answer row.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -9,6 +11,12 @@ pub enum Kind {
     File,
     Action,
     Clipboard,
+    /// An open window; the target is its handle, as text.
+    Window,
+    /// A Settings page; the target is the page id.
+    Setting,
+    /// A widget; the target is its id.
+    Widget,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -18,6 +26,9 @@ pub enum Mode {
     Files,
     Actions,
     Clipboard,
+    Windows,
+    Settings,
+    Widgets,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,6 +50,24 @@ pub struct Query {
 /// Splits a leading mode character off the text the user typed.
 pub fn parse_query(raw: &str) -> Query {
     let trimmed = raw.trim_start();
+    // `window: term`, also `win:` and `w:` (case does not matter).
+    let lower = trimmed.to_lowercase();
+    for (word, mode) in [
+        ("window:", Mode::Windows),
+        ("win:", Mode::Windows),
+        ("w:", Mode::Windows),
+        ("setting:", Mode::Settings),
+        ("settings:", Mode::Settings),
+        ("widget:", Mode::Widgets),
+        ("widgets:", Mode::Widgets),
+    ] {
+        if lower.starts_with(word) {
+            return Query {
+                mode,
+                text: trimmed[word.len()..].trim().to_owned(),
+            };
+        }
+    }
     let (mode, rest) = match trimmed.chars().next() {
         Some('>') => (Mode::Actions, &trimmed[1..]),
         Some('@') => (Mode::Apps, &trimmed[1..]),
@@ -60,6 +89,9 @@ fn allowed(mode: Mode, kind: Kind) -> bool {
             | (Mode::Files, Kind::File)
             | (Mode::Actions, Kind::Action)
             | (Mode::Clipboard, Kind::Clipboard)
+            | (Mode::Windows, Kind::Window)
+            | (Mode::Settings, Kind::Setting)
+            | (Mode::Widgets, Kind::Widget)
     )
 }
 
@@ -110,9 +142,12 @@ pub fn score(title: &str, query: &str) -> Option<u32> {
 fn kind_order(kind: Kind) -> u8 {
     match kind {
         Kind::Action => 0,
-        Kind::App => 1,
-        Kind::File => 2,
-        Kind::Clipboard => 3,
+        Kind::Window => 1,
+        Kind::App => 2,
+        Kind::Setting => 3,
+        Kind::Widget => 4,
+        Kind::File => 5,
+        Kind::Clipboard => 6,
     }
 }
 
@@ -126,7 +161,7 @@ pub fn rank(items: &[Item], query: &Query, limit: usize) -> Vec<usize> {
         .filter(|(_, item)| {
             // Nothing typed in All mode: only what is useful blind (actions, recent clips).
             !(query.text.is_empty() && query.mode == Mode::All)
-                || matches!(item.kind, Kind::Action | Kind::Clipboard)
+                || matches!(item.kind, Kind::Action | Kind::Clipboard | Kind::Window)
         })
         .filter_map(|(index, item)| {
             let base = score(&item.title, &query.text)?;
@@ -149,6 +184,31 @@ pub fn calculate(text: &str) -> Option<f64> {
         return None;
     }
     crate::calc::evaluate(text).ok()
+}
+
+/// What an answer row shows and copies.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Answer {
+    /// The line shown: `14` or `56 KB = 0.056 MB`.
+    pub text: String,
+    /// What Enter copies: the bare number (and unit for conversions).
+    pub copy: String,
+}
+
+/// A calculation or a unit conversion, whichever the text is. `None` for plain searches.
+pub fn answer(text: &str) -> Option<Answer> {
+    if let Some(c) = crate::units::convert(text) {
+        return Some(Answer {
+            text: c.display(),
+            copy: format!("{} {}", crate::units::sig(c.result).replace(',', ""), c.to),
+        });
+    }
+    let v = calculate(text)?;
+    let shown = format_number(v);
+    Some(Answer {
+        text: shown.clone(),
+        copy: shown,
+    })
 }
 
 /// `12`, `0.5`, `1234567` without trailing zeros or exponent noise.
@@ -257,6 +317,50 @@ mod tests {
         assert_eq!(calculate("1/0"), None);
         assert_eq!(calculate("(2+3"), None);
         assert_eq!(calculate("2+3)"), None);
+    }
+
+    #[test]
+    fn colon_words_pick_the_newer_kinds() {
+        assert_eq!(
+            parse_query("window: term"),
+            Query {
+                mode: Mode::Windows,
+                text: "term".into()
+            }
+        );
+        assert_eq!(parse_query("  Window:term").mode, Mode::Windows);
+        assert_eq!(parse_query("w:code").text, "code");
+        assert_eq!(parse_query("setting: dark").mode, Mode::Settings);
+        assert_eq!(parse_query("widget:").mode, Mode::Widgets);
+        // A path or a time is not a filter.
+        assert_eq!(parse_query("what: now").mode, Mode::All);
+        assert_eq!(parse_query("window").mode, Mode::All);
+    }
+
+    #[test]
+    fn window_filter_lists_only_windows_and_blind_search_shows_them() {
+        let items = vec![
+            item(Kind::Window, "Terminal"),
+            item(Kind::App, "Terminal Settings"),
+            item(Kind::Setting, "Terminal colours"),
+            item(Kind::Widget, "Terminal clock"),
+        ];
+        assert_eq!(rank(&items, &parse_query("window: term"), 10), vec![0]);
+        assert_eq!(rank(&items, &parse_query("setting:term"), 10), vec![2]);
+        assert_eq!(rank(&items, &parse_query("widget:term"), 10), vec![3]);
+        // In All mode an open window outranks an app of the same score.
+        assert_eq!(rank(&items, &parse_query("terminal"), 10)[0], 0);
+        assert_eq!(rank(&items, &parse_query(""), 10), vec![0]);
+    }
+
+    #[test]
+    fn answers_cover_math_and_units() {
+        assert_eq!(answer("2+2*3").unwrap().text, "8");
+        let a = answer("100 Mbps to MB/s").unwrap();
+        assert_eq!(a.text, "100 Mbps = 12.5 MB/s");
+        assert_eq!(a.copy, "12.5 MB/s");
+        assert!(answer("notes").is_none());
+        assert!(answer("5 kg to km").is_none());
     }
 
     #[test]

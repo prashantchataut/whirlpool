@@ -270,6 +270,9 @@ const MASCOT_POLL_MS: u32 = 50;
 const EDGE_TIMER: usize = 15;
 /// While a volume, brightness, Wi-Fi or Bluetooth HUD is up (about two seconds).
 const HUD_TIMER: usize = 61;
+/// Looks at the battery once a minute, only while on battery (see `battery_tick`).
+const BATTERY_TIMER: usize = 62;
+const BATTERY_POLL_MS: u32 = 60_000;
 const HUD_POLL_MS: u32 = 60;
 /// `whirlpool --hud kind value` posts this to the running dock (a way to see a HUD on demand).
 const HUD_COMMAND: u32 = WM_APP + 60;
@@ -933,6 +936,7 @@ struct App {
     network_watch: Option<status::NetworkWatch>,
     /// Charging and energy saver at the last power change.
     power_seen: Option<(Option<bool>, bool)>,
+    battery_alerts: whirlpool_core::battery::Alerts,
     /// When the charger act last played.
     charging_shown: Option<Instant>,
     /// Horizontal cursor position relative to the resting dock.
@@ -956,6 +960,23 @@ fn explorer_id() -> String {
 /// Saved settings or, on first launch, the defaults with the apps pinned to
 /// the Windows taskbar.
 fn load_config() -> Config {
+    let config = load_config_unrelaxed();
+    if safe_mode() {
+        config.safe_mode()
+    } else {
+        config
+    }
+}
+
+/// `whirlpool --safe-mode`: the dock starts with every optional feature off (see `Config::safe_mode`).
+/// The flag travels as an environment variable of this process only.
+pub const SAFE_MODE_ENV: &str = "WHIRLPOOL_SAFE_MODE";
+
+fn safe_mode() -> bool {
+    env::var_os(SAFE_MODE_ENV).is_some()
+}
+
+fn load_config_unrelaxed() -> Config {
     let path = whirlpool_config::default_path();
     match whirlpool_config::load(&path) {
         Ok(Some(config)) => config,
@@ -2831,6 +2852,28 @@ impl App {
         }
     }
 
+    /// Once a minute: announce a battery level (20, 10, 5 by default) the first time the charge reaches
+    /// it. Resets when the charger is connected.
+    fn battery_tick(&mut self) -> Result<()> {
+        if !self.config.battery_alerts {
+            return Ok(());
+        }
+        let Some(battery) = whirlpool_shell::system::battery() else {
+            return Ok(());
+        };
+        if let Some(level) = self
+            .battery_alerts
+            .observe(Some(battery.percent), battery.charging)
+        {
+            let title = format!("Battery at {level}%");
+            // A short thread: PowerShell needs about a second and the dock must not wait for it.
+            std::thread::spawn(move || {
+                let _ = whirlpool_settings::update::notify(&title, "Plug in the charger soon.");
+            });
+        }
+        Ok(())
+    }
+
     /// The charger plugged in: a medallion drops in under the menu bar.
     fn start_charge(&mut self) {
         if !self.config.charging_animation
@@ -4249,7 +4292,11 @@ impl App {
             groups: self.config.groups.clone(),
             recent: self.config.recent.clone(),
             taskbar_pins: self.config.taskbar_pins.clone(),
-            ..saved
+            ..if safe_mode() {
+                saved.safe_mode()
+            } else {
+                saved
+            }
         };
         if config == self.config {
             return Ok(());
@@ -5685,7 +5732,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
         ASSETS_READY => {
             // SAFETY: Coalesce background results on this UI window.
             unsafe { SetTimer(Some(hwnd), ASSETS_TIMER, ASSETS_DELAY_MS, None) };
+            // Battery alerts: a minute-long timer, only on a computer with a battery.
+            if whirlpool_shell::system::battery().is_some() {
+                // SAFETY: A timer on our own window.
+                unsafe { SetTimer(Some(hwnd), BATTERY_TIMER, BATTERY_POLL_MS, None) };
+            }
         }
+        WM_TIMER if w.0 == BATTERY_TIMER => with_app("batería", App::battery_tick),
         WM_TIMER if w.0 == ASSETS_TIMER => {
             // SAFETY: This UI thread owns the one-shot timer.
             unsafe {
@@ -6186,6 +6239,7 @@ pub fn run() -> Result<()> {
             // Initial registration notifications establish the baseline after
             // the queue starts, without playing a startup charging/saver act.
             power_seen: None,
+            battery_alerts: whirlpool_core::battery::Alerts::new(&config.battery_alert_levels),
             charging_shown: None,
             cursor: 0.0,
             amount: Spring::at(0.0, HOVER_OMEGA),

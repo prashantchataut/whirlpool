@@ -42,6 +42,40 @@ $toast = New-Object Windows.UI.Notifications.ToastNotification $xml
     ))
 }
 
+/// Text that is safe to put inside the toast's XML and PowerShell quotes: letters, digits, spaces and a
+/// few marks, at most 90 characters.
+#[must_use]
+pub fn plain_text(text: &str) -> bool {
+    !text.is_empty()
+        && text.chars().count() <= 90
+        && text
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '%' | '.' | ',' | '-' | ':'))
+}
+
+/// A plain notification with a title and one line, under Whirlpool's own identity. `None` when either
+/// text is not [`plain_text`].
+#[must_use]
+pub fn message_toast_script(title: &str, body: &str) -> Option<String> {
+    if !(plain_text(title) && plain_text(body)) {
+        return None;
+    }
+    Some(format!(
+        r#"$ErrorActionPreference = 'Stop'
+$id = '{APP_ID}'
+$key = "HKCU:\Software\Classes\AppUserModelId\$id"
+if (-not (Test-Path $key)) {{ New-Item -Path $key -Force | Out-Null }}
+New-ItemProperty -Path $key -Name DisplayName -Value 'Whirlpool' -PropertyType String -Force | Out-Null
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml('<toast><visual><binding template="ToastGeneric"><text>{title}</text><text>{body}</text></binding></visual></toast>')
+$toast = New-Object Windows.UI.Notifications.ToastNotification $xml
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($id).Show($toast)
+"#
+    ))
+}
+
 /// `powershell -EncodedCommand` wants the script as base64 of UTF-16LE.
 #[must_use]
 pub fn encoded_command(script: &str) -> String {
@@ -113,5 +147,15 @@ mod tests {
         assert!(script.contains("You have 4.2.0"));
         assert!(script.contains("https://github.com/x/y/releases/tag/v4.3.0"));
         assert!(script.contains("AppUserModelId"));
+    }
+
+    #[test]
+    fn message_toast_refuses_text_that_could_break_out() {
+        assert!(message_toast_script("Battery at 20%", "Plug in the charger.").is_some());
+        assert!(message_toast_script("it's", "x").is_none());
+        assert!(message_toast_script("a", "<b>x</b>").is_none());
+        assert!(message_toast_script("a", "$(calc)").is_none());
+        assert!(message_toast_script("", "x").is_none());
+        assert!(message_toast_script(&"a".repeat(91), "x").is_none());
     }
 }

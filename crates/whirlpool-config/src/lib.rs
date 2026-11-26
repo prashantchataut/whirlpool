@@ -15,6 +15,12 @@ use thiserror::Error;
 pub const CURRENT_VERSION: u32 = 1;
 
 /// Error reading or saving the configuration.
+mod extras;
+pub use extras::{
+    AppLevel, AudioPreset, MAX_FAVORITES, Plan, ProfileError, WIDGETS, WidgetProfile, Workspace,
+    WorkspaceWindow,
+};
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("no se pudo acceder a `{path}`")]
@@ -213,6 +219,17 @@ pub struct Config {
     pub charging_animation: bool,
     /// A small pill for volume, brightness, Wi-Fi and Bluetooth changes.
     pub hud_enabled: bool,
+    /// One notification at each of `battery_alert_levels` while discharging.
+    pub battery_alerts: bool,
+    pub battery_alert_levels: Vec<u8>,
+    /// A local `.ics` export for the meetings widget. Empty: the widget is off.
+    pub meetings_ics: String,
+    /// The pinned widget and favorites.
+    pub widget_profile: WidgetProfile,
+    pub workspaces: Vec<Workspace>,
+    pub audio_presets: Vec<AudioPreset>,
+    /// Seconds after a heavy panel is hidden before its process exits.
+    pub panel_idle_close_secs: u32,
     /// How strong the menu bar's tint is over the glass, in percent. 100 is
     /// solid; the default matches the original look.
     pub menu_bar_opacity: u32,
@@ -828,6 +845,33 @@ impl Config {
     }
 }
 
+impl Config {
+    /// The same settings with everything optional switched off, for `whirlpool --safe-mode`: no hot
+    /// corners, no pop-ups, no animations, no background update checks, no wallpaper rotation, no glass
+    /// refraction, no battery alerts. Pins, groups, position and size are kept so the dock still looks
+    /// like the user's. Only the dock process applies this, in memory: the file on disk is not changed.
+    #[must_use]
+    pub fn safe_mode(self) -> Config {
+        Config {
+            hot_corner_top_left: CornerAction::None,
+            hot_corner_top_right: CornerAction::None,
+            hot_corner_bottom_left: CornerAction::None,
+            hot_corner_bottom_right: CornerAction::None,
+            glass_refraction: false,
+            accessory_battery: false,
+            mascot: false,
+            charging_animation: false,
+            hud_enabled: false,
+            battery_alerts: false,
+            check_updates: false,
+            update_on_startup: false,
+            update_reminders: false,
+            wallpaper_rotation: false,
+            ..self
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -915,6 +959,13 @@ impl Default for Config {
             startup_animation: StartupAnimation::Rise,
             charging_animation: true,
             hud_enabled: true,
+            battery_alerts: true,
+            battery_alert_levels: vec![20, 10, 5],
+            meetings_ics: String::new(),
+            widget_profile: WidgetProfile::default(),
+            workspaces: Vec::new(),
+            audio_presets: Vec::new(),
+            panel_idle_close_secs: 20,
             menu_bar_opacity: 50,
             menu_bar_date: true,
             menu_bar_24h: None,
@@ -1070,6 +1121,23 @@ fn write_config(path: &Path, config: &Config) -> Result<(), ConfigError> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn safe_mode_switches_optional_features_off_and_keeps_the_layout() {
+        let config = Config {
+            pinned: vec!["a".into()],
+            hot_corner_top_left: CornerAction::Palette,
+            wallpaper_rotation: true,
+            hud_enabled: true,
+            check_updates: true,
+            ..Config::default()
+        };
+        let safe = config.clone().safe_mode();
+        assert_eq!(safe.pinned, config.pinned);
+        assert_eq!(safe.hot_corner_top_left, CornerAction::None);
+        assert!(!safe.wallpaper_rotation && !safe.hud_enabled && !safe.check_updates);
+        assert_eq!(safe.dock_position, config.dock_position);
+    }
+
     use super::*;
 
     fn scratch(name: &str) -> PathBuf {

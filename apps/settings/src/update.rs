@@ -156,6 +156,35 @@ fn toast(version: &str, tag: &str) -> Result<(), String> {
     }
 }
 
+/// A plain Windows notification (and a line in the notification centre), through hidden PowerShell.
+/// Blocks for about a second: call it from a short-lived thread.
+pub fn notify(title: &str, body: &str) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let script = whirlpool_update::remind::message_toast_script(title, body)
+        .ok_or("the text is not plain")?;
+    crate::push_notification("Whirlpool", title, body);
+    let status = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-EncodedCommand",
+            &whirlpool_update::remind::encoded_command(&script),
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|error| error.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("powershell exited with {status}"))
+    }
+}
+
 /// Seconds until the next background look is due, or `None` when none is wanted.
 #[must_use]
 pub fn background_due_in(days: u32) -> Option<u64> {

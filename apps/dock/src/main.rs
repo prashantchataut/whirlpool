@@ -79,6 +79,12 @@ fn main() -> Result<()> {
         .as_slice()
     {
         [] => run_dock(false),
+        ["--safe-mode"] => {
+            // Every optional feature off for this run; nothing is written to the saved settings.
+            // SAFETY: Set before any thread starts, in the only thread that exists.
+            unsafe { env::set_var(app::SAFE_MODE_ENV, "1") };
+            run_dock(false)
+        }
         [recovery::RECOVERED_FLAG] => run_dock(true),
         ["--quit"] => {
             app::request_quit();
@@ -163,7 +169,7 @@ fn main() -> Result<()> {
         ["--quick-settings", right, y, edge] => open_quick_settings(right, y, edge, false),
         ["--quick-settings-compat", right, y, edge] => open_quick_settings(right, y, edge, true),
         _ => bail!(
-            "usage: whirlpool [--settings | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
+            "usage: whirlpool [--settings | --safe-mode | --launchpad | --overview | --overlay-toggle | --update [--check-only] [--beta] [--rollback] | --version | --quit | --restore | --autostart on|off]"
         ),
     }
 }
