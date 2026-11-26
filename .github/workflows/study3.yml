@@ -53,8 +53,10 @@ jobs:
         shell: powershell
         run: |
           $exe = Get-ChildItem "$env:RUNNER_TEMP\pub" -Filter *.exe | Where-Object { $_.Name -match 'Taskbar' } | Select-Object -First 1
-          if (-not $exe) { "no taskbar controller was built"; exit 0 }
-          ./scripts/study3.ps1 -Target reference -Exe $exe.FullName -Out out-other
+          $app = Get-ChildItem "$env:RUNNER_TEMP\pub" -Filter *.exe | Where-Object { $_.Name -notmatch 'Taskbar|dump' } | Select-Object -First 1
+          if (-not $exe) { "no controller was built"; exit 0 }
+          # Its own documented tray mode, then its dashboard opened by hand (the styling mode needs another Windows build).
+          ./scripts/study3.ps1 -Target reference -Exe $exe.FullName -ExeArgs '--tray' -OpenExe $app.FullName -OpenArgs '--open' -Out out-other
       - uses: actions/upload-artifact@v4
         if: always()
         with:

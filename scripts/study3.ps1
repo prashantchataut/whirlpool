@@ -9,7 +9,10 @@ param(
     [Parameter(Mandatory = $true)][ValidateSet('whirlpool', 'reference')][string]$Target,
     [Parameter(Mandatory = $true)][string]$Exe,
     [Parameter(Mandatory = $true)][string]$Out,
-    [string]$Keys = 'ctrl+k;ctrl+alt+a;ctrl+alt+space'
+    [string]$Keys = 'ctrl+k;ctrl+alt+a;ctrl+alt+space',
+    [string]$ExeArgs = '',
+    [string]$OpenExe = '',
+    [string]$OpenArgs = ''
 )
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -46,12 +49,16 @@ function Press($combo) {
 function Snapshot { Get-Process | Where-Object { $_.Id -ne $PID } | Select-Object Id, ProcessName, @{n='priv';e={$_.PrivateMemorySize64}}, @{n='ws';e={$_.WorkingSet64}}, CPU, MainWindowTitle }
 
 Shot '00-desktop'
+$skip = 'powershell|conhost|pwsh|MsMpEng|svchost|WmiPrvSE|dllhost|backgroundTask|RuntimeBroker|SearchHost|TextInputHost|ShellExperienceHost|StartMenuExperienceHost|vctip|MSBuild|VBCSCompiler|git|cmd|Runner|Worker'
+$elapsed = 0
 $before = @{}; Snapshot | ForEach-Object { $before[$_.Id] = $_ }
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$proc = Start-Process -FilePath $Exe -PassThru -WorkingDirectory (Split-Path $Exe)
+$startArgs = @{ FilePath = $Exe; PassThru = $true; WorkingDirectory = (Split-Path $Exe) }
+if ($ExeArgs) { $startArgs.ArgumentList = $ExeArgs }
+$proc = Start-Process @startArgs
 Start-Sleep -Seconds 20
 Shot '01-launched'
-$mine = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch 'powershell|conhost|pwsh|MpDefender|MsMpEng|svchost|WmiPrvSE|dllhost|backgroundTask|RuntimeBroker|SearchHost|TextInputHost|ShellExperienceHost|StartMenuExperienceHost' })
+$mine = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
 
 $num.processes_after_launch = $mine.Count
 $num.private_mb_total_idle = [math]::Round((($mine | Measure-Object priv -Sum).Sum) / 1MB, 1)
@@ -62,12 +69,33 @@ $ids = $mine.Id; $c0 = ($ids | ForEach-Object { (Get-Process -Id $_ -ErrorAction
 Start-Sleep -Seconds 10
 $c1 = ($ids | ForEach-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).CPU } | Measure-Object -Sum).Sum
 $num.idle_cpu_percent_one_core = [math]::Round((($c1 - $c0) / 10) * 100, 2)
+if ($OpenExe) {
+    # A second window of the program (its own panel) opened by hand, as its documentation describes.
+    $sa = @{ FilePath = $OpenExe; PassThru = $true; WorkingDirectory = (Split-Path $OpenExe) }
+    if ($OpenArgs) { $sa.ArgumentList = $OpenArgs }
+    $open = Start-Process @sa
+    Start-Sleep -Seconds 12
+    Shot '05-panel-opened'
+    $both = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
+    $num.panel_open_processes = $both.Count
+    $num.panel_open_private_mb_total = [math]::Round((($both | Measure-Object priv -Sum).Sum) / 1MB, 1)
+    $num.panel_open_working_set_mb_total = [math]::Round((($both | Measure-Object ws -Sum).Sum) / 1MB, 1)
+    Log "panel open processes: $(($both | ForEach-Object { '{0:N0}MB' -f ($_.priv / 1MB) }) -join ', ')"
+    Press 'escape'; Start-Sleep -Seconds 1
+    foreach ($t in 5, 20, 20) {
+        Start-Sleep -Seconds $t
+        $now = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
+        $elapsed += $t
+        $num["after_hide_${elapsed}s_processes"] = $now.Count
+        $num["after_hide_${elapsed}s_private_mb"] = [math]::Round((($now | Measure-Object priv -Sum).Sum) / 1MB, 1)
+    }
+}
 $i = 2
 foreach ($k in $Keys.Split(';')) {
     Log "press $k"
     Press $k; Start-Sleep -Seconds 4
     Shot ('{0:D2}-{1}' -f $i, ($k -replace '\+', '-'))
-    $open = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch 'powershell|conhost|pwsh|MsMpEng|svchost|WmiPrvSE|dllhost|backgroundTask|RuntimeBroker|SearchHost|TextInputHost|ShellExperienceHost|StartMenuExperienceHost' })
+    $open = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
     $num["private_mb_total_after_$($k -replace '\+','_')"] = [math]::Round((($open | Measure-Object priv -Sum).Sum) / 1MB, 1)
     $num["processes_after_$($k -replace '\+','_')"] = $open.Count
     Press 'escape'; Start-Sleep -Seconds 1
@@ -75,9 +103,9 @@ foreach ($k in $Keys.Split(';')) {
 }
 # does anything heavy go away after the panels are dismissed? sample at 5 s and 40 s
 Start-Sleep -Seconds 5
-$s5 = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch 'powershell|conhost|pwsh|MsMpEng|svchost|WmiPrvSE|dllhost|backgroundTask|RuntimeBroker|SearchHost|TextInputHost|ShellExperienceHost|StartMenuExperienceHost' })
+$s5 = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
 Start-Sleep -Seconds 40
-$s40 = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch 'powershell|conhost|pwsh|MsMpEng|svchost|WmiPrvSE|dllhost|backgroundTask|RuntimeBroker|SearchHost|TextInputHost|ShellExperienceHost|StartMenuExperienceHost' })
+$s40 = @(Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip })
 $num.processes_5s_after_dismiss = $s5.Count
 $num.processes_45s_after_dismiss = $s40.Count
 $num.private_mb_5s_after_dismiss = [math]::Round((($s5 | Measure-Object priv -Sum).Sum) / 1MB, 1)
@@ -85,4 +113,5 @@ $num.private_mb_45s_after_dismiss = [math]::Round((($s40 | Measure-Object priv -
 Shot '09-end'
 $num | ConvertTo-Json | Set-Content (Join-Path $Out 'numbers.json')
 Write-Host ($num | ConvertTo-Json)
-Get-Process | Where-Object { -not $before.ContainsKey($_.Id) } | ForEach-Object { try { $_.Kill() } catch {} }
+Snapshot | Where-Object { -not $before.ContainsKey($_.Id) -and $_.ProcessName -notmatch $skip } | ForEach-Object { try { Stop-Process -Id $_.Id -Force } catch {} }
+exit 0
