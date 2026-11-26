@@ -197,7 +197,12 @@ function Wait-Window($title, $seconds = 30) {
 # Windows Start menu open: both sat over the ARM frames, so the HUD pills (drawn above the dock) could not be
 # seen. Close them before every scenario; the capture then shows the app and not the runner image.
 function Clean-Desktop {
-    Get-Process WindowsTerminal, wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # Only the WSL installer console. On x64 the one Windows Terminal window hosts the runner's own agent
+    # (hosted-compute-agent): killing it shut the runner down in the first scenario (runs 45822344454, 45831002424).
+    Get-Process WindowsTerminal -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowTitle -match 'wsl' -and $_.MainWindowTitle -notmatch 'hosted-compute-agent' } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Type-Keys @(0x1B)
     Close-RunnerDialogs
     Start-Sleep -Milliseconds 400
