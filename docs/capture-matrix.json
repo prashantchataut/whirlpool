@@ -75,6 +75,13 @@
       ]
     },
     {
+      "id": "dock-clock",
+      "scenario": "dock clock: tile",
+      "shots": [
+        "33-dock-clock"
+      ]
+    },
+    {
       "id": "update-toast",
       "scenario": "update toast: reminder",
       "shots": [

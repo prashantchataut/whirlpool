@@ -313,7 +313,7 @@ fn read_focus(plan: (u32, u32, u32)) -> Option<String> {
 }
 
 /// Opens (or closes) the clock panel, a short-lived window of its own.
-fn open_hub(tab: &str) {
+pub(crate) fn open_hub(tab: &str) {
     use std::os::windows::process::CommandExt;
     if let Ok(exe) = std::env::current_exe() {
         let _ = std::process::Command::new(exe)

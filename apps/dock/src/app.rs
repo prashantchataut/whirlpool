@@ -330,6 +330,10 @@ const MERGE_SIDE: f32 = 0.25;
 const GROUP_LABEL_CHARS: usize = 48;
 
 const START_ID: &str = "whirlpool:start";
+/// The clock tile at the dock's right end (Settings, Menu bar, "Show the clock in": the dock).
+const CLOCK_ID: &str = "whirlpool:clock";
+/// Redraws that tile when the minute changes. Exists only while the clock lives in the dock.
+const DOCK_CLOCK_TIMER: usize = 63;
 const WINDOW_ID_PREFIX: &str = "whirlpool:window:";
 const WINDOW_TITLE_CHARS: usize = 40;
 /// Fraction of a thumbnail slot covered by the app badge (see `scene`).
@@ -469,6 +473,8 @@ enum Role {
     /// The shortcuts folder: a click opens its contents as a menu.
     Shortcuts,
     Trash,
+    /// The clock tile: a click opens the clock panel.
+    Clock,
 }
 
 fn window_id(hwnd: isize) -> String {
@@ -637,6 +643,8 @@ struct StageKey {
     light: bool,
     glass: bool,
     bin_full: bool,
+    /// The dock clock's text; empty when the clock is not in the dock.
+    clock: String,
     auto_hide: bool,
     icon_size: u32,
     max_scale: f32,
@@ -844,6 +852,9 @@ struct App {
     icons: Visuals,
     downloads: Option<String>,
     bin_full: bool,
+    /// The text the dock clock tile shows now (empty when it is not in the dock) and whether its timer runs.
+    dock_clock: String,
+    dock_clock_timer: bool,
     _bin_watch: Option<BinWatch>,
     /// Energy saver on or off: glass follows (see `system::transparency_enabled`).
     _saver_watch: power::SaverWatch,
@@ -1174,6 +1185,9 @@ impl App {
         if let Some(downloads) = &self.downloads {
             entries.push(icon(downloads, Role::Folder, false));
         }
+        if self.config.clock_place == "dock" {
+            entries.push(icon(CLOCK_ID, Role::Clock, false));
+        }
         entries.push(icon(recycle_bin::PARSING_NAME, Role::Trash, false));
         entries
     }
@@ -1261,7 +1275,16 @@ impl App {
             } else {
                 ""
             };
-            let visual = if id == START_ID || window_of(id).is_some() {
+            // The clock tile is redrawn when its text changed.
+            if id == CLOCK_ID
+                && self
+                    .assets
+                    .get(id)
+                    .is_some_and(|asset| asset.drawn_for != [self.dock_clock.clone()])
+            {
+                self.assets.remove(id);
+            }
+            let visual = if id == START_ID || id == CLOCK_ID || window_of(id).is_some() {
                 None
             } else {
                 self.icons.get(id, variant)
@@ -1278,6 +1301,19 @@ impl App {
                         icon: None,
                         label,
                         drawn_for: Vec::new(),
+                    },
+                );
+                continue;
+            }
+            if id == CLOCK_ID {
+                let icon = self.gfx.clock_brush(wanted, &self.dock_clock).ok();
+                let label = self.gfx.label_brush(text().clock, scale, light, edge).ok();
+                self.assets.insert(
+                    id.clone(),
+                    Asset {
+                        icon,
+                        label,
+                        drawn_for: vec![self.dock_clock.clone()],
                     },
                 );
                 continue;
@@ -1374,6 +1410,7 @@ impl App {
             .dock_monitor()
             .context("no se pudo consultar el monitor del dock")?;
         let edge = self.position();
+        let clock = self.dock_clock_text();
         let key = StageKey {
             screen: monitor.screen,
             edge,
@@ -1384,6 +1421,7 @@ impl App {
             // black after it comes back, so this rebuilds the dock both ways.
             glass: transparency_enabled(),
             bin_full: self.bin_full,
+            clock,
             auto_hide: self.config.auto_hide,
             icon_size: self.config.icon_size,
             max_scale: self.config.max_scale(),
@@ -3367,9 +3405,12 @@ impl App {
                 folder: id,
             },
             // The user arranges the shortcuts folder in Explorer.
-            Role::App | Role::Group | Role::Start | Role::Window | Role::Shortcuts => {
-                DropAction::Nothing
-            }
+            Role::App
+            | Role::Group
+            | Role::Start
+            | Role::Window
+            | Role::Shortcuts
+            | Role::Clock => DropAction::Nothing,
         }
     }
 
@@ -3696,6 +3737,10 @@ impl App {
                 None
             }
             Role::Start => Some(Outside::OpenStart),
+            Role::Clock => {
+                crate::menubar::open_hub("clock");
+                None
+            }
             Role::Window => window_of(&id).and_then(|hwnd| self.activating(vec![hwnd])),
             Role::Shortcuts => self.folder_menu(id)?,
             Role::Folder | Role::Trash => Some(Outside::Open(id)),
@@ -4151,6 +4196,7 @@ impl App {
                 items.push(MenuItem::action(CMD_UNGROUP, t.ungroup));
             }
             Role::Start => items.push(MenuItem::action(CMD_OPEN, t.open)),
+            Role::Clock => items.push(MenuItem::action(CMD_SETTINGS, t.settings)),
             Role::Window => {
                 items.push(MenuItem::action(CMD_OPEN, t.open));
                 items.push(MenuItem::Separator);
@@ -4426,6 +4472,58 @@ impl App {
         self.apply_edge_settings();
         self.refresh()?;
         self.update_fullscreen()
+    }
+
+    /// The dock clock tile's text for this minute. Empty (and no timer) unless the clock is set to live in
+    /// the dock; otherwise it arms one timer that fires when the minute changes, so an idle dock costs nothing.
+    fn dock_clock_text(&mut self) -> String {
+        use whirlpool_core::clock::{DateStyle, DateStyleOpt};
+        if self.config.clock_place != "dock" {
+            if self.dock_clock_timer {
+                // SAFETY: Stops a timer on our own window.
+                unsafe {
+                    let _ = KillTimer(Some(self.input), DOCK_CLOCK_TIMER);
+                }
+                self.dock_clock_timer = false;
+            }
+            self.dock_clock.clear();
+            return String::new();
+        }
+        let mut options = clock_settings(&self.config).options;
+        options.date = DateStyleOpt(DateStyle::Off);
+        options.zones.clear();
+        options.seconds = false;
+        self.dock_clock = whirlpool_shell::system::clock_text_for(&options);
+        if !self.dock_clock_timer {
+            self.arm_dock_clock();
+            self.dock_clock_timer = true;
+        }
+        self.dock_clock.clone()
+    }
+
+    fn arm_dock_clock(&self) {
+        // SAFETY: Reads the clock, then sets a timer on our own window (the same id replaces it).
+        unsafe {
+            let now = windows::Win32::System::SystemInformation::GetLocalTime();
+            let wait = whirlpool_core::clock::next_tick_ms(
+                u32::from(now.wSecond),
+                u32::from(now.wMilliseconds),
+                false,
+            );
+            SetTimer(Some(self.input), DOCK_CLOCK_TIMER, wait.max(500), None);
+        }
+    }
+
+    /// The minute changed: draw the tile again (unless a full-screen window hides the dock anyway).
+    fn dock_clock_tick(&mut self) -> Result<()> {
+        if self.config.clock_place != "dock" {
+            return Ok(());
+        }
+        self.arm_dock_clock();
+        if self.fullscreen {
+            return Ok(());
+        }
+        self.refresh()
     }
 
     fn set_bin_full(&mut self, full: bool) -> Result<()> {
@@ -5739,6 +5837,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             }
         }
         WM_TIMER if w.0 == BATTERY_TIMER => with_app("batería", App::battery_tick),
+        WM_TIMER if w.0 == DOCK_CLOCK_TIMER => with_app("reloj del dock", App::dock_clock_tick),
         WM_TIMER if w.0 == ASSETS_TIMER => {
             // SAFETY: This UI thread owns the one-shot timer.
             unsafe {
@@ -6172,6 +6271,8 @@ pub fn run() -> Result<()> {
             icons: Visuals::new(visual, ASSETS_READY)?,
             downloads: downloads_folder(),
             bin_full: false,
+            dock_clock: String::new(),
+            dock_clock_timer: false,
             _bin_watch: BinWatch::register(input, BIN_CHANGED),
             _saver_watch: power::SaverWatch::new(input.0 as isize),
             pin_watch: whirlpool_shell::pins::watch(visual.0 as isize, PINS_CHANGED),

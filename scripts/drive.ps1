@@ -594,6 +594,21 @@ Scenario 'island pill: clock and focus timer' {
     Remove-Item (Join-Path $dir 'focus.txt') -ErrorAction SilentlyContinue
 }
 
+Scenario 'dock clock: tile at the end of the dock' {
+    # The same dock twice: once with the clock in the menu bar (no tile) and once with the clock set to the dock.
+    # The two frames must differ where the tile sits, or the setting is not connected to anything.
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top","menuBarMusic":false,"aiUsage":false}'
+    Copy-Item (Join-Path $refDir 'dock-only.png') (Join-Path $refDir 'dock-default.png') -Force
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top","menuBarMusic":false,"aiUsage":false,"clockPlace":"dock"}'
+    Move-Mouse ($screen.Width / 2) ($screen.Height / 2); Start-Sleep 2
+    Shot '33-dock-clock'
+    $d = [Px]::Diff((Get-Pixels (Join-Path $refDir 'dock-default.png')), (Get-Pixels (Join-Path $Out '33-dock-clock.png')), 24)
+    Log ("dock clock tile: {0:P2} of pixels differ from the same dock without it" -f $d)
+    if ($d -lt 0.002) { Fail "blank capture: 33-dock-clock shows no clock tile ($([math]::Round($d * 100, 2)) % differ from the default dock)" }
+    Click ($screen.Width / 2 + 330) ($screen.Height - 60)
+    Start-Sleep 1
+}
+
 # The update reminder is one Windows notification. It has never been photographed: this asks Windows to show
 # the made-up reminder (`--update --remind-test`) and checks that something appeared that was not in the
 # dock-only frame. If a runner's notification platform shows nothing, this scenario fails and says so.

@@ -853,18 +853,19 @@ pub fn clock_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         ui::divider(ui);
         ui::toggle_row(ui, t.get("clockPanel"), None, &mut config.clock_panel);
         ui::divider(ui);
-        let mut island = config.clock_place == "island";
+        let mut place = config.clock_place.clone();
         ui::row(
             ui,
             t.get("clockPlace"),
             Some(t.get("clockPlaceHint")),
-            220.0,
+            300.0,
             |ui| {
-                ui.selectable_value(&mut island, false, t.get("clockPlaceBar"));
-                ui.selectable_value(&mut island, true, t.get("clockPlaceIsland"));
+                ui.selectable_value(&mut place, "bar".to_owned(), t.get("clockPlaceBar"));
+                ui.selectable_value(&mut place, "dock".to_owned(), t.get("clockPlaceDock"));
+                ui.selectable_value(&mut place, "island".to_owned(), t.get("clockPlaceIsland"));
             },
         );
-        config.clock_place = if island { "island" } else { "bar" }.to_owned();
+        config.clock_place = place;
         ui::divider(ui);
         ui.add_space(6.0);
         hint(ui, t.get("clockZones"));

@@ -846,6 +846,95 @@ impl Gfx {
         })
     }
 
+    /// The dock's clock tile: the time on a dark rounded tile, like an app icon. A time such as
+    /// `4:52 PM` is drawn as `4:52` over a smaller `PM`; a 24-hour time is one line.
+    pub fn clock_brush(&self, side: u32, text: &str) -> Result<CompositionSurfaceBrush> {
+        let size = side as f32;
+        let (main, sub) = match text.split_once(' ') {
+            Some((main, sub)) => (main, Some(sub)),
+            None => (text, None),
+        };
+        let big = self.centered_text(main, size * if sub.is_some() { 0.30 } else { 0.27 }, size)?;
+        let small = match sub {
+            Some(sub) => Some(self.centered_text(sub, size * 0.15, size)?),
+            None => None,
+        };
+        self.draw(side, side, |dc| {
+            let inset = size * 0.08;
+            let tile = D2D_RECT_F {
+                left: inset,
+                top: inset,
+                right: size - inset,
+                bottom: size - inset,
+            };
+            let radius = (size - 2.0 * inset) * 0.225;
+            let stops = [
+                D2D1_GRADIENT_STOP {
+                    position: 0.0,
+                    color: rgb(0.20, 0.25, 0.32, 1.0),
+                },
+                D2D1_GRADIENT_STOP {
+                    position: 1.0,
+                    color: rgb(0.06, 0.08, 0.12, 1.0),
+                },
+            ];
+            // SAFETY: Brushes, geometry and layouts live for the duration of the drawing calls.
+            unsafe {
+                let collection = dc.CreateGradientStopCollection(
+                    &stops,
+                    D2D1_COLOR_SPACE_SRGB,
+                    D2D1_COLOR_SPACE_SRGB,
+                    D2D1_BUFFER_PRECISION_8BPC_UNORM,
+                    D2D1_EXTEND_MODE_CLAMP,
+                    D2D1_COLOR_INTERPOLATION_MODE_PREMULTIPLIED,
+                )?;
+                let gradient = dc.CreateLinearGradientBrush(
+                    &D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES {
+                        startPoint: Vector2 {
+                            X: 0.0,
+                            Y: tile.top,
+                        },
+                        endPoint: Vector2 {
+                            X: 0.0,
+                            Y: tile.bottom,
+                        },
+                    },
+                    None,
+                    &collection,
+                )?;
+                dc.FillRoundedRectangle(
+                    &D2D1_ROUNDED_RECT {
+                        rect: tile,
+                        radiusX: radius,
+                        radiusY: radius,
+                    },
+                    &gradient,
+                );
+                let white = dc.CreateSolidColorBrush(&rgb(1.0, 1.0, 1.0, 0.96), None)?;
+                let accent = dc.CreateSolidColorBrush(&rgb(0.45, 0.90, 0.84, 0.95), None)?;
+                let lift = if small.is_some() { -size * 0.07 } else { 0.0 };
+                dc.DrawTextLayout(
+                    Vector2 { X: 0.0, Y: lift },
+                    &big,
+                    &white,
+                    D2D1_DRAW_TEXT_OPTIONS_NONE,
+                );
+                if let Some(small) = &small {
+                    dc.DrawTextLayout(
+                        Vector2 {
+                            X: 0.0,
+                            Y: size * 0.20,
+                        },
+                        small,
+                        &accent,
+                        D2D1_DRAW_TEXT_OPTIONS_NONE,
+                    );
+                }
+            }
+            Ok(())
+        })
+    }
+
     /// Plain text on a transparent background (menu bar).
     pub fn text_brush(&self, text: &str, scale: f32, bold: bool, ink: Ink) -> Result<LabelBrush> {
         self.text_brush_sized(text, scale, 13.0, bold, ink)
