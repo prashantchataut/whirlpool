@@ -57,6 +57,13 @@
       ]
     },
     {
+      "id": "clock-panel",
+      "scenario": "island pill: clock and focus timer",
+      "shots": [
+        "31-hub-focus"
+      ]
+    },
+    {
       "id": "hud",
       "scenario": "hud: volume",
       "shots": [

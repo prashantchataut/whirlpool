@@ -541,6 +541,40 @@ foreach ($style in 'dark', 'clear', 'tinted') {
     }
 }
 
+Scenario 'island pill: clock and focus timer' {
+    # A focus session that is already running (the clock panel keeps it in focus.txt) and the clock moved into the island.
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    Set-Content -Path (Join-Path $dir 'focus.txt') -Value "mode=focus`ndone=0`nrunning=1`nremaining_ms=1499000`nsaved_ms=$now`n"
+    Start-Dock '{"menuBar":true,"menuBarPosition":"top","menuBarMusic":false,"clockPlace":"island","focusIsland":true}'
+    Move-Mouse ($screen.Width / 2) ($screen.Height / 2); Start-Sleep 2
+    Shot '31-island-pill'
+    Click ($screen.Width / 2) 12
+    [void](Wait-Window 'Whirlpool Clock')
+    Shot-Panel '31-hub-focus'
+    Key ([byte[]](0x1B)); Start-Sleep 1
+    foreach ($tab in 'clock', 'shelf') {
+        KillAll
+        $p = Start-Process $Exe -ArgumentList '--hub', $tab -PassThru
+        [void](Wait-Window 'Whirlpool Clock')
+        Start-Sleep 1
+        Shot "31-hub-$tab"
+        Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item (Join-Path $dir 'focus.txt') -ErrorAction SilentlyContinue
+}
+
+Scenario 'settings previews (menubar)' {
+    KillAll
+    $env:WHIRLPOOL_PAGE = 'menubar'
+    $p = Start-Process $Exe -ArgumentList '--settings' -PassThru
+    Start-Sleep 10
+    Move-Mouse 520 400
+    foreach ($n in 1, 2, 3, 4, 5, 6) { Wheel 5; Start-Sleep -Milliseconds 700; Shot "09-settings-menubar-scroll$n" }
+    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+    Remove-Item Env:WHIRLPOOL_PAGE -ErrorAction SilentlyContinue
+    Start-Sleep 1
+}
+
 # Gate: any missing window, blank panel frame or thrown scenario fails the job (artifacts still upload).
 if ($script:Failures.Count -gt 0) {
     $script:Failures | Set-Content (Join-Path $Out 'FAILED.txt')
