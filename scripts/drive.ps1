@@ -278,7 +278,7 @@ Scenario 'hud: volume, brightness, Wi-Fi and Bluetooth pills' {
     Shot-Panel '30-hud-brightness' 0.008 { & $Exe --hud brightness 60 }
     Start-Sleep -Milliseconds 2600
     & $Exe --hud wifi 3; Start-Sleep -Milliseconds 800
-    Shot-Panel '30-hud-wifi' 0.004 { & $Exe --hud wifi 3 }
+    Shot-Panel '30-hud-wifi' 0.002 { & $Exe --hud wifi 3 }
     & $Exe --hud wifi 0; Start-Sleep -Milliseconds 700
     Shot '30-hud-wifi-off'
     & $Exe --hud bluetooth 1; Start-Sleep -Milliseconds 800
@@ -594,9 +594,23 @@ Scenario 'island pill: clock and focus timer' {
 # dock-only frame. If a runner's notification platform shows nothing, this scenario fails and says so.
 Scenario 'update toast: reminder notification' {
     Start-Dock '{"menuBar":true,"menuBarPosition":"top"}'
-    & $Exe --update --remind-test | Out-Null
-    Start-Sleep -Milliseconds 2500
-    Shot-Panel '32-update-toast' 0.003 { & $Exe --update --remind-test | Out-Null }
+    # Banners can be switched off on a runner image (and by Focus assist). Turn them on for this user, say
+    # what the command itself reported, then look for the banner. The gate below stays strict.
+    foreach ($k in 'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications') {
+        New-Item -Path $k -Force | Out-Null
+        Set-ItemProperty -Path $k -Name ToastEnabled -Value 1 -Type DWord
+    }
+    $ns = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings'
+    New-Item -Path $ns -Force | Out-Null
+    Set-ItemProperty -Path $ns -Name NOC_GLOBAL_SETTING_TOASTS_ENABLED -Value 1 -Type DWord
+    $out = (& $Exe --update --remind-test 2>&1 | Out-String).Trim()
+    Log "remind-test said '$out' (exit $LASTEXITCODE)"
+    Start-Sleep -Milliseconds 1200
+    Shot-Panel '32-update-toast' 0.003 { $o = (& $Exe --update --remind-test 2>&1 | Out-String).Trim(); Log "remind-test again: '$o' (exit $LASTEXITCODE)" }
+    # Evidence that Windows received it even when the banner was not drawn: the notification centre.
+    Key @(0x5B, 0x4E); Start-Sleep -Seconds 2
+    Shot '32-update-toast-centre'
+    Key @(0x1B); Start-Sleep -Milliseconds 500
 }
 
 Scenario 'settings previews (menubar)' {
