@@ -14,6 +14,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release -p whirlpool
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch 4K pictures with Edge
+        # 4kwallpapers.com puts a bot check in front of plain HTTP clients, so the program's own download is
+        # refused here. A real Edge window may pass it. The pictures go to the studio's cache; the studio then
+        # applies them from there. Whatever fails is logged and the driver falls back to the photo pack.
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          npm install --no-save --no-audit --no-fund playwright-core
+          $cache = Join-Path $env:LOCALAPPDATA 'Whirlpool\wallpapers'
+          $all = (Select-String -Path crates/whirlpool-core/src/studio.rs -Pattern 'entry\((\d+),' -AllMatches).Matches | ForEach-Object { $_.Groups[1].Value }
+          node scripts/fetch-4k.mjs $cache 27371 27986 27362 28066 27369 27374 26734 2>&1 | Tee-Object out/fetch-4k.txt
+          node scripts/fetch-4k.mjs $cache --previews-only $all 2>&1 | Tee-Object -Append out/fetch-4k.txt
       - name: Resolution
         shell: pwsh
         continue-on-error: true

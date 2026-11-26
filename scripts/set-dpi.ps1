@@ -63,12 +63,14 @@ public static class Dpi {
 "@
 Log "runner display before: $([Dpi]::Current()); modes at 32 bit: $(([Dpi]::Modes()) -join ' ')"
 $applied = $false
+$w, $h = $Resolution -split 'x'
+if ([Dpi]::Current() -ne $Resolution) {
+    Log "set resolution ${Resolution}: $([Dpi]::SetMode([int]$w, [int]$h))"
+    Start-Sleep 4
+    Log "runner display now: $([Dpi]::Current())"
+}
 if ($Scale -eq 100) { $applied = $true; Log 'scale 100: nothing to change' }
 else {
-    $w, $h = $Resolution -split 'x'
-    Log "set resolution ${Resolution}: $([Dpi]::SetMode([int]$w, [int]$h))"
-    Start-Sleep 3
-    Log "runner display now: $([Dpi]::Current())"
     $r = [Dpi]::SetScale($Scale)
     Log "set scale ${Scale}%: $r"
     $applied = $r -eq "applied=$Scale" -or $r.StartsWith("applied=$Scale ")

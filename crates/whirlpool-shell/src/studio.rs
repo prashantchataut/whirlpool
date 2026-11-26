@@ -133,7 +133,7 @@ pub fn apply(entry: &Entry) -> Result<PathBuf, Failure> {
     Ok(file)
 }
 
-/// Keeps the four newest downloads; the picture in use is never removed.
+/// Keeps the four newest downloads and anything from the last three days; the picture in use is never removed.
 fn prune(keep: &Path) {
     let Ok(entries) = fs::read_dir(cache_dir()) else {
         return;
@@ -144,8 +144,11 @@ fn prune(keep: &Path) {
         .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
         .collect();
     files.sort_by(|a, b| b.0.cmp(&a.0));
-    for (_, path) in files.into_iter().skip(4) {
-        if path != keep {
+    let recent = std::time::SystemTime::now()
+        .checked_sub(Duration::from_secs(3 * 24 * 3600))
+        .unwrap_or(std::time::UNIX_EPOCH);
+    for (modified, path) in files.into_iter().skip(4) {
+        if path != keep && modified < recent {
             let _ = fs::remove_file(path);
         }
     }
