@@ -2,7 +2,7 @@
 //!
 //! A small dark glass pill appears above the work area, holds for a moment and
 //! fades. Volume and brightness show a slider: a gradient fill that the
-//! compositor wipes to the new level, a knob that follows it and the number.
+//! compositor wipes to the new level, and the number.
 //! Wi-Fi shows the four signal steps, Bluetooth a switch. There is no text, so
 //! nothing needs translating.
 //!
@@ -34,8 +34,10 @@ use windows::{
 };
 use windows_numerics::Vector3;
 
+use whirlpool_core::tokens;
+
 use crate::{
-    charge::{Rgba, ease_out, mix3, scalar, smooth, sprite, to_image, uniform, vector},
+    charge::{Rgba, ease_out, scalar, smooth, sprite, to_image, uniform, vector},
     gfx::Gfx,
 };
 
@@ -43,7 +45,7 @@ use crate::{
 const HOLD: f32 = 1.7;
 /// Seconds of the fade that follows.
 const FADE: f32 = 0.35;
-/// Seconds the fill and the knob take to reach a new level.
+/// Seconds the fill takes to reach a new level.
 const GLIDE: f32 = 0.26;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -120,9 +122,13 @@ impl Geometry {
     fn new(kind: Kind, scale: f32) -> Self {
         let slider = kind.fraction().is_some();
         let s = scale;
-        let pad = 22.0 * s;
-        let pill_w = if slider { 300.0 * s } else { 150.0 * s };
-        let pill_h = 56.0 * s;
+        // Room around the pill for its shadow only.
+        let pad = 16.0 * s;
+        let (pill_w, pill_h) = if slider {
+            (tokens::HUD_PILL.width * s, tokens::HUD_PILL.height * s)
+        } else {
+            (tokens::HUD_SMALL_PILL.0 * s, tokens::HUD_SMALL_PILL.1 * s)
+        };
         Self {
             s,
             width: (pill_w + 2.0 * pad).round(),
@@ -138,28 +144,29 @@ impl Geometry {
         self.height / 2.0
     }
 
+    /// Centre of the 16 px icon.
     fn icon_x(self) -> f32 {
-        self.pad + if self.slider { 32.0 } else { 36.0 } * self.s
+        self.pad + 14.0 * self.s + tokens::HUD_ICON * self.s / 2.0
     }
 
     fn num_w(self) -> f32 {
-        40.0 * self.s
+        28.0 * self.s
     }
 
     fn num_h(self) -> f32 {
-        18.0 * self.s
+        16.0 * self.s
     }
 
     fn num_x(self) -> f32 {
-        self.pad + self.pill_w - 18.0 * self.s - self.num_w()
+        self.pad + self.pill_w - 14.0 * self.s - self.num_w()
     }
 
     fn track_x0(self) -> f32 {
-        self.pad + 62.0 * self.s
+        self.icon_x() + (tokens::HUD_ICON / 2.0 + 12.0) * self.s
     }
 
     fn track_x1(self) -> f32 {
-        self.num_x() - 14.0 * self.s
+        self.num_x() - 10.0 * self.s
     }
 
     fn track_len(self) -> f32 {
@@ -167,18 +174,17 @@ impl Geometry {
     }
 
     fn track_h(self) -> f32 {
-        8.0 * self.s
-    }
-
-    fn knob_r(self) -> f32 {
-        9.5 * self.s
+        tokens::HUD_TRACK * self.s
     }
 }
 
 /* -------------------------------------------------------------- Drawing */
 
-const ACCENT_A: [f32; 3] = [0.36, 0.74, 1.0];
-const ACCENT_B: [f32; 3] = [0.82, 0.95, 1.0];
+const ACCENT: [f32; 3] = [
+    tokens::ACCENT[0] as f32 / 255.0,
+    tokens::ACCENT[1] as f32 / 255.0,
+    tokens::ACCENT[2] as f32 / 255.0,
+];
 const MUTED: [f32; 3] = [0.60, 0.64, 0.70];
 
 /// Signed distance to a pill (a rectangle with fully rounded ends) centred at
@@ -330,30 +336,38 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
     let (cx, cy) = (g.width / 2.0, g.cy());
     let sd = pill_sd(x, y, cx, cy, g.pill_w, g.pill_h);
     // Soft shadow, a little lower than the glass.
-    let shadow = pill_sd(x, y - 7.0 * s, cx, cy, g.pill_w, g.pill_h);
+    let shadow = pill_sd(x, y - 3.0 * s, cx, cy, g.pill_w, g.pill_h);
     over(
         &mut out,
         [0.0, 0.0, 0.0],
-        0.36 * smooth(18.0 * s, -4.0 * s, shadow),
+        0.30 * smooth(12.0 * s, -3.0 * s, shadow),
     );
     let inside = smooth(0.75, -0.75, sd);
     if inside <= 0.0 {
         return out;
     }
-    let top = ((y - (cy - g.pill_h / 2.0)) / g.pill_h).clamp(0.0, 1.0);
-    let glass = mix3([0.13, 0.15, 0.19], [0.05, 0.06, 0.08], top);
-    over(&mut out, glass, 0.90 * inside);
-    // A bright hairline at the rim, strongest along the top.
-    let rim = smooth(2.2 * s, 0.4 * s, -sd) * smooth(-0.3, 0.9, -sd);
+    // Dark glass, `rgba(20, 20, 24, 0.76)`, with a one pixel inner highlight.
+    let glass = [
+        f32::from(tokens::GLASS[0]) / 255.0,
+        f32::from(tokens::GLASS[1]) / 255.0,
+        f32::from(tokens::GLASS[2]) / 255.0,
+    ];
+    over(
+        &mut out,
+        glass,
+        f32::from(tokens::GLASS[3]) / 255.0 * inside,
+    );
+    let rim = smooth(1.5 * s, 0.4 * s, -sd) * smooth(-0.3, 0.9, -sd);
     over(
         &mut out,
         [1.0, 1.0, 1.0],
-        (0.10 + 0.14 * (1.0 - top)) * rim * inside,
+        f32::from(tokens::HIGHLIGHT[3]) / 255.0 * rim * inside,
     );
 
     // Icon, 1 logical pixel = `s` pixels.
     let (u, v) = ((x - g.icon_x()) / s, (y - cy) / s);
-    let zoom = if g.slider { 1.0 } else { 1.3 };
+    // The icon art spans about 26 units; 16 px is 0.62 of that.
+    let zoom = 26.0 / tokens::HUD_ICON;
     let (bright, dim) = icon(kind, u / zoom, v / zoom);
     if dim {
         over(&mut out, [1.0, 1.0, 1.0], 0.28);
@@ -371,18 +385,18 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
             g.track_len(),
             g.track_h(),
         );
-        over(&mut out, [1.0, 1.0, 1.0], 0.16 * smooth(0.75, -0.75, tsd));
+        over(&mut out, [1.0, 1.0, 1.0], 0.18 * smooth(0.75, -0.75, tsd));
     } else {
         match kind {
             Kind::Wifi { bars } => {
-                let x0 = g.pad + 80.0 * s;
+                let x0 = g.icon_x() + 20.0 * s;
                 for index in 0..4u8 {
-                    let height = (7.0 + 5.0 * f32::from(index)) * s;
-                    let left = x0 + f32::from(index) * 9.5 * s;
-                    let (bx, by) = (left + 2.75 * s, cy + 11.0 * s - height / 2.0);
+                    let height = (5.0 + 3.0 * f32::from(index)) * s;
+                    let left = x0 + f32::from(index) * 7.0 * s;
+                    let (bx, by) = (left + 1.5 * s, cy + 7.0 * s - height / 2.0);
                     // A vertical pill: the distance with the axes swapped.
                     let vertical = {
-                        let r = 2.75 * s;
+                        let r = 1.5 * s;
                         let qy = (y - by).abs() - (height / 2.0 - r);
                         let dx = x - bx;
                         if qy > 0.0 {
@@ -393,32 +407,29 @@ fn body_at(kind: Kind, g: Geometry, x: f32, y: f32) -> Rgba {
                     };
                     let cover = smooth(0.75, -0.75, vertical);
                     if bars > index {
-                        over(
-                            &mut out,
-                            mix3(ACCENT_A, ACCENT_B, f32::from(index) / 3.0),
-                            cover,
-                        );
+                        over(&mut out, ACCENT, cover);
                     } else {
                         over(&mut out, [1.0, 1.0, 1.0], 0.20 * cover);
                     }
                 }
             }
             Kind::Bluetooth { on } => {
-                let (tw, th) = (46.0 * s, 26.0 * s);
-                let tcx = g.pad + 80.0 * s + tw / 2.0;
+                let (tw, th) = (30.0 * s, 16.0 * s);
+                let tcx = g.icon_x() + 20.0 * s + tw / 2.0;
                 let sd = pill_sd(x, y, tcx, cy, tw, th);
                 let cover = smooth(0.75, -0.75, sd);
                 if on {
                     let t = ((x - (tcx - tw / 2.0)) / tw).clamp(0.0, 1.0);
-                    over(&mut out, mix3(ACCENT_A, ACCENT_B, t), cover);
+                    let _ = t;
+                    over(&mut out, ACCENT, cover);
                 } else {
                     over(&mut out, [1.0, 1.0, 1.0], 0.18 * cover);
                 }
-                let kr = 9.5 * s;
+                let kr = 6.0 * s;
                 let kx = if on {
-                    tcx + tw / 2.0 - 3.5 * s - kr
+                    tcx + tw / 2.0 - 2.0 * s - kr
                 } else {
-                    tcx - tw / 2.0 + 3.5 * s + kr
+                    tcx - tw / 2.0 + 2.0 * s + kr
                 };
                 let d = ((x - kx).powi(2) + (y - cy).powi(2)).sqrt();
                 over(
@@ -471,35 +482,8 @@ fn fill_image(kind: Kind, g: Geometry) -> IconImage {
     supersampled(w, h, |x, y| {
         let mut out = [0.0f32; 4];
         let sd = pill_sd(x, y, w as f32 / 2.0, h as f32 / 2.0, w as f32, h as f32);
-        let colour = if muted {
-            MUTED
-        } else {
-            mix3(ACCENT_A, ACCENT_B, x / w as f32)
-        };
+        let colour = if muted { MUTED } else { ACCENT };
         over(&mut out, colour, smooth(0.75, -0.75, sd));
-        out
-    })
-}
-
-fn knob_image(kind: Kind, g: Geometry) -> IconImage {
-    let r = g.knob_r();
-    let side = ((r + 5.0 * g.s) * 2.0).round() as u32;
-    let c = side as f32 / 2.0;
-    let colour = if kind.muted() {
-        [0.86, 0.88, 0.91]
-    } else {
-        [1.0, 1.0, 1.0]
-    };
-    supersampled(side, side, |x, y| {
-        let mut out = [0.0f32; 4];
-        let d = ((x - c).powi(2) + (y - c - 1.5 * g.s).powi(2)).sqrt();
-        over(
-            &mut out,
-            [0.0, 0.0, 0.0],
-            0.30 * smooth(r + 4.0 * g.s, r - 2.0, d),
-        );
-        let d = ((x - c).powi(2) + (y - c).powi(2)).sqrt();
-        over(&mut out, colour, smooth(r + 0.7, r - 0.7, d));
         out
     })
 }
@@ -551,6 +535,9 @@ fn digit_strokes(character: char) -> Vec<Vec<(f32, f32)>> {
     }
 }
 
+/// Digits are drawn on a 7 x 12 grid and shown at this fraction: about 12 px type, 7.5 px per digit,
+/// the same advance for every digit, so a changing number does not wobble.
+const DIGIT_SCALE: f32 = 0.78;
 const DIGIT_ADVANCE: f32 = 10.0;
 
 fn number_image(kind: Kind, g: Geometry) -> IconImage {
@@ -562,13 +549,13 @@ fn number_image(kind: Kind, g: Geometry) -> IconImage {
         .collect();
     let (w, h) = (g.num_w().round() as u32, g.num_h().round() as u32);
     let s = g.s;
-    let width = strokes.len() as f32 * DIGIT_ADVANCE - (DIGIT_ADVANCE - 7.0);
+    let width = (strokes.len() as f32 * DIGIT_ADVANCE - (DIGIT_ADVANCE - 7.0)) * DIGIT_SCALE;
     let left = w as f32 / s - width;
-    let top = (h as f32 / s - 12.0) / 2.0;
+    let top = (h as f32 / s - 12.0 * DIGIT_SCALE) / 2.0;
     let alpha = if kind.muted() { 0.50 } else { 0.95 };
     supersampled(w, h, |x, y| {
         let mut out = [0.0f32; 4];
-        let (lx, ly) = (x / s - left, y / s - top);
+        let (lx, ly) = ((x / s - left) / DIGIT_SCALE, (y / s - top) / DIGIT_SCALE);
         let index = (lx / DIGIT_ADVANCE).floor();
         if index >= 0.0
             && let Some(paths) = strokes.get(index as usize)
@@ -579,7 +566,7 @@ fn number_image(kind: Kind, g: Geometry) -> IconImage {
                 .flat_map(|path| path.windows(2))
                 .map(|pair| seg_dist(local, ly, pair[0], pair[1]))
                 .fold(f32::MAX, f32::min);
-            if near < 0.8 {
+            if near < 0.9 {
                 over(&mut out, [0.96, 0.98, 1.0], alpha);
             }
         }
@@ -633,18 +620,6 @@ fn build_scene(
         }
         fill.SetClip(&clip)?;
         group.Children()?.InsertAtTop(&fill)?;
-
-        let knob = sprite(gfx, &knob_image(kind, g))?;
-        let half = knob.Size()?.X / 2.0;
-        let at = |fraction: f32| Vector3::new(x0 + len * fraction - half, g.cy() - half, 0.0);
-        knob.SetOffset(at(to))?;
-        if glide && from != to {
-            knob.StartAnimation(
-                h!("Offset"),
-                &vector(c, &[(0.0, at(from)), (GLIDE, at(to))], delay, &out)?,
-            )?;
-        }
-        group.Children()?.InsertAtTop(&knob)?;
 
         let number = sprite(gfx, &number_image(kind, g))?;
         number.SetOffset(Vector3::new(g.num_x(), g.cy() - g.num_h() / 2.0, 0.0))?;

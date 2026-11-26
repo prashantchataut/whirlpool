@@ -35,13 +35,14 @@ use crate::{
     ui::{self, Palette},
 };
 
-const WIDTH: f32 = 372.0;
+/// Budget: 320 logical px, never above `whirlpool_core::tokens::QUICK_WIDTH.1`.
+const WIDTH: f32 = whirlpool_core::tokens::QUICK_WIDTH.0;
 /// The design used unless `WHIRLPOOL_QUICK_DESIGN` (a, b or c) asks for another.
 const DEFAULT_DIRECTION: Direction = Direction::A;
 
 fn tile_h(dir: Direction) -> f32 {
     match dir {
-        Direction::A => 68.0,
+        Direction::A => 48.0,
         Direction::B => 92.0,
         Direction::C => 100.0,
     }
@@ -50,7 +51,7 @@ fn tile_h(dir: Direction) -> f32 {
 /// Height of the volume area.
 fn well_h(dir: Direction) -> f32 {
     match dir {
-        Direction::A => 54.0,
+        Direction::A => 44.0,
         Direction::B => 56.0,
         Direction::C => 84.0,
     }
@@ -58,7 +59,8 @@ fn well_h(dir: Direction) -> f32 {
 
 /// Everything below the tile grid: padding, the volume area and the battery line.
 fn below_grid(dir: Direction) -> f32 {
-    106.0 + well_h(dir)
+    // Padding, the gap above the volume row, the row, the gap above the footer, the footer.
+    2.0 * PAD + 12.0 + well_h(dir) + 12.0 + 24.0
 }
 
 fn grid_height(rows: usize, dir: Direction) -> f32 {
@@ -72,9 +74,9 @@ fn grid_height(rows: usize, dir: Direction) -> f32 {
 fn panel_height(rows: usize, dir: Direction) -> f32 {
     below_grid(dir) + grid_height(rows, dir)
 }
-const PAD: f32 = 16.0;
-const GAP: f32 = 10.0;
-const RADIUS: u8 = 28;
+const PAD: f32 = 12.0;
+const GAP: f32 = 8.0;
+const RADIUS: u8 = 12;
 /// Space between the bar and the panel.
 const EDGE_GAP: f32 = 8.0;
 
@@ -761,64 +763,47 @@ fn tile(
     };
     match look.dir {
         Direction::A => {
-            let corner = CornerRadius::same(20);
-            // Round 4: a dark tint, not a white one. Measured on the round-3 capture the subtitle was
-            // 2.9:1 against a tile the white tint had lightened; light text needs the darker fill.
+            // 48 px tall, 8 px corners: an icon, a label and one short line, on a
+            // fill that turns accent when the tile is on (that is the state).
+            let corner = CornerRadius::same(8);
             let idle = blend(
-                Color32::from_black_alpha(46),
-                Color32::from_white_alpha(18),
+                Color32::from_white_alpha(14),
+                Color32::from_white_alpha(26),
                 hover,
             );
-            design::drop_shadow(&painter, rect, 20, 14, 5, (50.0 * active) as u8);
             painter.rect_filled(rect, corner, blend(idle, look.accent, active));
-            // A lit upper edge: the tile reads as a thick piece of glass.
             painter.rect_stroke(
                 rect,
                 corner,
                 Stroke::new(
                     1.0,
                     blend(
-                        Color32::from_white_alpha(34),
-                        Color32::from_white_alpha(80),
+                        Color32::from_white_alpha(20),
+                        Color32::from_white_alpha(40),
                         active,
                     ),
                 ),
                 StrokeKind::Inside,
             );
-            ring(&painter, rect, 20);
+            ring(&painter, rect, 8);
             let badge = Rect::from_center_size(
-                pos2(rect.left() + 12.0 + 18.0, rect.center().y),
-                vec2(36.0, 36.0),
+                pos2(rect.left() + 12.0 + 8.0, rect.center().y),
+                vec2(16.0, 16.0),
             );
-            painter.circle_filled(
-                badge.center(),
-                18.0,
-                blend(
-                    Color32::from_white_alpha(28),
-                    look.on_accent.gamma_multiply(0.16),
-                    active,
-                ),
-            );
-            icons::paint(&painter, badge.shrink(8.0), icon, ink);
-            // The state again as a shape, so it does not rest on colour alone.
-            painter.circle_filled(
-                pos2(rect.right() - 16.0, rect.top() + 16.0),
-                3.5,
-                blend(Color32::from_white_alpha(46), look.on_accent, active),
-            );
+            icons::paint(&painter, badge, icon, ink);
             let text_x = badge.right() + 10.0;
             painter.text(
-                pos2(text_x, rect.center().y - 9.0),
+                pos2(text_x, rect.center().y - 7.0),
                 Align2::LEFT_CENTER,
                 label,
-                ui::heading(13.5),
+                ui::heading(12.5),
                 ink,
             );
             painter.text(
-                pos2(text_x, rect.center().y + 10.0),
+                pos2(text_x, rect.center().y + 8.0),
                 Align2::LEFT_CENTER,
                 sub,
-                FontId::proportional(12.0),
+                FontId::proportional(11.0),
                 dim,
             );
         }
@@ -1156,27 +1141,18 @@ impl eframe::App for Quick {
 
         // Volume.
         let well = Rect::from_min_size(
-            pos2(full.left() + PAD, full.top() + PAD + grid_h + 14.0),
+            pos2(full.left() + PAD, full.top() + PAD + grid_h + 12.0),
             vec2(full.width() - 2.0 * PAD, well_h(look.dir)),
         );
         self.volume_row(ui, &look, well, &ctx);
 
         // Footer: the battery, and the two places to go next.
-        let mid = full.bottom() - PAD - 15.0;
+        let mid = full.bottom() - PAD - 12.0;
         let meter =
             Rect::from_center_size(pos2(full.left() + PAD + 14.0 + 2.0, mid), vec2(28.0, 13.0));
-        let (text, sub) = match self.battery {
-            Some(b) => (
-                format!("{}%", b.percent),
-                if b.charging {
-                    "Charging"
-                } else if b.saver {
-                    "Battery saver"
-                } else {
-                    "On battery"
-                },
-            ),
-            None => ("Plugged in".to_owned(), ""),
+        let text = match self.battery {
+            Some(b) => format!("{}%", b.percent),
+            None => "Plugged in".to_owned(),
         };
         if let Some(b) = self.battery {
             battery_meter(ui, &look, meter, b.percent, b.charging);
@@ -1188,22 +1164,13 @@ impl eframe::App for Quick {
                 look.muted,
             );
         }
-        let label = ui.painter().text(
-            pos2(meter.right() + 10.0, mid),
+        ui.painter().text(
+            pos2(meter.right() + 8.0, mid),
             Align2::LEFT_CENTER,
             text,
-            ui::heading(13.0),
+            ui::heading(12.5),
             look.text,
         );
-        if !sub.is_empty() {
-            ui.painter().text(
-                pos2(label.right() + 8.0, mid),
-                Align2::LEFT_CENTER,
-                sub,
-                FontId::proportional(12.0),
-                look.muted,
-            );
-        }
         let mut x = full.right() - PAD;
         for (label, action) in [("Windows settings", 1), ("Whirlpool", 0)] {
             let (response, next) = ghost(ui, &look, x, mid, label);
