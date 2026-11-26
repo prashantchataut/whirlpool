@@ -113,10 +113,13 @@ Log "profile reset; display $([System.Windows.Forms.Screen]::PrimaryScreen.Bound
 # so Explorer is restarted once, before Whirlpool exists. What the log says is what happened.
 try {
   Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name PaintDesktopVersion -Value 0 -Type DWord
+  $theme = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+  New-Item $theme -Force | Out-Null
+  Set-ItemProperty $theme -Name AppsUseLightTheme -Value 0 -Type DWord; Set-ItemProperty $theme -Name SystemUsesLightTheme -Value 0 -Type DWord
   Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideIcons -Value 1 -Type DWord
   Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 6
   if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer.exe; Start-Sleep 5 }
-  Log 'desktop: version text off, icons hidden, explorer restarted'
+  Log 'desktop: dark mode, version text off, icons hidden, explorer restarted'
 } catch { Log "desktop tidy failed: $_" }
 Log "test signing: $((bcdedit /enum '{current}' 2>&1 | Select-String -Pattern 'testsigning') -join ' ')"
 Close-RunnerDialogs

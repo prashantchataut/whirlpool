@@ -35,7 +35,13 @@ $update.Type = [Windows.Media.MediaPlaybackType]::Music
 $update.MusicProperties.Title = 'Low Tide'
 $update.MusicProperties.Artist = 'Meridian Lines'
 $update.MusicProperties.AlbumTitle = 'Night Drive'
-$update.Thumbnail = [Windows.Storage.Streams.RandomAccessStreamReference]::CreateFromUri([Uri]("file:///" + ($Cover -replace '\\', '/')))
+# A file URI is not readable by the media broker; a StorageFile is. WinRT calls are awaited through AsTask.
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[void][Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+$task = $asTask.MakeGenericMethod([Windows.Storage.StorageFile]).Invoke($null, @([Windows.Storage.StorageFile]::GetFileFromPathAsync($Cover)))
+[void]$task.Wait(-1)
+$update.Thumbnail = [Windows.Storage.Streams.RandomAccessStreamReference]::CreateFromFile($task.Result)
 $update.Update()
 $smtc.PlaybackStatus = [Windows.Media.MediaPlaybackStatus]::Playing
 
