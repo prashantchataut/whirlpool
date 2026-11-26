@@ -13,6 +13,19 @@ A standalone dock and menu bar for Windows 10/11. Two native Rust executables, n
 - `crates/whirlpool-config`: settings schema and persistence (`%APPDATA%\Whirlpool\config.json`)
 - `site/`: the website (Vite + React + Tailwind), deployed to GitHub Pages
 
+## Session 11 (main, pre-release 4.2.0-rc8)
+
+| Area | Change | Where |
+| --- | --- | --- |
+| Search | `units.rs` (conversion), palette `Kind::{Window,Setting,Widget}`, `Mode::{Windows,Settings,Widgets}`, `answer()`; UI rows and chip | `crates/whirlpool-core/src/{units,palette}.rs`, `apps/settings/src/palette.rs`, `i18n/en.json` |
+| Config | `battery_alerts`, `battery_alert_levels`, `meetings_ics`, `widget_profile`, `workspaces`, `audio_presets`, `panel_idle_close_secs`, `Config::safe_mode()` | `crates/whirlpool-config/src/{lib,extras}.rs` |
+| Dock | `BATTERY_TIMER` (62, 60 s, only with a battery), `--safe-mode` (env `WHIRLPOOL_SAFE_MODE`, applied at the two config load points), `--widgets` | `apps/dock/src/{app,main}.rs` |
+| Toast | `remind::message_toast_script` (plain text only), `update::notify` | `crates/whirlpool-update`, `apps/settings/src/update.rs` |
+| Unwired logic | `tilewin`, `ics`, `lifetime`, `battery` (battery is wired) | `crates/whirlpool-core/src/` |
+| Study | `scripts/study3.ps1`, `study3.yml`, secret `STUDY3_SOURCE`, `STUDY-3.md` | |
+
+Next, ranked: wire `lifetime` into the Start grid, overview and palette (measured 340 MB after dismissal); capture and review the palette; widget UI over the profile; workspaces over `tilewin`. Tooling note: this sandbox now has a Rust toolchain, so core, config and update crates are tested locally; Windows code is still compiled only in CI. A personal access token was pasted into the chat for this session: it should be revoked.
+
 ## Session 10 (main, pre-release 4.2.0-rc7)
 
 Merged the PR #17 code to main, fixed the site's download links (they used `releases/latest`, which is v4.1.0), published `v4.2.0-rc7` and ran the updater rc6 to rc7 on a runner (green). No Rust was changed beyond the merge. Next: the items under "Not done" in `STATUS.md`, starting with the Settings sidebar at 1024 px and the wallpaper crossfade. Use explicit tag URLs on the site until a stable release exists.

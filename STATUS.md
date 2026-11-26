@@ -1,3 +1,15 @@
+# Session 11 (direct commits to main; pre-release `4.2.0-rc8`)
+
+**Checked first:** main was green at the start (`3558123`, after two red commits fixed forward). README Status was out of date and is rewritten.
+
+**Done, compiled and tested in CI (core, config and update crates also tested locally: 249 + 42 + 24 tests):** unit conversion in the palette; `window:`, `setting:`, `widget:` filters and window rows; battery alerts (timer, state machine, toast); `--safe-mode`; `--widgets export|import`; widget profile, workspace and audio preset models; window tiling with undo; `.ics` reader; panel lifetime state machine. Study 3 ran on a runner (`STUDY-3.md`).
+
+**Not seen working (no capture was taken this session):** the new palette rows and the Windows chip, battery toast, safe mode. The three look-fix-recapture rounds were **not done** for the palette; none was done at all.
+
+**Not done, and why:** widget slot and favorites UI, meetings and downloads widgets, drag-out shelf items (models only or nothing; budget); workspaces moving real windows (geometry only); per-app audio routing (not started: needs an undocumented per-build interface, which is the fragility we rejected); heavy panels closing after hiding (state machine only; **measured defect: the Start grid process is still alive and about 340 MB 45 s after Escape**); Settings deep links; installer-level update action; design and motion skills were not opened (see `SKILLS_USED.md`); signed installers; site and `docs/` not refreshed with new captures (no new captures exist).
+
+**Privacy:** nothing in this session adds network traffic. Weather is not built. Lyrics stay opt-in as before.
+
 # Session 10 (direct commits to main)
 
 **Release:** `v4.2.0-rc7`, pre-release (gate not passed: unsigned, no personal-desktop run, no ARM hardware run). Built by the Release workflow from tag `v4.2.0-rc7` (run on commit `e6b7342`, CI and Site green). Assets: x64 and ARM64 installers, zips, bare executables, `install.ps1`, `SHA256SUMS.txt`. The two installers were downloaded after publishing and their SHA-256 matches the sums. In-app updater, run `45639523629` (`updater-e2e.yml`, clean runner): installed rc6, updated to rc7, Whirlpool relaunched, check says up to date, rollback to rc6 worked.

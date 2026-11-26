@@ -6,6 +6,16 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## 4.2.0-rc8
+
+- Search: open windows, Settings entries and widgets join apps, files, actions and clipboard. `window:`, `setting:` and `widget:` narrow the list. Calculator rows now also convert units (`56 KB to MB`, `100 Mbps to MB/s`, `5'11" to cm`, `212 F to C`, `30 mpg to L/100 km`). Set `paletteHotkey` to `Ctrl+K` if you want that key (it is global, so it is not the default).
+- Battery alerts: one Windows notification at 20, 10 and 5 % (`batteryAlertLevels`), once per level per discharge, only on computers with a battery, checked once a minute.
+- `whirlpool --safe-mode`: starts with every optional feature off (hot corners, pop-ups, rotation, glass refraction, update checks, alerts). Nothing is written to your saved settings.
+- `whirlpool --widgets export FILE` and `import FILE`: the pinned widget and favorites as a JSON profile.
+- Tested building blocks without a screen yet: window tiling with undo, `.ics` reader, audio presets, workspaces, panel lifetime. No behaviour change from these in this release.
+- Study 3 (`STUDY-3.md`): measured another shell next to Whirlpool. It showed that Whirlpool's Start grid process stays alive after it is dismissed (known issue, not fixed here).
+- README Status section rewritten to match the captures.
+
 ## Unreleased
 
 Nothing yet.

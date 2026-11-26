@@ -1,0 +1,18 @@
+{
+    "target":  "whirlpool",
+    "os":  "10.0.26100.0",
+    "processes_after_launch":  3,
+    "private_mb_total_idle":  27.6,
+    "working_set_mb_total_idle":  13.2,
+    "idle_cpu_percent_one_core":  0,
+    "private_mb_total_after_ctrl_k":  27.5,
+    "processes_after_ctrl_k":  3,
+    "private_mb_total_after_ctrl_alt_a":  27,
+    "processes_after_ctrl_alt_a":  3,
+    "private_mb_total_after_ctrl_alt_space":  38.8,
+    "processes_after_ctrl_alt_space":  4,
+    "processes_5s_after_dismiss":  4,
+    "processes_45s_after_dismiss":  5,
+    "private_mb_5s_after_dismiss":  310.6,
+    "private_mb_45s_after_dismiss":  340.4
+}

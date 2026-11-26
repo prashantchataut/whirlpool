@@ -32,6 +32,8 @@ The runner has no radios, so Wi-Fi and Bluetooth read "Not available" there. Mor
 - **Wallpaper rotation**: every 5 minutes to 1 day, in order or shuffled, from a folder or the bundled photographs, a different folder for dark mode, a different picture per display. Off by default.
 - **Updates that install**: Settings > System > Updates downloads the release for your CPU, checks its SHA-256, installs and restarts; it can roll back one version. `whirlpool --update` does the same from a terminal.
 - **Update reminders**: one Windows notification when a newer release exists, again after three days, three times at most per version. It never downloads or installs on its own, and one switch turns it off.
+- **Search** (`Ctrl+Shift+Space`, or set `paletteHotkey` to `Ctrl+K`): open windows, apps, settings, widgets, files, actions and clipboard; `window:` narrows to open windows; `56 KB to MB` and `2+2*3` answer inline.
+- **Battery alerts** at 20, 10 and 5 % (configurable) and **`whirlpool --safe-mode`**, which starts with every optional feature off.
 - **Privacy**: no telemetry; one optional update check ([docs/PRIVACY.md](docs/PRIVACY.md)). **Signing: builds are currently unsigned**, see [SIGNING.md](SIGNING.md).
 - **Settings are built in**: `whirlpool.exe --settings`, or launch Whirlpool again while it runs. If OpenGL cannot start, it retries with DirectX.
 
