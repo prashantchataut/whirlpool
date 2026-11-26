@@ -1156,27 +1156,17 @@ impl eframe::App for Quick {
         let mid = full.bottom() - PAD - 12.0;
         let meter =
             Rect::from_center_size(pos2(full.left() + PAD + 14.0 + 2.0, mid), vec2(28.0, 13.0));
-        let text = match self.battery {
-            Some(b) => format!("{}%", b.percent),
-            None => "Plugged in".to_owned(),
-        };
+        // A desktop PC has no battery: nothing is drawn on the left, so the two links never collide with it.
         if let Some(b) = self.battery {
             battery_meter(ui, &look, meter, b.percent, b.charging);
-        } else {
-            icons::paint(
-                ui.painter(),
-                Rect::from_center_size(meter.center(), vec2(18.0, 18.0)),
-                Icon::Bolt,
-                look.muted,
+            ui.painter().text(
+                pos2(meter.right() + 8.0, mid),
+                Align2::LEFT_CENTER,
+                format!("{}%", b.percent),
+                ui::heading(12.5),
+                look.text,
             );
         }
-        ui.painter().text(
-            pos2(meter.right() + 8.0, mid),
-            Align2::LEFT_CENTER,
-            text,
-            ui::heading(12.5),
-            look.text,
-        );
         let mut x = full.right() - PAD;
         for (label, action) in [("Windows settings", 1), ("Whirlpool", 0)] {
             let (response, next) = ghost(ui, &look, x, mid, label);
