@@ -522,7 +522,7 @@
   "clockPlaceIsland": "Island",
   "groupLyrics": "Synced lyrics",
   "lyricsOn": "Show synced lyrics in the island",
-  "lyricsOnHint": "The current line replaces the track title in the island's music segment (top bar).",
+  "lyricsOnHint": "The current line replaces the track title in the island.",
   "lyricsSample": "♪ And the tide comes in",
-  "lyricsPrivacy": "Off by default. When on, the song title, artist, album and length go to lrclib.net once per song, nothing else. No account, no identifier; the service sees your IP address. Lyrics stay in memory for the current song. Off: nothing is sent."
+  "lyricsPrivacy": "Off by default. When on, song title, artist, album and length go to lrclib.net once per song. Nothing else is sent."
 }
