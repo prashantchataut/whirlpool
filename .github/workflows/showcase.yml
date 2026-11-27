@@ -1,7 +1,8 @@
 name: Showcase
 
 # Real captures of every surface at 1920x1080, 1:1, on a photo wallpaper and a fresh profile.
-# Also presses the volume keys and records whether the stock flyout ever appeared.
+# Public frames use the licensed photo pack only: 4kwallpapers.com pictures are cleared for personal desktop use,
+# so they are exercised by studio-check.yml (no screenshots) and never published. Also presses the volume keys and records whether the stock flyout ever appeared.
 on:
   workflow_dispatch:
 
@@ -17,18 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Fetch 4K pictures with Edge
-        # 4kwallpapers.com puts a bot check in front of plain HTTP clients, so the program's own download is
-        # refused here. A real Edge window may pass it. The pictures go to the studio's cache; the studio then
-        # applies them from there. Whatever fails is logged and the driver falls back to the photo pack.
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          New-Item -ItemType Directory -Force out | Out-Null
-          npm install --no-save --no-audit --no-fund playwright-core
-          $cache = Join-Path $env:LOCALAPPDATA 'Whirlpool\wallpapers'
-          node scripts/fetch-4k.mjs $cache 27371 27986 27362 28066 27369 27374 26734 2>&1 | Tee-Object out/fetch-4k.txt
-          node scripts/fetch-4k.mjs $cache --previews-only --all 2>&1 | Tee-Object -Append out/fetch-4k.txt
       - name: Resolution
         shell: pwsh
         continue-on-error: true

@@ -44,13 +44,17 @@ for (const id of ids) {
     if (only) continue;
     const link = await page.evaluate(() => [...document.querySelectorAll('a')].map((a) => a.href).find((h) => h.includes('3840x2160')));
     if (!link) { log(`id ${id}: no 3840x2160 link on the page`); continue; }
-    // Navigate to the file inside the page, so the request carries the browser's own fingerprint.
-    const r = await page.goto(link, { waitUntil: 'commit', timeout: 120000 });
-    const body = r ? await r.body() : Buffer.alloc(0);
-    if (r.status() === 200 && body[0] === 0xff && body[1] === 0xd8) {
-      writeFileSync(join(out, `${slug}-3840x2160-${id}.jpg`), body);
-      ok++; log(`id ${id}: 4K ${(body.length / 1048576).toFixed(1)} MB -> ${slug}-3840x2160-${id}.jpg`);
-    } else log(`id ${id}: download status ${r.status()} (${body.length} bytes, not a picture)`);
+    // Navigate to the file inside the page, so the request carries the browser's own fingerprint. A picture URL
+    // makes Edge start a download rather than render, so the download event is what delivers the file.
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 120000 }),
+      page.goto(link, { waitUntil: 'commit', timeout: 120000 }).catch(() => {}),
+    ]);
+    const target = join(out, `${slug}-3840x2160-${id}.jpg`);
+    await download.saveAs(target);
+    const body = readFileSync(target);
+    if (body[0] === 0xff && body[1] === 0xd8) { ok++; log(`id ${id}: 4K ${(body.length / 1048576).toFixed(1)} MB -> ${slug}-3840x2160-${id}.jpg`); }
+    else { log(`id ${id}: download is not a picture (${body.length} bytes)`); }
   } catch (e) { log(`id ${id}: ${String(e).slice(0, 160)}`); }
 }
 await browser.close();

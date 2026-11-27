@@ -1,0 +1,50 @@
+name: Studio check
+
+# Proves the wallpaper studio's Apply path on a real Windows desktop with a real 4K picture from
+# 4kwallpapers.com: download (through Edge, past the site's bot check), set with SystemParametersInfoW,
+# read the wallpaper back. Text log only. No screenshot is taken or uploaded: the pictures are cleared
+# for personal desktop use, not for republishing.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release -p whirlpool
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch one picture with Edge
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          npm install --no-save --no-audit --no-fund playwright-core
+          $cache = Join-Path $env:LOCALAPPDATA 'Whirlpool\wallpapers'
+          node scripts/fetch-4k.mjs $cache 27371 2>&1 | Tee-Object out/studio-check.txt
+      - name: Apply through the studio and read it back
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exe = (Resolve-Path target/release/whirlpool.exe).Path
+          $o = Join-Path $env:TEMP 'o.txt'; $e = Join-Path $env:TEMP 'e.txt'
+          $p = Start-Process $exe -ArgumentList '--studio-apply', '27371' -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput $o -RedirectStandardError $e
+          "studio apply exit $($p.ExitCode): $((Get-Content $o, $e -ErrorAction SilentlyContinue) -join ' ')" | Tee-Object -Append out/studio-check.txt
+          Start-Sleep 3
+          $wall = (Get-ItemProperty 'HKCU:\Control Panel\Desktop').Wallpaper
+          "desktop wallpaper now: $wall" | Tee-Object -Append out/studio-check.txt
+          if ($wall -and (Test-Path $wall)) {
+            $img = [System.Drawing.Image]::FromFile($wall)
+            "file: $((Get-Item $wall).Length) bytes, $($img.Width)x$($img.Height)" | Tee-Object -Append out/studio-check.txt
+            $img.Dispose()
+          }
+          if ($p.ExitCode -ne 0) { throw 'studio apply failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studio-check
+          path: out/studio-check.txt
