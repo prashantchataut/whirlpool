@@ -91,13 +91,25 @@ impl PartialOrd for Version {
     }
 }
 
+/// Orders `rc9 < rc10`: letters first, then a trailing number by value (plain text order puts `rc10` before `rc9`).
+fn natural(a: &str, b: &str) -> Ordering {
+    fn split(text: &str) -> (&str, Option<u64>) {
+        let digits = text.len() - text.trim_end_matches(|c: char| c.is_ascii_digit()).len();
+        let (head, tail) = text.split_at(text.len() - digits);
+        (head, tail.parse().ok())
+    }
+    let (ah, an) = split(a);
+    let (bh, bn) = split(b);
+    ah.cmp(bh).then_with(|| an.cmp(&bn)).then_with(|| a.cmp(b))
+}
+
 fn compare_pre(a: &[Ident], b: &[Ident]) -> Ordering {
     for (x, y) in a.iter().zip(b) {
         let order = match (x, y) {
             (Ident::Num(x), Ident::Num(y)) => x.cmp(y),
             (Ident::Num(_), Ident::Text(_)) => Ordering::Less,
             (Ident::Text(_), Ident::Num(_)) => Ordering::Greater,
-            (Ident::Text(x), Ident::Text(y)) => x.cmp(y),
+            (Ident::Text(x), Ident::Text(y)) => natural(x, y),
         };
         if order != Ordering::Equal {
             return order;
@@ -128,6 +140,15 @@ mod tests {
         assert!(v("4.2.0-alpha") < v("4.2.0-alpha.1"));
         assert!(v("4.2.0-1") < v("4.2.0-alpha"));
         assert!(v("4.1.9") < v("4.2.0-rc1"));
+    }
+
+    #[test]
+    fn rc_numbers_order_by_value() {
+        assert!(v("4.2.0-rc9") < v("4.2.0-rc10"));
+        assert!(v("4.2.0-rc10") < v("4.2.0-rc11"));
+        assert!(v("4.2.0-rc99") < v("4.2.0-rc100"));
+        assert!(v("4.2.0-beta3") < v("4.2.0-rc1"));
+        assert!(v("4.2.0-rc11") < v("4.2.0"));
     }
 
     #[test]
