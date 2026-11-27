@@ -6,6 +6,14 @@ copies the section of the version being published into the GitHub release.
 Cada versión lista sus cambios en inglés y en español. El flujo de publicación
 copia la sección de la versión que se publica a la release de GitHub.
 
+## 4.2.0-rc11
+
+- Updater: `rc10` was ordered before `rc9` (plain text order), so anyone on rc9 or older was never offered rc10. Release numbers now compare by value. Install rc10 by hand once, from then on updates work.
+- Desktop clock: a large time and the date on the desktop, behind the windows, click-through. Off by default. Settings, Clock, Desktop clock.
+- Shorter wording for the lyrics hint and privacy line.
+- Wallpaper studio check: a workflow applies a real 4K picture from 4kwallpapers.com through the studio on a Windows runner and reads the wallpaper back. No screenshot is taken or published.
+- Captures: dock pinned with real apps, desktop clock on, `docs/captures/session14/`.
+
 ## 4.2.0-rc10
 
 - Wallpaper studio: a tinted tile per group while a preview is missing (it was a blank white box).
