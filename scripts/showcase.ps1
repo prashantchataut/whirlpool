@@ -134,6 +134,9 @@ function Key($vk) { [Sc]::keybd_event($vk, 0, 0, 0); Start-Sleep -Milliseconds 4
 # Fresh profile: no config file, so the defaults apply (32 px dock).
 $cfg = Join-Path $env:APPDATA 'Whirlpool'
 Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
+# One setting is changed from the defaults: the desktop clock, which is off for new users.
+New-Item -ItemType Directory -Force $cfg | Out-Null
+'{"desktopClock":true}' | Set-Content (Join-Path $cfg 'config.json') -Encoding ascii
 Log "profile reset; display $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width)x$([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)"
 
 # A daily-driver desktop: no build watermark, no icon clutter. Both are per-user settings read by Explorer,
