@@ -117,7 +117,7 @@ function Spread($path) {
 function Stage-Apps {
   $note = Join-Path $env:TEMP 'notes.txt'
   "Release checklist`r`n- 4K wallpapers: studio apply, accent`r`n- Island: lyrics, shelf`r`n- Dock: 32 px, running dots`r`n- Updater: rc to next, settings kept" | Set-Content $note
-  Start-Process notepad.exe $note; Start-Process explorer.exe $env:USERPROFILE; Start-Sleep 4
+  Start-Process explorer.exe $env:USERPROFILE; Start-Sleep 4
 }
 function Unstage-Apps {
   Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force
