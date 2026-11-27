@@ -136,7 +136,12 @@ $cfg = Join-Path $env:APPDATA 'Whirlpool'
 Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
 # One setting is changed from the defaults: the desktop clock, which is off for new users.
 New-Item -ItemType Directory -Force $cfg | Out-Null
-'{"desktopClock":true}' | Set-Content (Join-Path $cfg 'config.json') -Encoding ascii
+# The dock gets the real apps this runner image ships (only those that exist), as a daily-driver dock would.
+$apps = @("$env:WINDIR\explorer.exe", "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+  "$env:ProgramFiles\Microsoft VS Code\Code.exe", "$env:ProgramFiles\Mozilla Firefox\firefox.exe", "$env:WINDIR\System32\notepad.exe",
+  "$env:WINDIR\System32\mspaint.exe", "$env:WINDIR\System32\calc.exe") | Where-Object { Test-Path $_ } | ForEach-Object { $_.ToLower() }
+@{ desktopClock = $true; pinned = @($apps) } | ConvertTo-Json -Compress | Set-Content (Join-Path $cfg 'config.json') -Encoding ascii
+Log "pinned in the capture profile: $($apps -join ', ')"
 Log "profile reset; display $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width)x$([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)"
 
 # A daily-driver desktop: no build watermark, no icon clutter. Both are per-user settings read by Explorer,
