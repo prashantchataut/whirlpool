@@ -869,6 +869,8 @@ pub fn clock_card(ui: &mut Ui, t: &Texts, config: &mut Config) {
         );
         config.clock_place = place;
         ui::divider(ui);
+        ui::toggle_row(ui, t.get("desktopClock"), None, &mut config.desktop_clock);
+        ui::divider(ui);
         ui.add_space(6.0);
         hint(ui, t.get("clockZones"));
         ui.horizontal_wrapped(|ui| {

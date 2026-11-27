@@ -334,6 +334,8 @@ const START_ID: &str = "whirlpool:start";
 const CLOCK_ID: &str = "whirlpool:clock";
 /// Redraws that tile when the minute changes. Exists only while the clock lives in the dock.
 const DOCK_CLOCK_TIMER: usize = 63;
+/// Redraws the desktop clock when the minute changes. Exists only while that clock is on.
+const DESKTOP_CLOCK_TIMER: usize = 64;
 const WINDOW_ID_PREFIX: &str = "whirlpool:window:";
 const WINDOW_TITLE_CHARS: usize = 40;
 /// Fraction of a thumbnail slot covered by the app badge (see `scene`).
@@ -939,6 +941,7 @@ struct App {
     charge: Option<charge::Charge>,
     /// The volume, brightness, Wi-Fi or Bluetooth pill, while it is up.
     hud: Option<hud::Hud>,
+    desktop_clock: Option<crate::desktop_clock::DesktopClock>,
     /// What the HUDs last showed, so only a real change shows one.
     hud_volume: Option<(u8, bool)>,
     /// The volume-key hook, while the pop-ups and `media_key_hook` are on.
@@ -4420,6 +4423,9 @@ impl App {
         self.apply_menu_bar_setting();
         self.update_menu_bar_app()?;
         self.calm_windows();
+        if let Err(error) = self.sync_desktop_clock() {
+            eprintln!("whirlpool: reloj del escritorio: {error:#}");
+        }
         self.refresh()
     }
 
@@ -4532,6 +4538,35 @@ impl App {
             self.dock_clock_timer = true;
         }
         self.dock_clock.clone()
+    }
+
+    /// Shows, redraws or removes the desktop clock to match the setting. One timer per minute while it is on.
+    fn sync_desktop_clock(&mut self) -> Result<()> {
+        if !self.config.desktop_clock {
+            if self.desktop_clock.take().is_some() {
+                // SAFETY: Stops a timer on our own window.
+                unsafe {
+                    let _ = KillTimer(Some(self.input), DESKTOP_CLOCK_TIMER);
+                }
+            }
+            return Ok(());
+        }
+        let content = crate::desktop_clock::content(&clock_settings(&self.config).options);
+        match &mut self.desktop_clock {
+            Some(clock) => clock.update(&self.gfx, &content),
+            slot => *slot = crate::desktop_clock::DesktopClock::show(&self.gfx, &content),
+        }
+        // SAFETY: Reads the clock, then sets a timer on our own window (the same id replaces it).
+        unsafe {
+            let now = windows::Win32::System::SystemInformation::GetLocalTime();
+            let wait = whirlpool_core::clock::next_tick_ms(
+                u32::from(now.wSecond),
+                u32::from(now.wMilliseconds),
+                false,
+            );
+            SetTimer(Some(self.input), DESKTOP_CLOCK_TIMER, wait.max(500), None);
+        }
+        Ok(())
     }
 
     fn arm_dock_clock(&self) {
@@ -5870,6 +5905,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) ->
             }
         }
         WM_TIMER if w.0 == BATTERY_TIMER => with_app("batería", App::battery_tick),
+        WM_TIMER if w.0 == DESKTOP_CLOCK_TIMER => {
+            with_app("reloj del escritorio", App::sync_desktop_clock)
+        }
         WM_TIMER if w.0 == DOCK_CLOCK_TIMER => with_app("reloj del dock", App::dock_clock_tick),
         WM_TIMER if w.0 == ASSETS_TIMER => {
             // SAFETY: This UI thread owns the one-shot timer.
@@ -6366,6 +6404,7 @@ pub fn run() -> Result<()> {
             mascot: None,
             charge: None,
             hud: None,
+            desktop_clock: None,
             hud_volume: None,
             media_keys: None,
             flyout_guard_until: None,
@@ -6411,6 +6450,9 @@ pub fn run() -> Result<()> {
         // After the dock: creating the bar and reserving its strip take
         // 60-130 ms, which the dock no longer waits for.
         app.apply_menu_bar_setting();
+        if let Err(error) = app.sync_desktop_clock() {
+            eprintln!("whirlpool: reloj del escritorio: {error:#}");
+        }
         // Otherwise the bar shows no app name until the user switches windows.
         if let Err(error) = app.update_menu_bar_app() {
             eprintln!("whirlpool: barra superior: {error:#}");

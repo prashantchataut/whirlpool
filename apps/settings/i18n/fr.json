@@ -271,6 +271,7 @@
   "clockWeightRegular": "Normal",
   "clockWeightSemibold": "Demi-gras",
   "clockZones": "Autres fuseaux horaires (trois dans la barre)",
+  "desktopClock": "Horloge du bureau",
   "clockPanel": "Ouvrir le panneau de l'horloge au clic",
   "groupMaterial": "Verre du dock",
   "materialHint": "Change la surface du dock aussitôt.",

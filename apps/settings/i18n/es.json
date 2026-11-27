@@ -271,6 +271,7 @@
   "clockWeightRegular": "Normal",
   "clockWeightSemibold": "Seminegrita",
   "clockZones": "Otras zonas horarias (tres en la barra)",
+  "desktopClock": "Reloj en el escritorio",
   "clockPanel": "Abrir el panel del reloj al hacer clic",
   "groupMaterial": "Cristal del dock",
   "materialHint": "Cambia la superficie del dock al instante.",

@@ -491,6 +491,7 @@
   "clockWeightRegular": "Regular",
   "clockWeightSemibold": "Semibold",
   "clockZones": "Other time zones (three show in the bar)",
+  "desktopClock": "Desktop clock",
   "clockPanel": "Click the clock to open the clock panel",
   "groupMaterial": "Dock glass",
   "materialHint": "Changes the dock's surface at once.",

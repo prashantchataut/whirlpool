@@ -17,6 +17,7 @@ mod assets;
 mod bluetooth;
 mod charge;
 mod clipboard;
+mod desktop_clock;
 mod drag;
 mod drop;
 mod edge_watch;
